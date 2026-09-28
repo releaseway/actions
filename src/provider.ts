@@ -1,7 +1,8 @@
 import type { CommitEvidence } from "./git.ts";
-import type {
-  ChangeRecord,
-  ClassifiedChanges,
+import {
+  commitRecord,
+  type ChangeRecord,
+  type ClassifiedChanges,
 } from "./model.ts";
 import { parseConventionalCommit } from "./conventional.ts";
 import type {
@@ -23,6 +24,17 @@ function pullRequestRecord(
   const ordered = [...commits].sort(
     (a, b) => a.ordinal - b.ordinal || a.sha.localeCompare(b.sha),
   );
+  const commitFacts = ordered.map((commit) => commitRecord(commit));
+  const breakingDescriptions = [
+    ...new Set(
+      commitFacts.flatMap((record) => record.breakingDescriptions),
+    ),
+  ];
+  for (const description of parsed.breakingDescriptions) {
+    if (!breakingDescriptions.includes(description)) {
+      breakingDescriptions.push(description);
+    }
+  }
   return {
     id: `pull-request:${pr.number}`,
     source: "pull-request",
@@ -36,20 +48,31 @@ function pullRequestRecord(
     labels: [...pr.labels],
     commitShas: ordered.map((commit) => commit.sha),
     pullRequest: pr.number,
-    breaking: parsed.breaking,
-    breakingDescriptions: [...parsed.breakingDescriptions],
-    security: parsed.type === "security",
+    breaking:
+      parsed.breaking ||
+      commitFacts.some((record) => record.breaking),
+    breakingDescriptions,
+    security:
+      parsed.type === "security" ||
+      commitFacts.some((record) => record.security),
     deprecated:
       parsed.type === "deprecated" ||
-      parsed.type === "deprecate",
+      parsed.type === "deprecate" ||
+      commitFacts.some((record) => record.deprecated),
     removed:
       parsed.type === "removed" ||
-      parsed.type === "remove",
+      parsed.type === "remove" ||
+      commitFacts.some((record) => record.removed),
     category: null,
     categoryTitle: null,
     provenance: [
       "github:commit-pull-request-association",
       ...(parsed.conventional ? ["conventional-pr-title"] : []),
+      ...(
+        commitFacts.some((record) => record.breaking)
+          ? ["breaking:covered-commit"]
+          : []
+      ),
     ],
   };
 }

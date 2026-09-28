@@ -107,6 +107,38 @@ test("cherry-picked or ambiguous associations remain uncovered instead of being 
   assert.match(result.diagnostics.join("\n"), /ambiguous merged pull request/);
 });
 
+test("covered commit breaking metadata survives PR coalescing", async () => {
+  const breaking = commit(
+    "abababababababababababababababababababab",
+    0,
+    "feat!: break api\n\nBREAKING CHANGE: migrate clients",
+  );
+  const landing = commit(
+    "bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+    1,
+    "merge branch",
+  );
+  const association = pr(25, landing.sha, "docs: describe release");
+  const result = await collectPullRequestRecords({
+    repository: "releaseway/example",
+    commits: [breaking, landing],
+    api: new FakeApi(new Map([
+      [breaking.sha, [association]],
+      [landing.sha, [association]],
+    ])),
+  });
+
+  assert.equal(result.records[0].breaking, true);
+  assert.deepEqual(
+    result.records[0].breakingDescriptions,
+    ["migrate clients"],
+  );
+  assert.match(
+    result.records[0].provenance.join("\n"),
+    /breaking:covered-commit/,
+  );
+});
+
 test("PR-only error/omit and hybrid fallback preserve uncovered commits exactly once", async () => {
   const covered = commit("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 0);
   const landing = commit("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 1);

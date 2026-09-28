@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 
@@ -102,6 +103,18 @@ if args[0] == "api":
             sys.exit(0)
         if jq == '.body // ""':
             print(release.get("body", ""))
+            sys.exit(0)
+        if not jq:
+            print(json.dumps({
+                "id": release["id"],
+                "tag_name": release["tag"],
+                "name": release.get("name", ""),
+                "body": release.get("body", ""),
+                "draft": release["draft"],
+                "prerelease": release["prerelease"],
+                "immutable": release["immutable"],
+                "html_url": release["url"],
+            }))
             sys.exit(0)
         print("\t".join([
             str(release["id"]),
@@ -288,6 +301,10 @@ def run_case(work, fakebin, tmp, commit, assets, state, **overrides):
         "INPUT_NOTES_PREVIEW": "false",
         "INPUT_PRERELEASE": "false",
         "INPUT_LATEST": "automatic",
+        "RELEASE_ACTIONS_NODE": shutil.which("node") or "node",
+        "RELEASE_ACTIONS_ENGINE": str(ROOT / "dist" / "engine.js"),
+        "RELEASE_ACTIONS_PRESERVE_BODY": "false",
+        "RELEASE_ACTIONS_ACCEPTED_BODY_FILE": "",
     })
     env.update(overrides)
 

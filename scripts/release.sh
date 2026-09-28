@@ -263,7 +263,7 @@ upload_missing_assets() {
 }
 
 verify_draft_metadata() {
-  local expected_title actual_title expected_body actual_body
+  local expected_title actual_title actual_body
 
   expected_title="${INPUT_TITLE:-$INPUT_TAG}"
   actual_title="$(
@@ -272,18 +272,29 @@ verify_draft_metadata() {
   [ "$actual_title" = "$expected_title" ] ||
     die "existing draft release title does not match requested title: $INPUT_TAG"
 
+  if [ "${RELEASE_ACTIONS_PRESERVE_BODY:-false}" = "true" ]; then
+    if [ -n "${RELEASE_ACTIONS_ACCEPTED_BODY_FILE:-}" ] &&
+      [ -n "${RELEASE_ACTIONS_NODE:-}" ] &&
+      [ -n "${RELEASE_ACTIONS_ENGINE:-}" ]; then
+      "$RELEASE_ACTIONS_NODE" "$RELEASE_ACTIONS_ENGINE" verify-release-body         "$GITHUB_REPOSITORY" "$RELEASE_ID" "$RELEASE_ACTIONS_ACCEPTED_BODY_FILE" ||
+        die "existing draft release notes changed after preservation: $INPUT_TAG"
+    fi
+    return 0
+  fi
+
+  if [ -n "${INPUT_NOTES_FILE:-}" ] &&
+    [ -n "${RELEASE_ACTIONS_NODE:-}" ] &&
+    [ -n "${RELEASE_ACTIONS_ENGINE:-}" ]; then
+    "$RELEASE_ACTIONS_NODE" "$RELEASE_ACTIONS_ENGINE" verify-release-body       "$GITHUB_REPOSITORY" "$RELEASE_ID" "$INPUT_NOTES_FILE" ||
+      die "existing draft release notes do not match requested notes: $INPUT_TAG"
+    return 0
+  fi
+
   actual_body="$(
     api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --jq '.body // ""'
   )" || die "could not read release notes for $INPUT_TAG"
-
-  if [ -n "${INPUT_NOTES_FILE:-}" ]; then
-    expected_body="$(cat "$INPUT_NOTES_FILE")"
-    [ "$actual_body" = "$expected_body" ] ||
-      die "existing draft release notes do not match requested notes: $INPUT_TAG"
-  else
-    [ -z "$actual_body" ] ||
-      die "existing draft release notes do not match requested empty notes: $INPUT_TAG"
-  fi
+  [ -z "$actual_body" ] ||
+    die "existing draft release notes do not match requested empty notes: $INPUT_TAG"
 }
 
 create_draft_release() {
@@ -380,6 +391,24 @@ verify_latest_state() {
   esac
 }
 
+verify_requested_body() {
+  local expected_file
+
+  if [ "${RELEASE_ACTIONS_PRESERVE_BODY:-false}" = "true" ]; then
+    expected_file="${RELEASE_ACTIONS_ACCEPTED_BODY_FILE:-}"
+  else
+    expected_file="${INPUT_NOTES_FILE:-}"
+  fi
+  [ -n "$expected_file" ] || return 0
+  [ -n "${RELEASE_ACTIONS_NODE:-}" ] ||
+    die "release notes verifier node path is missing"
+  [ -n "${RELEASE_ACTIONS_ENGINE:-}" ] ||
+    die "release notes verifier bundle path is missing"
+
+  "$RELEASE_ACTIONS_NODE" "$RELEASE_ACTIONS_ENGINE" verify-release-body     "$GITHUB_REPOSITORY" "$RELEASE_ID" "$expected_file" ||
+    die "published release notes do not match expected notes: $INPUT_TAG"
+}
+
 verify_published_release() {
   load_release_by_id
 
@@ -393,6 +422,7 @@ verify_published_release() {
   verify_release_assets "false"
   verify_latest_state
   verify_remote_tag "$INPUT_TAG" "$INPUT_COMMIT"
+  verify_requested_body
 }
 
 set_outputs() {
@@ -472,6 +502,7 @@ main() {
         die "existing published release is not immutable: $INPUT_TAG"
       verify_release_assets "false"
       verify_latest_state
+      verify_requested_body
       set_outputs "existing"
       echo "::notice::verified existing immutable release $INPUT_TAG"
       exit 0
@@ -492,6 +523,7 @@ main() {
           die "concurrent published release is not immutable: $INPUT_TAG"
         verify_release_assets "false"
         verify_latest_state
+        verify_requested_body
         set_outputs "existing"
         echo "::notice::verified concurrently published immutable release $INPUT_TAG"
         exit 0

@@ -17,6 +17,23 @@ export interface GeneratedNativeNotes {
   name: string;
 }
 
+export interface ReleaseSnapshot {
+  id: number;
+  tag: string;
+  name: string;
+  body: string;
+  draft: boolean;
+  prerelease: boolean;
+  immutable: boolean;
+  url: string;
+}
+
+export interface PublishedReleaseSnapshot {
+  tag: string;
+  draft: boolean;
+  prerelease: boolean;
+}
+
 export interface GitHubApi {
   associatedPullRequests(
     repository: string,
@@ -29,6 +46,17 @@ export interface GitHubApi {
     previousTag?: string;
     configurationFile?: string;
   }): Promise<GeneratedNativeNotes>;
+  releaseByTag(
+    repository: string,
+    tag: string,
+  ): Promise<ReleaseSnapshot | null>;
+  publishedReleases(
+    repository: string,
+  ): Promise<PublishedReleaseSnapshot[]>;
+  releaseBody(
+    repository: string,
+    releaseId: number,
+  ): Promise<string>;
 }
 
 type RunGh = (args: readonly string[]) => string;
@@ -173,5 +201,105 @@ export class GhCliApi implements GitHubApi {
       throw new Error("generated release notes response is missing name/body");
     }
     return { body: raw.body, name: raw.name };
+  }
+
+  async releaseByTag(
+    repository: string,
+    tag: string,
+  ): Promise<ReleaseSnapshot | null> {
+    let output: string;
+    try {
+      output = this.runGh([
+        "api",
+        "-H",
+        "Accept: application/vnd.github+json",
+        "-H",
+        "X-GitHub-Api-Version: 2026-03-10",
+        `repos/${repository}/releases/tags/${encodeURIComponent(tag)}`,
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/404|not found/i.test(message)) return null;
+      throw error;
+    }
+    const raw = object(JSON.parse(output), "release response");
+    if (
+      typeof raw.id !== "number" ||
+      typeof raw.tag_name !== "string" ||
+      typeof raw.draft !== "boolean" ||
+      typeof raw.prerelease !== "boolean"
+    ) {
+      throw new Error("release response is missing required fields");
+    }
+    return {
+      id: raw.id,
+      tag: raw.tag_name,
+      name: typeof raw.name === "string" ? raw.name : "",
+      body: typeof raw.body === "string" ? raw.body : "",
+      draft: raw.draft,
+      prerelease: raw.prerelease,
+      immutable: raw.immutable === true,
+      url: typeof raw.html_url === "string" ? raw.html_url : "",
+    };
+  }
+
+  async publishedReleases(
+    repository: string,
+  ): Promise<PublishedReleaseSnapshot[]> {
+    const pages = JSON.parse(
+      this.runGh([
+        "api",
+        "-H",
+        "Accept: application/vnd.github+json",
+        "-H",
+        "X-GitHub-Api-Version: 2026-03-10",
+        "--paginate",
+        "--slurp",
+        `repos/${repository}/releases?per_page=100`,
+      ]),
+    ) as unknown;
+    if (!Array.isArray(pages)) {
+      throw new Error("release-list response must be a page array");
+    }
+    return pages.flatMap((page) => {
+      if (!Array.isArray(page)) {
+        throw new Error("release-list page must be an array");
+      }
+      return page.flatMap((item) => {
+        const release = object(item, "release-list item");
+        if (
+          typeof release.tag_name !== "string" ||
+          typeof release.draft !== "boolean" ||
+          typeof release.prerelease !== "boolean"
+        ) {
+          throw new Error("release-list item is missing required fields");
+        }
+        return [{
+          tag: release.tag_name,
+          draft: release.draft,
+          prerelease: release.prerelease,
+        }];
+      });
+    });
+  }
+
+  async releaseBody(
+    repository: string,
+    releaseId: number,
+  ): Promise<string> {
+    const raw = object(
+      JSON.parse(
+        this.runGh([
+          "api",
+          "-H",
+          "Accept: application/vnd.github+json",
+          "-H",
+          "X-GitHub-Api-Version: 2026-03-10",
+          `repos/${repository}/releases/${releaseId}`,
+        ]),
+      ),
+      "release response",
+    );
+    return typeof raw.body === "string" ? raw.body : "";
   }
 }
