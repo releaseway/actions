@@ -234,6 +234,18 @@ test("GitHub CLI adapter preserves native generated body opaquely and sends expl
         body: "## GitHub-owned heading\n\nopaque *markdown*\n",
       });
     }
+    if (args.some((arg) => arg.endsWith("/pulls/51"))) {
+      return JSON.stringify({
+        number: 51,
+        title: "feat: x",
+        body: "",
+        merged_at: "2026-09-28T00:00:00Z",
+        merge_commit_sha: "ffffffffffffffffffffffffffffffffffffffff",
+        user: { login: "bot", type: "Bot" },
+        labels: [{ name: "feature" }],
+        base: { repo: { full_name: "releaseway/example" } },
+      });
+    }
     return JSON.stringify([
       {
         number: 51,
@@ -254,6 +266,10 @@ test("GitHub CLI adapter preserves native generated body opaquely and sends expl
   );
   assert.equal(associations[0].number, 51);
   assert.equal(associations[0].userType, "Bot");
+  assert.equal(
+    associations[0].mergeCommitSha,
+    "ffffffffffffffffffffffffffffffffffffffff",
+  );
 
   const generated = await api.generateReleaseNotes({
     repository: "releaseway/example",

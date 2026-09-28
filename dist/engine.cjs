@@ -9425,9 +9425,16 @@ function object(value, context) {
 function stringOrNull(value) {
   return typeof value === "string" ? value : null;
 }
-function parseAssociation(value, repository) {
-  const pr = object(value, "pull request association");
-  if (typeof pr.number !== "number" || typeof pr.title !== "string" || typeof pr.merged_at !== "string" || !(typeof pr.merge_commit_sha === "string" || pr.merge_commit_sha === null)) {
+function associationNumber(value) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const number = value.number;
+  return typeof number === "number" ? number : null;
+}
+function parsePullRequest(value, repository) {
+  const pr = object(value, "pull request");
+  if (typeof pr.number !== "number" || typeof pr.title !== "string" || typeof pr.merged_at !== "string" || typeof pr.merge_commit_sha !== "string") {
     return null;
   }
   const base = object(pr.base, "pull request base");
@@ -9444,7 +9451,7 @@ function parseAssociation(value, repository) {
     title: pr.title,
     body: typeof pr.body === "string" ? pr.body : "",
     mergedAt: pr.merged_at,
-    mergeCommitSha: typeof pr.merge_commit_sha === "string" ? pr.merge_commit_sha.toLowerCase() : null,
+    mergeCommitSha: pr.merge_commit_sha.toLowerCase(),
     userLogin: user ? stringOrNull(user.login) : null,
     userType: user ? stringOrNull(user.type) : null,
     labels,
@@ -9486,10 +9493,17 @@ var GhCliApi = class {
       (page) => `repos/${repository}/commits/${commitSha}/pulls?per_page=100&page=${page}`,
       "commit-to-PR response"
     );
-    return values.flatMap((value) => {
-      const parsed = parseAssociation(value, repository);
-      return parsed ? [parsed] : [];
-    });
+    const numbers = [
+      ...new Set(
+        values.flatMap((value) => {
+          const number = associationNumber(value);
+          return number === null ? [] : [number];
+        })
+      )
+    ];
+    return Promise.all(
+      numbers.map((number) => this.pullRequest(repository, number))
+    );
   }
   async pullRequest(repository, number) {
     const raw = JSON.parse(
@@ -9502,10 +9516,10 @@ var GhCliApi = class {
         `repos/${repository}/pulls/${number}`
       ])
     );
-    const parsed = parseAssociation(raw, repository);
-    if (!parsed || parsed.mergeCommitSha === null) {
+    const parsed = parsePullRequest(raw, repository);
+    if (!parsed) {
       throw new Error(
-        `pull request #${number} detail is missing merged landing commit`
+        `pull request #${number} detail is missing merged landing metadata`
       );
     }
     return parsed;

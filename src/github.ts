@@ -5,7 +5,7 @@ export interface PullRequestAssociation {
   title: string;
   body: string;
   mergedAt: string;
-  mergeCommitSha: string | null;
+  mergeCommitSha: string;
   userLogin: string | null;
   userType: string | null;
   labels: string[];
@@ -90,19 +90,28 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
-function parseAssociation(
+function associationNumber(value: unknown): number | null {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value)
+  ) {
+    return null;
+  }
+  const number = (value as Record<string, unknown>).number;
+  return typeof number === "number" ? number : null;
+}
+
+function parsePullRequest(
   value: unknown,
   repository: string,
 ): PullRequestAssociation | null {
-  const pr = object(value, "pull request association");
+  const pr = object(value, "pull request");
   if (
     typeof pr.number !== "number" ||
     typeof pr.title !== "string" ||
     typeof pr.merged_at !== "string" ||
-    !(
-      typeof pr.merge_commit_sha === "string" ||
-      pr.merge_commit_sha === null
-    )
+    typeof pr.merge_commit_sha !== "string"
   ) {
     return null;
   }
@@ -127,10 +136,7 @@ function parseAssociation(
     title: pr.title,
     body: typeof pr.body === "string" ? pr.body : "",
     mergedAt: pr.merged_at,
-    mergeCommitSha:
-      typeof pr.merge_commit_sha === "string"
-        ? pr.merge_commit_sha.toLowerCase()
-        : null,
+    mergeCommitSha: pr.merge_commit_sha.toLowerCase(),
     userLogin: user ? stringOrNull(user.login) : null,
     userType: user ? stringOrNull(user.type) : null,
     labels,
@@ -185,10 +191,17 @@ export class GhCliApi implements GitHubApi {
         `repos/${repository}/commits/${commitSha}/pulls?per_page=100&page=${page}`,
       "commit-to-PR response",
     );
-    return values.flatMap((value) => {
-      const parsed = parseAssociation(value, repository);
-      return parsed ? [parsed] : [];
-    });
+    const numbers = [
+      ...new Set(
+        values.flatMap((value) => {
+          const number = associationNumber(value);
+          return number === null ? [] : [number];
+        }),
+      ),
+    ];
+    return Promise.all(
+      numbers.map((number) => this.pullRequest(repository, number)),
+    );
   }
 
   async pullRequest(
@@ -205,10 +218,10 @@ export class GhCliApi implements GitHubApi {
         `repos/${repository}/pulls/${number}`,
       ]),
     ) as unknown;
-    const parsed = parseAssociation(raw, repository);
-    if (!parsed || parsed.mergeCommitSha === null) {
+    const parsed = parsePullRequest(raw, repository);
+    if (!parsed) {
       throw new Error(
-        `pull request #${number} detail is missing merged landing commit`,
+        `pull request #${number} detail is missing merged landing metadata`,
       );
     }
     return parsed;
