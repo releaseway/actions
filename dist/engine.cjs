@@ -9427,7 +9427,7 @@ function stringOrNull(value) {
 }
 function parseAssociation(value, repository) {
   const pr = object(value, "pull request association");
-  if (typeof pr.number !== "number" || typeof pr.title !== "string" || typeof pr.merged_at !== "string" || typeof pr.merge_commit_sha !== "string") {
+  if (typeof pr.number !== "number" || typeof pr.title !== "string" || typeof pr.merged_at !== "string" || !(typeof pr.merge_commit_sha === "string" || pr.merge_commit_sha === null)) {
     return null;
   }
   const base = object(pr.base, "pull request base");
@@ -9444,7 +9444,7 @@ function parseAssociation(value, repository) {
     title: pr.title,
     body: typeof pr.body === "string" ? pr.body : "",
     mergedAt: pr.merged_at,
-    mergeCommitSha: pr.merge_commit_sha.toLowerCase(),
+    mergeCommitSha: typeof pr.merge_commit_sha === "string" ? pr.merge_commit_sha.toLowerCase() : null,
     userLogin: user ? stringOrNull(user.login) : null,
     userType: user ? stringOrNull(user.type) : null,
     labels,
@@ -9490,6 +9490,25 @@ var GhCliApi = class {
       const parsed = parseAssociation(value, repository);
       return parsed ? [parsed] : [];
     });
+  }
+  async pullRequest(repository, number) {
+    const raw = JSON.parse(
+      this.runGh([
+        "api",
+        "-H",
+        "Accept: application/vnd.github+json",
+        "-H",
+        "X-GitHub-Api-Version: 2026-03-10",
+        `repos/${repository}/pulls/${number}`
+      ])
+    );
+    const parsed = parseAssociation(raw, repository);
+    if (!parsed || parsed.mergeCommitSha === null) {
+      throw new Error(
+        `pull request #${number} detail is missing merged landing commit`
+      );
+    }
+    return parsed;
   }
   async generateReleaseNotes(options) {
     const args = [

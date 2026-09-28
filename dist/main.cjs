@@ -9463,7 +9463,7 @@ function stringOrNull(value) {
 }
 function parseAssociation(value, repository) {
   const pr = object(value, "pull request association");
-  if (typeof pr.number !== "number" || typeof pr.title !== "string" || typeof pr.merged_at !== "string" || typeof pr.merge_commit_sha !== "string") {
+  if (typeof pr.number !== "number" || typeof pr.title !== "string" || typeof pr.merged_at !== "string" || !(typeof pr.merge_commit_sha === "string" || pr.merge_commit_sha === null)) {
     return null;
   }
   const base = object(pr.base, "pull request base");
@@ -9480,7 +9480,7 @@ function parseAssociation(value, repository) {
     title: pr.title,
     body: typeof pr.body === "string" ? pr.body : "",
     mergedAt: pr.merged_at,
-    mergeCommitSha: pr.merge_commit_sha.toLowerCase(),
+    mergeCommitSha: typeof pr.merge_commit_sha === "string" ? pr.merge_commit_sha.toLowerCase() : null,
     userLogin: user ? stringOrNull(user.login) : null,
     userType: user ? stringOrNull(user.type) : null,
     labels,
@@ -9526,6 +9526,25 @@ var GhCliApi = class {
       const parsed = parseAssociation(value, repository);
       return parsed ? [parsed] : [];
     });
+  }
+  async pullRequest(repository, number) {
+    const raw = JSON.parse(
+      this.runGh([
+        "api",
+        "-H",
+        "Accept: application/vnd.github+json",
+        "-H",
+        "X-GitHub-Api-Version: 2026-03-10",
+        `repos/${repository}/pulls/${number}`
+      ])
+    );
+    const parsed = parseAssociation(raw, repository);
+    if (!parsed || parsed.mergeCommitSha === null) {
+      throw new Error(
+        `pull request #${number} detail is missing merged landing commit`
+      );
+    }
+    return parsed;
   }
   async generateReleaseNotes(options) {
     const args = [
@@ -10618,6 +10637,7 @@ async function collectPullRequestRecords(options) {
     options.commits.map((commit) => commit.sha.toLowerCase())
   );
   const assignments = /* @__PURE__ */ new Map();
+  const hydrated = /* @__PURE__ */ new Map();
   const uncovered = new Map(
     options.commits.map((commit) => [commit.sha, commit])
   );
@@ -10642,7 +10662,19 @@ async function collectPullRequestRecords(options) {
       );
       continue;
     }
-    const pr = merged[0];
+    let pr = merged[0];
+    if (pr.mergeCommitSha === null) {
+      const cached = hydrated.get(pr.number);
+      if (cached) {
+        pr = cached;
+      } else {
+        pr = await options.api.pullRequest(
+          options.repository,
+          pr.number
+        );
+        hydrated.set(pr.number, pr);
+      }
+    }
     const existing = assignments.get(pr.number);
     if (existing && !samePullRequest(existing.pr, pr)) {
       throw new Error(
@@ -10657,7 +10689,7 @@ async function collectPullRequestRecords(options) {
   }
   const records = [];
   for (const { pr, commits } of assignments.values()) {
-    if (!selectedShas.has(pr.mergeCommitSha)) {
+    if (pr.mergeCommitSha === null || !selectedShas.has(pr.mergeCommitSha)) {
       diagnostics.push(
         `pull-request:${pr.number}: merge commit ${pr.mergeCommitSha} is not in the released range; keeping associated commits uncovered`
       );

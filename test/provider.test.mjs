@@ -36,10 +36,42 @@ class FakeApi {
     return this.associations.get(sha) ?? [];
   }
 
+  async pullRequest(_repository, number) {
+    for (const values of this.associations.values()) {
+      const found = values.find((entry) => entry.number === number);
+      if (found?.mergeCommitSha) return found;
+    }
+    throw new Error(`missing pull request #${number}`);
+  }
+
   async generateReleaseNotes() {
     throw new Error("not used");
   }
 }
+
+test("nullable commit association landing is hydrated from PR detail", async () => {
+  const merge = commit("0101010101010101010101010101010101010101", 0);
+  const partial = {
+    ...pr(9, merge.sha),
+    mergeCommitSha: null,
+  };
+  const api = new FakeApi(new Map([[merge.sha, [partial]]]));
+  api.pullRequest = async (_repository, number) => {
+    assert.equal(number, 9);
+    return pr(9, merge.sha);
+  };
+
+  const result = await collectPullRequestRecords({
+    repository: "releaseway/example",
+    commits: [merge],
+    api,
+  });
+
+  assert.deepEqual(result.records.map((record) => record.id), [
+    "pull-request:9",
+  ]);
+  assert.deepEqual(result.uncovered, []);
+});
 
 test("ordinary merge coverage coalesces exactly associated released commits", async () => {
   const side = commit("1111111111111111111111111111111111111111", 0);
