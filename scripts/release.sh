@@ -272,17 +272,15 @@ verify_draft_metadata() {
   [ "$actual_title" = "$expected_title" ] ||
     die "existing draft release title does not match requested title: $INPUT_TAG"
 
+  actual_body="$(
+    api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --jq '.body // ""'
+  )" || die "could not read release notes for $INPUT_TAG"
+
   if [ -n "${INPUT_NOTES_FILE:-}" ]; then
     expected_body="$(cat "$INPUT_NOTES_FILE")"
-    actual_body="$(
-      api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --jq '.body // ""'
-    )" || die "could not read release notes for $INPUT_TAG"
     [ "$actual_body" = "$expected_body" ] ||
       die "existing draft release notes do not match requested notes: $INPUT_TAG"
-  elif [ "${INPUT_GENERATE_NOTES:-false}" = "false" ]; then
-    actual_body="$(
-      api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --jq '.body // ""'
-    )" || die "could not read release notes for $INPUT_TAG"
+  else
     [ -z "$actual_body" ] ||
       die "existing draft release notes do not match requested empty notes: $INPUT_TAG"
   fi
@@ -301,7 +299,7 @@ create_draft_release() {
     -f "name=$title"
     -F "draft=true"
     -F "prerelease=${INPUT_PRERELEASE:-false}"
-    -F "generate_release_notes=${INPUT_GENERATE_NOTES:-false}"
+    -F "generate_release_notes=false"
   )
 
   if [ -n "${INPUT_NOTES_FILE:-}" ]; then
@@ -435,7 +433,6 @@ preflight() {
   [ "${#INPUT_COMMIT}" -eq 40 ] || die "commit must be a full 40-character SHA"
   INPUT_COMMIT="$(lowercase "$INPUT_COMMIT")"
 
-  validate_boolean "generate-notes" "${INPUT_GENERATE_NOTES:-false}"
   validate_boolean "prerelease" "${INPUT_PRERELEASE:-false}"
   case "${INPUT_LATEST:-automatic}" in
     automatic|true|false) ;;
@@ -447,8 +444,6 @@ preflight() {
 
   if [ -n "${INPUT_NOTES_FILE:-}" ]; then
     [ -f "$INPUT_NOTES_FILE" ] || die "notes-file does not exist: $INPUT_NOTES_FILE"
-    [ "${INPUT_GENERATE_NOTES:-false}" = "false" ] ||
-      die "notes-file and generate-notes are mutually exclusive"
   fi
 
   RELEASE_ACTIONS_ASSETS_FILE="$(mktemp)"

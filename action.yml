@@ -16,12 +16,24 @@ inputs:
     description: Release title. Defaults to the tag.
     required: false
     default: ""
-  notes-file:
-    description: Optional path to a release notes file. Mutually exclusive with generate-notes.
+  notes:
+    description: "Release notes mode or preset: standard, compact, conventional, changelog, detailed, scoped, pull-requests, hybrid, github, file, or none."
+    required: false
+    default: standard
+  notes-config:
+    description: Optional path to a versioned release-notes configuration file.
     required: false
     default: ""
-  generate-notes:
-    description: Ask GitHub to generate release notes.
+  notes-file:
+    description: Release notes body file. Required only when notes is file.
+    required: false
+    default: ""
+  notes-existing:
+    description: "Existing release body policy: auto, verify, or preserve."
+    required: false
+    default: auto
+  notes-preview:
+    description: Prepare and validate release notes without mutating release state.
     required: false
     default: "false"
   prerelease:
@@ -31,7 +43,7 @@ inputs:
   latest:
     description: "Latest-release policy: automatic, true, or false."
     required: false
-    default: "automatic"
+    default: automatic
   token:
     description: GitHub token override. Defaults to caller github.token; use a repository-write, workflow-authorized credential when the release target changes .github/workflows.
     required: false
@@ -39,15 +51,28 @@ inputs:
 
 outputs:
   state:
-    description: created, resumed-draft, or existing.
+    description: created, resumed-draft, existing, or preview.
     value: ${{ steps.release.outputs.state }}
   release-url:
-    description: Published GitHub Release URL.
+    description: Published GitHub Release URL. Empty in preview mode.
     value: ${{ steps.release.outputs.release-url }}
+  notes-path:
+    description: Local path to the prepared or observed release notes body.
+    value: ${{ steps.release.outputs.notes-path }}
+  notes-report:
+    description: Local path to the versioned release-notes diagnostics report.
+    value: ${{ steps.release.outputs.notes-report }}
+  notes-state:
+    description: prepared, verified, or preserved.
+    value: ${{ steps.release.outputs.notes-state }}
 
 runs:
   using: composite
   steps:
+    - name: Set up Node.js 24
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: "24"
     - id: release
       shell: bash
       env:
@@ -56,8 +81,11 @@ runs:
         INPUT_COMMIT: ${{ inputs.commit }}
         INPUT_ASSETS: ${{ inputs.assets }}
         INPUT_TITLE: ${{ inputs.title }}
+        INPUT_NOTES: ${{ inputs.notes }}
+        INPUT_NOTES_CONFIG: ${{ inputs.notes-config }}
         INPUT_NOTES_FILE: ${{ inputs.notes-file }}
-        INPUT_GENERATE_NOTES: ${{ inputs.generate-notes }}
+        INPUT_NOTES_EXISTING: ${{ inputs.notes-existing }}
+        INPUT_NOTES_PREVIEW: ${{ inputs.notes-preview }}
         INPUT_PRERELEASE: ${{ inputs.prerelease }}
         INPUT_LATEST: ${{ inputs.latest }}
-      run: bash "$GITHUB_ACTION_PATH/scripts/release.sh"
+      run: node "$GITHUB_ACTION_PATH/dist/main.js"

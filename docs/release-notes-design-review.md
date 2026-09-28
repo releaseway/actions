@@ -21,7 +21,7 @@ The user requested diverse automatically generated notes for callers of the reus
 | D3 — Retry | Default verifies existing drafts and preserves published bodies; explicit verify/preserve alternatives; ordinary file replay instead of a checkpoint service. |
 | D4 — Range | Branch/channel-aware prior published release by default, alternate strategies and explicit pinned bases; complete initial history by default. |
 | D5 — Breadth | Six custom layouts, PR-only/hybrid presets, native GitHub, file, none; independent supported overrides on one evidence model. |
-| Runtime/verification | Bundled Node 24 engine and thin entry retain Bash publication algorithms; preview/report and graph/parser/provider/race/packaged-action gates. |
+| Runtime/verification | Composite root preserves caller-token injection; bundled Node 24+ helper retains Bash publication algorithms; preview/report and graph/parser/provider/race/packaged-action gates. |
 
 The hybrid-default, implicit file-mode, automatic configuration discovery, and mandatory checkpoint-store suggestions in the old review were not selected. Their rationale is retained only as history; the canonical design explains the chosen alternatives. No owner decision remains blocked. Implementation validation is still required.
 

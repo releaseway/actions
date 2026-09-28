@@ -1,0 +1,28 @@
+{
+  "name": "releaseway-actions",
+  "version": "0.0.0",
+  "description": "Releaseway GitHub Action for immutable releases and generated release notes.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "build": "node scripts/build.mjs",
+    "check:dist": "node scripts/check-dist.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/releaseway/actions.git"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "private": true,
+  "devDependencies": {
+    "@types/node": "24.13.6",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  },
+  "type": "module"
+}

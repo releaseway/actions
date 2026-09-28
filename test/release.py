@@ -281,8 +281,11 @@ def run_case(work, fakebin, tmp, commit, assets, state, **overrides):
         "INPUT_COMMIT": commit,
         "INPUT_ASSETS": assets,
         "INPUT_TITLE": "",
+        "INPUT_NOTES": "none",
+        "INPUT_NOTES_CONFIG": "",
         "INPUT_NOTES_FILE": "",
-        "INPUT_GENERATE_NOTES": "false",
+        "INPUT_NOTES_EXISTING": "auto",
+        "INPUT_NOTES_PREVIEW": "false",
         "INPUT_PRERELEASE": "false",
         "INPUT_LATEST": "automatic",
     })
@@ -346,9 +349,23 @@ def main():
     metadata = (ROOT / "action.yml").read_text()
     assert "using: composite" in metadata
     assert "id: release" in metadata
-    for input_name in ["tag", "commit", "assets", "title", "notes-file", "generate-notes", "prerelease", "latest", "token"]:
+    for input_name in [
+        "tag",
+        "commit",
+        "assets",
+        "title",
+        "notes",
+        "notes-config",
+        "notes-file",
+        "notes-existing",
+        "notes-preview",
+        "prerelease",
+        "latest",
+        "token",
+    ]:
         assert f"  {input_name}:" in metadata
-    for output_name in ["state", "release-url"]:
+    assert "  generate-notes:" not in metadata
+    for output_name in ["state", "release-url", "notes-path", "notes-report", "notes-state"]:
         assert f"  {output_name}:" in metadata
     assets_contract = metadata.split("  assets:", 1)[1].split("  title:", 1)[0]
     assert "required: false" in assets_contract
@@ -706,21 +723,6 @@ def main():
             INPUT_NOTES_FILE=str(notes),
         )
         require_failure(result, "draft release notes do not match")
-
-        generated_notes = release_state(a, b, draft=True, immutable=False)
-        generated_notes["release"]["body"] = "existing generated notes"
-        result, state, output = run_case(
-            work,
-            fakebin,
-            tmp,
-            commit,
-            assets,
-            generated_notes,
-            INPUT_GENERATE_NOTES="true",
-        )
-        assert result.returncode == 0, result.stderr
-        assert state["release"]["body"] == "existing generated notes"
-        assert "state=resumed-draft" in output
 
         concurrent = {
             "immutable_enabled": True,
