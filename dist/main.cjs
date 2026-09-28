@@ -11688,7 +11688,7 @@ async function runAction(options = {}) {
     RELEASE_ACTIONS_PRESERVE_BODY: preserveBody ? "true" : "false",
     RELEASE_ACTIONS_ACCEPTED_BODY_FILE: preserveBody ? prepared.notesPath : "",
     RELEASE_ACTIONS_NODE: process.execPath,
-    RELEASE_ACTIONS_ENGINE: (0, import_node_path4.resolve)(actionPath, "dist/engine.js")
+    RELEASE_ACTIONS_ENGINE: (0, import_node_path4.resolve)(actionPath, "dist/engine.cjs")
   };
   const spawnPublisher = options.spawnPublisher ?? ((command, args, spawnOptions) => (0, import_node_child_process3.spawnSync)(command, [...args], spawnOptions));
   const result = spawnPublisher(

@@ -27,8 +27,8 @@ const common = {
 };
 
 for (const [entry, filename] of [
-  ["src/main.ts", "main.js"],
-  ["src/engine.ts", "engine.js"],
+  ["src/main.ts", "main.cjs"],
+  ["src/engine.ts", "engine.cjs"],
 ]) {
   await build({
     ...common,

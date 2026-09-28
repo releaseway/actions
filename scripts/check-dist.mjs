@@ -18,7 +18,7 @@ try {
     process.exit(result.status ?? 1);
   }
 
-  for (const filename of ["main.js", "engine.js"]) {
+  for (const filename of ["main.cjs", "engine.cjs"]) {
     const [expected, actual] = await Promise.all([
       readFile(resolve("dist", filename)),
       readFile(join(temp, filename)),

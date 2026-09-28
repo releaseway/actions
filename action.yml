@@ -88,4 +88,4 @@ runs:
         INPUT_NOTES_PREVIEW: ${{ inputs.notes-preview }}
         INPUT_PRERELEASE: ${{ inputs.prerelease }}
         INPUT_LATEST: ${{ inputs.latest }}
-      run: node "$GITHUB_ACTION_PATH/dist/main.js"
+      run: node "$GITHUB_ACTION_PATH/dist/main.cjs"

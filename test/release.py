@@ -302,7 +302,7 @@ def run_case(work, fakebin, tmp, commit, assets, state, **overrides):
         "INPUT_PRERELEASE": "false",
         "INPUT_LATEST": "automatic",
         "RELEASE_ACTIONS_NODE": shutil.which("node") or "node",
-        "RELEASE_ACTIONS_ENGINE": str(ROOT / "dist" / "engine.js"),
+        "RELEASE_ACTIONS_ENGINE": str(ROOT / "dist" / "engine.cjs"),
         "RELEASE_ACTIONS_PRESERVE_BODY": "false",
         "RELEASE_ACTIONS_ACCEPTED_BODY_FILE": "",
     })

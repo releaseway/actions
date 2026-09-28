@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -58,7 +59,7 @@ test("action metadata keeps composite token injection and exposes new notes cont
     /actions\/setup-node@820762786026740c76f36085b0efc47a31fe5020/,
   );
   assert.match(metadata, /node-version:\s*"24"/);
-  assert.match(metadata, /node "\$GITHUB_ACTION_PATH\/dist\/main\.js"/);
+  assert.match(metadata, /node "\$GITHUB_ACTION_PATH\/dist\/main\.cjs"/);
   assert.match(
     metadata,
     /GH_TOKEN:\s*\$\{\{ inputs\.token != '' && inputs\.token \|\| github\.token \}\}/,
@@ -183,4 +184,15 @@ test("published auto mode preserves observed body without generation", async () 
     /releaseway-notes-/,
   );
   assert.match(writes.join(""), /notes-state=preserved/);
+});
+
+test("committed engine bundle executes as CommonJS", () => {
+  const output = execFileSync(
+    process.execPath,
+    [resolve("dist/engine.cjs"), "contract"],
+    { encoding: "utf8" },
+  );
+  const contract = JSON.parse(output);
+  assert.equal(contract.schemaVersion, 1);
+  assert.equal(contract.defaults.notes, "standard");
 });

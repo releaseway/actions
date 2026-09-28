@@ -250,7 +250,7 @@ export async function runAction(
       ? prepared.notesPath
       : "",
     RELEASE_ACTIONS_NODE: process.execPath,
-    RELEASE_ACTIONS_ENGINE: resolve(actionPath, "dist/engine.js"),
+    RELEASE_ACTIONS_ENGINE: resolve(actionPath, "dist/engine.cjs"),
   };
 
   const spawnPublisher =
