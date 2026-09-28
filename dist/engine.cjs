@@ -9456,27 +9456,36 @@ var GhCliApi = class {
   constructor(runGh = defaultRunGh) {
     this.runGh = runGh;
   }
-  async associatedPullRequests(repository, commitSha) {
-    const output = this.runGh([
-      "api",
-      "-H",
-      "Accept: application/vnd.github+json",
-      "-H",
-      "X-GitHub-Api-Version: 2026-03-10",
-      "--paginate",
-      "--slurp",
-      `repos/${repository}/commits/${commitSha}/pulls?per_page=100`
-    ]);
-    const pages = JSON.parse(output);
-    if (!Array.isArray(pages)) {
-      throw new Error("commit-to-PR response must be a page array");
-    }
-    const values = pages.flatMap((page) => {
-      if (!Array.isArray(page)) {
-        throw new Error("commit-to-PR page must be an array");
+  paginatedArray(endpoint, context) {
+    const values = [];
+    const pageSize = 100;
+    const maxPages = 20;
+    for (let page = 1; page <= maxPages; page += 1) {
+      const raw = JSON.parse(
+        this.runGh([
+          "api",
+          "-H",
+          "Accept: application/vnd.github+json",
+          "-H",
+          "X-GitHub-Api-Version: 2026-03-10",
+          endpoint(page)
+        ])
+      );
+      if (!Array.isArray(raw)) {
+        throw new Error(`${context} page must be an array`);
       }
-      return page;
-    });
+      values.push(...raw);
+      if (raw.length < pageSize) return values;
+    }
+    throw new Error(
+      `${context} exceeded bounded pagination limit of ${maxPages} pages`
+    );
+  }
+  async associatedPullRequests(repository, commitSha) {
+    const values = this.paginatedArray(
+      (page) => `repos/${repository}/commits/${commitSha}/pulls?per_page=100&page=${page}`,
+      "commit-to-PR response"
+    );
     return values.flatMap((value) => {
       const parsed = parseAssociation(value, repository);
       return parsed ? [parsed] : [];
@@ -9544,36 +9553,20 @@ var GhCliApi = class {
     };
   }
   async publishedReleases(repository) {
-    const pages = JSON.parse(
-      this.runGh([
-        "api",
-        "-H",
-        "Accept: application/vnd.github+json",
-        "-H",
-        "X-GitHub-Api-Version: 2026-03-10",
-        "--paginate",
-        "--slurp",
-        `repos/${repository}/releases?per_page=100`
-      ])
+    const values = this.paginatedArray(
+      (page) => `repos/${repository}/releases?per_page=100&page=${page}`,
+      "release-list response"
     );
-    if (!Array.isArray(pages)) {
-      throw new Error("release-list response must be a page array");
-    }
-    return pages.flatMap((page) => {
-      if (!Array.isArray(page)) {
-        throw new Error("release-list page must be an array");
+    return values.map((item) => {
+      const release = object(item, "release-list item");
+      if (typeof release.tag_name !== "string" || typeof release.draft !== "boolean" || typeof release.prerelease !== "boolean") {
+        throw new Error("release-list item is missing required fields");
       }
-      return page.flatMap((item) => {
-        const release = object(item, "release-list item");
-        if (typeof release.tag_name !== "string" || typeof release.draft !== "boolean" || typeof release.prerelease !== "boolean") {
-          throw new Error("release-list item is missing required fields");
-        }
-        return [{
-          tag: release.tag_name,
-          draft: release.draft,
-          prerelease: release.prerelease
-        }];
-      });
+      return {
+        tag: release.tag_name,
+        draft: release.draft,
+        prerelease: release.prerelease
+      };
     });
   }
   async releaseBody(repository, releaseId) {

@@ -202,7 +202,7 @@ test("GitHub CLI adapter preserves native generated body opaquely and sends expl
         body: "## GitHub-owned heading\n\nopaque *markdown*\n",
       });
     }
-    return JSON.stringify([[
+    return JSON.stringify([
       {
         number: 51,
         title: "feat: x",
@@ -213,7 +213,7 @@ test("GitHub CLI adapter preserves native generated body opaquely and sends expl
         labels: [{ name: "feature" }],
         base: { repo: { full_name: "releaseway/example" } },
       },
-    ]]);
+    ]);
   });
 
   const associations = await api.associatedPullRequests(
