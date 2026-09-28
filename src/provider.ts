@@ -184,8 +184,12 @@ export function enforcePullRequestCoverage(options: {
     options.unmatched === "error" &&
     options.collection.uncovered.length > 0
   ) {
+    const diagnostics =
+      options.collection.diagnostics.length > 0
+        ? `; diagnostics: ${options.collection.diagnostics.join(" | ")}`
+        : "";
     throw new Error(
-      `pull-request source has ${options.collection.uncovered.length} uncovered released commit(s): ${options.collection.uncovered.map((commit) => commit.sha).join(", ")}`,
+      `pull-request source has ${options.collection.uncovered.length} uncovered released commit(s): ${options.collection.uncovered.map((commit) => commit.sha).join(", ")}${diagnostics}`,
     );
   }
   if (
