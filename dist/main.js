@@ -11307,6 +11307,11 @@ function resolveRange(options) {
 
 // src/prepare.ts
 var utf8 = new TextDecoder("utf-8", { fatal: true });
+function withVisibleNotices(body, notices) {
+  if (notices.length === 0) return body;
+  const noticeBlock = notices.map((notice) => `> **Note:** ${notice}`).join("\n");
+  return body ? noticeBlock + "\n\n" + body : noticeBlock + "\n";
+}
 function decodeUtf8(bytes, label) {
   try {
     return utf8.decode(bytes);
@@ -11471,6 +11476,7 @@ async function prepareNotes(options) {
   const commitRecords = commits.map(commitRecord);
   let records = commitRecords;
   let providerDiagnostics = [];
+  const visibleNotices = [];
   if (policy.source !== "commits") {
     const collection = await collectPullRequestRecords({
       repository: options.repository,
@@ -11483,6 +11489,11 @@ async function prepareNotes(options) {
         collection,
         unmatched: policy.unmatched
       });
+      if (policy.unmatched === "omit" && collection.uncovered.length > 0) {
+        visibleNotices.push(
+          `${collection.uncovered.length} released commit(s) were omitted because they were not associated with a verified pull request.`
+        );
+      }
       records = collection.records;
     } else {
       records = combineHybridRecords({
@@ -11496,7 +11507,7 @@ async function prepareNotes(options) {
     changes,
     providerDiagnostics
   );
-  const body = renderReleaseNotes(changes, policy, {
+  let body = renderReleaseNotes(changes, policy, {
     repository: options.repository,
     targetTag: range.targetTag,
     targetSha: range.targetSha,
@@ -11505,6 +11516,7 @@ async function prepareNotes(options) {
     firstRelease: range.firstRelease,
     intentionallyEmpty: range.empty && range.firstRelease
   });
+  body = withVisibleNotices(body, visibleNotices);
   const report = buildNotesReport({
     body,
     changes,

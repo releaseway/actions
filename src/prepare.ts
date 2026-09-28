@@ -48,6 +48,19 @@ export interface PrepareOptions {
   api?: GitHubApi;
 }
 
+export function withVisibleNotices(
+  body: string,
+  notices: readonly string[],
+): string {
+  if (notices.length === 0) return body;
+  const noticeBlock = notices
+    .map((notice) => `> **Note:** ${notice}`)
+    .join("\n");
+  return body
+    ? noticeBlock + "\n\n" + body
+    : noticeBlock + "\n";
+}
+
 function decodeUtf8(bytes: Uint8Array, label: string): string {
   try {
     return utf8.decode(bytes);
@@ -243,6 +256,7 @@ export async function prepareNotes(
   const commitRecords = commits.map(commitRecord);
   let records: ChangeRecord[] = commitRecords;
   let providerDiagnostics: string[] = [];
+  const visibleNotices: string[] = [];
 
   if (policy.source !== "commits") {
     const collection = await collectPullRequestRecords({
@@ -256,6 +270,14 @@ export async function prepareNotes(
         collection,
         unmatched: policy.unmatched,
       });
+      if (
+        policy.unmatched === "omit" &&
+        collection.uncovered.length > 0
+      ) {
+        visibleNotices.push(
+          `${collection.uncovered.length} released commit(s) were omitted because they were not associated with a verified pull request.`,
+        );
+      }
       records = collection.records;
     } else {
       records = combineHybridRecords({
@@ -270,7 +292,7 @@ export async function prepareNotes(
     changes,
     providerDiagnostics,
   );
-  const body = renderReleaseNotes(changes, policy, {
+  let body = renderReleaseNotes(changes, policy, {
     repository: options.repository,
     targetTag: range.targetTag,
     targetSha: range.targetSha,
@@ -279,6 +301,7 @@ export async function prepareNotes(
     firstRelease: range.firstRelease,
     intentionallyEmpty: range.empty && range.firstRelease,
   });
+  body = withVisibleNotices(body, visibleNotices);
   const report = buildNotesReport({
     body,
     changes,

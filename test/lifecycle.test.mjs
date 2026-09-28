@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +9,7 @@ import {
   observeExistingBody,
   prepareNotes,
   verifyReleaseBody,
+  withVisibleNotices,
 } from "../src/prepare.ts";
 
 class FakeApi {
@@ -132,4 +134,103 @@ test("preserved body output records that generation was not evaluated", async ()
   assert.equal(report.status, "preserved");
   assert.equal(report.generationEvaluated, false);
   assert.equal(report.existingRelease.id, 42);
+});
+
+test("visible omission notices are rendered into the release body", () => {
+  const body = withVisibleNotices(
+    "## Changes\n\n- retained\n",
+    ["1 released commit(s) were omitted because they were not associated with a verified pull request."],
+  );
+  assert.match(body, /^> \*\*Note:\*\*/);
+  assert.match(body, /1 released commit\(s\) were omitted/);
+  assert.match(body, /## Changes/);
+  assert.ok(body.endsWith("\n"));
+});
+function git(cwd, ...args) {
+  return execFileSync("git", ["-C", cwd, ...args], {
+    encoding: "utf8",
+  }).trim();
+}
+
+test("pull-request omit mode exposes omission in the prepared body and report", async () => {
+  const root = await mkdtemp(join(tmpdir(), "releaseway-pr-omit-"));
+  const origin = join(root, "origin.git");
+  const workspace = join(root, "work");
+  execFileSync("git", ["init", "--bare", origin]);
+  execFileSync("git", ["init", "-b", "main", workspace]);
+  git(workspace, "config", "user.email", "fixture@example.invalid");
+  git(workspace, "config", "user.name", "Fixture");
+  git(workspace, "remote", "add", "origin", origin);
+
+  await writeFile(join(workspace, "base.txt"), "base\n");
+  git(workspace, "add", "base.txt");
+  git(workspace, "commit", "-m", "chore: base");
+  const baseline = git(workspace, "rev-parse", "HEAD");
+
+  await writeFile(join(workspace, "covered.txt"), "covered\n");
+  git(workspace, "add", "covered.txt");
+  git(workspace, "commit", "-m", "feat(core): covered");
+  const covered = git(workspace, "rev-parse", "HEAD");
+
+  await writeFile(join(workspace, "landing.txt"), "landing\n");
+  git(workspace, "add", "landing.txt");
+  git(workspace, "commit", "-m", "chore: landing");
+  const landing = git(workspace, "rev-parse", "HEAD");
+
+  await writeFile(join(workspace, "direct.txt"), "direct\n");
+  git(workspace, "add", "direct.txt");
+  git(workspace, "commit", "-m", "fix: direct");
+  const direct = git(workspace, "rev-parse", "HEAD");
+  git(workspace, "update-ref", "refs/tags/notes-test-v1.0.0", "HEAD");
+  git(workspace, "push", "origin", "main", "refs/tags/notes-test-v1.0.0");
+
+  const configPath = join(root, "notes.yml");
+  await writeFile(
+    configPath,
+    `version: 1
+notes:
+  range:
+    from:
+      commit: ${baseline}
+  unmatched: omit
+`,
+    "utf8",
+  );
+
+  const association = {
+    number: 1,
+    title: "feat(core): covered PR",
+    body: "",
+    mergedAt: "2026-09-28T00:00:00Z",
+    mergeCommitSha: landing,
+    userLogin: "alice",
+    userType: "User",
+    labels: ["enhancement"],
+    baseRepository: "releaseway/example",
+  };
+  const api = new FakeApi();
+  api.associatedPullRequests = async (_repository, sha) =>
+    sha === covered || sha === landing ? [association] : [];
+
+  const prepared = await prepareNotes({
+    inputs: inputs({
+      notes: "pull-requests",
+      notesConfig: configPath,
+    }),
+    repository: "releaseway/example",
+    tag: "notes-test-v1.0.0",
+    commit: direct,
+    workspace,
+    runnerTemp: root,
+    api,
+  });
+
+  assert.match(prepared.body, /^> \*\*Note:\*\*/);
+  assert.match(prepared.body, /1 released commit\(s\) were omitted/);
+  assert.match(prepared.body, /#1/);
+  const report = JSON.parse(await readFile(prepared.reportPath, "utf8"));
+  assert.deepEqual(report.included.map((entry) => entry.id), [
+    "pull-request:1",
+  ]);
+  assert.match(report.diagnostics.join("\n"), new RegExp(direct));
 });
