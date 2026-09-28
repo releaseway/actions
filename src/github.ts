@@ -102,7 +102,7 @@ function associationNumber(value: unknown): number | null {
   return typeof number === "number" ? number : null;
 }
 
-function parsePullRequest(
+function parsePullRequestView(
   value: unknown,
   repository: string,
 ): PullRequestAssociation | null {
@@ -110,18 +110,20 @@ function parsePullRequest(
   if (
     typeof pr.number !== "number" ||
     typeof pr.title !== "string" ||
-    typeof pr.merged_at !== "string" ||
-    typeof pr.merge_commit_sha !== "string"
+    typeof pr.mergedAt !== "string"
   ) {
     return null;
   }
-  const base = object(pr.base, "pull request base");
-  const baseRepo = object(base.repo, "pull request base repository");
-  if (baseRepo.full_name !== repository) return null;
 
-  const user =
-    typeof pr.user === "object" && pr.user !== null
-      ? object(pr.user, "pull request user")
+  const mergeCommit = object(
+    pr.mergeCommit,
+    "pull request merge commit",
+  );
+  if (typeof mergeCommit.oid !== "string") return null;
+
+  const author =
+    typeof pr.author === "object" && pr.author !== null
+      ? object(pr.author, "pull request author")
       : null;
   const labels = Array.isArray(pr.labels)
     ? pr.labels.flatMap((item) => {
@@ -130,15 +132,18 @@ function parsePullRequest(
         return typeof name === "string" ? [name] : [];
       })
     : [];
+  const rawBot = author?.is_bot ?? author?.isBot;
+  const isBot =
+    typeof rawBot === "boolean" ? rawBot : null;
 
   return {
     number: pr.number,
     title: pr.title,
     body: typeof pr.body === "string" ? pr.body : "",
-    mergedAt: pr.merged_at,
-    mergeCommitSha: pr.merge_commit_sha.toLowerCase(),
-    userLogin: user ? stringOrNull(user.login) : null,
-    userType: user ? stringOrNull(user.type) : null,
+    mergedAt: pr.mergedAt,
+    mergeCommitSha: mergeCommit.oid.toLowerCase(),
+    userLogin: author ? stringOrNull(author.login) : null,
+    userType: isBot === null ? null : isBot ? "Bot" : "User",
     labels,
     baseRepository: repository,
   };
@@ -210,15 +215,16 @@ export class GhCliApi implements GitHubApi {
   ): Promise<PullRequestAssociation> {
     const raw = JSON.parse(
       this.runGh([
-        "api",
-        "-H",
-        "Accept: application/vnd.github+json",
-        "-H",
-        "X-GitHub-Api-Version: 2026-03-10",
-        `repos/${repository}/pulls/${number}`,
+        "pr",
+        "view",
+        String(number),
+        "--repo",
+        repository,
+        "--json",
+        "number,title,body,mergedAt,mergeCommit,author,labels",
       ]),
     ) as unknown;
-    const parsed = parsePullRequest(raw, repository);
+    const parsed = parsePullRequestView(raw, repository);
     if (!parsed) {
       throw new Error(
         `pull request #${number} detail is missing merged landing metadata`,
