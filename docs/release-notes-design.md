@@ -331,7 +331,7 @@ Add a dedicated manual workflow such as `.github/workflows/release-notes-accepta
 4. assert `notes.md`, `notes-report.json`, action outputs, and live GitHub state;
 5. upload the notes/report/assertion artifacts for audit when the scenario produces them.
 
-Use job-level least privileges: commit-only preview needs repository contents read; PR/hybrid preview adds pull-requests read; publishing needs contents write and whatever existing workflow-file authorization the target commit requires. The workflow records the exact candidate SHA in its summary and artifacts.
+Use job-level least privileges: commit-only preview needs repository contents read; PR/hybrid preview adds pull-requests read; GitHub-native preview needs contents write because GitHub requires write permission for Generate Release Notes even though the endpoint does not save a release; publishing needs contents write and whatever existing workflow-file authorization the target commit requires. The workflow records the exact candidate SHA in its summary and artifacts.
 
 Candidate acceptance is tied to the exact `releaseway/actions` commit. Any source or committed distribution change after the accepted run invalidates that run and requires rerunning the gate.
 

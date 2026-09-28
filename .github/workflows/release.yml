@@ -59,6 +59,7 @@ jobs:
           tag: ${{ steps.release.outputs.tag }}
           commit: ${{ steps.release.outputs.target }}
           title: ${{ steps.release.outputs.tag }}
+          notes: standard
           latest: "true"
 
       - name: Summary
@@ -67,5 +68,6 @@ jobs:
             echo "### actions ${{ steps.release.outputs.tag }}"
             echo ""
             echo "- state: ${{ steps.publish.outputs.state }}"
+            echo "- notes: ${{ steps.publish.outputs.notes-state }}"
             echo "- release: ${{ steps.publish.outputs.release-url }}"
           } >> "$GITHUB_STEP_SUMMARY"
