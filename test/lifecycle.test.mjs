@@ -236,6 +236,10 @@ notes:
   assert.deepEqual(report.included.map((entry) => entry.id), [
     "pull-request:1",
   ]);
+  assert.equal(
+    report.config.checkoutRevision,
+    git(workspace, "rev-parse", "HEAD"),
+  );
   assert.match(report.diagnostics.join("\n"), new RegExp(direct));
 });
 

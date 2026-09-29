@@ -7,6 +7,11 @@ import type { RangeResolution } from "./range.ts";
 export interface NotesReport {
   version: 1;
   preset: string;
+  status: "prepared";
+  metadata: {
+    pullRequestMetadataMutable: boolean;
+    rangeSelectionMutable: boolean;
+  };
   effectivePolicy: EffectiveNotesPolicy;
   range: RangeResolution;
   included: Array<{
@@ -42,6 +47,14 @@ export function buildNotesReport(options: {
   return {
     version: 1,
     preset: options.policy.preset,
+    status: "prepared",
+    metadata: {
+      pullRequestMetadataMutable:
+        options.policy.source !== "commits",
+      rangeSelectionMutable:
+        options.policy.range.from === undefined ||
+        "tag" in options.policy.range.from,
+    },
     effectivePolicy: options.policy,
     range: options.range,
     included: options.changes.included.map((record) => ({

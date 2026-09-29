@@ -13,6 +13,7 @@ import type { ActionInputs } from "./contract.ts";
 import {
   collectCommitEvidence,
   createEvidenceRepository,
+  GitRepository,
   verifyRemoteTagExists,
 } from "./git.ts";
 import {
@@ -214,6 +215,9 @@ export async function prepareNotes(
       sha256: createHash("sha256")
         .update(loaded.text, "utf8")
         .digest("hex"),
+      checkoutRevision: new GitRepository(
+        resolve(options.workspace),
+      ).resolveCommit("HEAD"),
     };
   }
 

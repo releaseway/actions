@@ -115,6 +115,71 @@ test("cherry-picked or ambiguous associations remain uncovered instead of being 
   assert.match(result.diagnostics.join("\n"), /ambiguous merged pull request/);
 });
 
+test("open PR associations are ignored in favor of one verified merged association", async () => {
+  const landing = commit("7878787878787878787878787878787878787878", 0);
+  const open = {
+    ...pr(22, landing.sha, "feat: open"),
+    mergedAt: null,
+    mergeCommitSha: null,
+  };
+  const merged = pr(23, landing.sha, "fix: merged");
+
+  const result = await collectPullRequestRecords({
+    repository: "releaseway/example",
+    commits: [landing],
+    api: new FakeApi(new Map([
+      [landing.sha, [open, merged]],
+    ])),
+  });
+
+  assert.deepEqual(result.records.map((record) => record.id), [
+    "pull-request:23",
+  ]);
+  assert.deepEqual(result.uncovered, []);
+});
+
+test("open-only PR associations leave released commits uncovered", async () => {
+  const released = commit("7979797979797979797979797979797979797979", 0);
+  const open = {
+    ...pr(24, released.sha, "feat: open"),
+    mergedAt: null,
+    mergeCommitSha: null,
+  };
+
+  const result = await collectPullRequestRecords({
+    repository: "releaseway/example",
+    commits: [released],
+    api: new FakeApi(new Map([[released.sha, [open]]])),
+  });
+
+  assert.deepEqual(result.records, []);
+  assert.deepEqual(result.uncovered.map((entry) => entry.sha), [released.sha]);
+  assert.match(result.diagnostics.join("\n"), /no merged pull request association/);
+});
+
+test("classification-relevant PR metadata changes during collection fail safely", async () => {
+  const first = commit("7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a", 0);
+  const landing = commit("7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b", 1);
+  const initial = pr(26, landing.sha);
+  const changed = {
+    ...initial,
+    labels: ["documentation"],
+  };
+
+  await assert.rejects(
+    () =>
+      collectPullRequestRecords({
+        repository: "releaseway/example",
+        commits: [first, landing],
+        api: new FakeApi(new Map([
+          [first.sha, [initial]],
+          [landing.sha, [changed]],
+        ])),
+      }),
+    /metadata changed during collection/,
+  );
+});
+
 test("covered commit breaking metadata survives PR coalescing", async () => {
   const breaking = commit(
     "abababababababababababababababababababab",
@@ -198,6 +263,32 @@ test("PR coverage rejects association groups whose merge commit is outside the r
   assert.deepEqual(result.records, []);
   assert.deepEqual(result.uncovered.map((entry) => entry.sha), [commitA.sha]);
   assert.match(result.diagnostics.join("\n"), /merge commit .* is not in the released range/);
+});
+
+test("GitHub CLI adapter represents open PR details without treating them as provider failure", async () => {
+  const api = new GhCliApi((args) => {
+    if (args[0] === "pr" && args[1] === "view") {
+      return JSON.stringify({
+        number: 52,
+        title: "feat: still open",
+        body: "",
+        mergedAt: null,
+        mergeCommit: null,
+        author: { login: "alice", is_bot: false },
+        labels: [{ name: "feature" }],
+      });
+    }
+    return JSON.stringify([{ number: 52 }]);
+  });
+
+  const associations = await api.associatedPullRequests(
+    "releaseway/example",
+    "abababababababababababababababababababab",
+  );
+  assert.equal(associations.length, 1);
+  assert.equal(associations[0].number, 52);
+  assert.equal(associations[0].mergedAt, null);
+  assert.equal(associations[0].mergeCommitSha, null);
 });
 
 test("GitHub CLI adapter preserves native generated body opaquely and sends explicit range/config", async () => {

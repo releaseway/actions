@@ -9435,14 +9435,15 @@ function associationNumber(value) {
 }
 function parsePullRequestView(value, repository) {
   const pr = object(value, "pull request");
-  if (typeof pr.number !== "number" || typeof pr.title !== "string" || typeof pr.mergedAt !== "string") {
+  if (typeof pr.number !== "number" || typeof pr.title !== "string") {
     return null;
   }
-  const mergeCommit = object(
-    pr.mergeCommit,
-    "pull request merge commit"
-  );
-  if (typeof mergeCommit.oid !== "string") return null;
+  const mergeCommit = typeof pr.mergeCommit === "object" && pr.mergeCommit !== null ? object(pr.mergeCommit, "pull request merge commit") : null;
+  const mergedAt = typeof pr.mergedAt === "string" ? pr.mergedAt : null;
+  const mergeCommitSha = mergeCommit && typeof mergeCommit.oid === "string" ? mergeCommit.oid.toLowerCase() : null;
+  if (mergedAt === null !== (mergeCommitSha === null)) {
+    return null;
+  }
   const author = typeof pr.author === "object" && pr.author !== null ? object(pr.author, "pull request author") : null;
   const labels = Array.isArray(pr.labels) ? pr.labels.flatMap((item) => {
     if (typeof item !== "object" || item === null) return [];
@@ -9455,8 +9456,8 @@ function parsePullRequestView(value, repository) {
     number: pr.number,
     title: pr.title,
     body: typeof pr.body === "string" ? pr.body : "",
-    mergedAt: pr.mergedAt,
-    mergeCommitSha: mergeCommit.oid.toLowerCase(),
+    mergedAt,
+    mergeCommitSha,
     userLogin: author ? stringOrNull(author.login) : null,
     userType: isBot === null ? null : isBot ? "Bot" : "User",
     labels,

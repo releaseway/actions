@@ -9,6 +9,11 @@ export interface GitCommandResult {
 
 export const MAX_RELEASE_COMMITS = 10_000;
 
+interface GitRunOptions {
+  allowFailure?: boolean;
+  config?: readonly { key: string; value: string }[];
+}
+
 export class GitRepository {
   readonly path: string;
 
@@ -18,9 +23,12 @@ export class GitRepository {
 
   run(
     args: readonly string[],
-    allowFailure = false,
-    config: readonly { key: string; value: string }[] = [],
+    options: GitRunOptions = {},
   ): GitCommandResult {
+    const {
+      allowFailure = false,
+      config = [],
+    } = options;
     const configEnv: NodeJS.ProcessEnv = {};
     if (config.length > 0) {
       configEnv.GIT_CONFIG_COUNT = String(config.length);
@@ -55,13 +63,16 @@ export class GitRepository {
   }
 
   hasRef(ref: string): boolean {
-    return this.run(["rev-parse", "--verify", "--quiet", ref], true).status === 0;
+    return this.run(
+      ["rev-parse", "--verify", "--quiet", ref],
+      { allowFailure: true },
+    ).status === 0;
   }
 
   isAncestor(ancestor: string, descendant: string): boolean {
     const result = this.run(
       ["merge-base", "--is-ancestor", ancestor, descendant],
-      true,
+      { allowFailure: true },
     );
     if (result.status === 0) return true;
     if (result.status === 1) return false;
@@ -97,7 +108,7 @@ export class GitRepository {
         "--get-regexp",
         "^http\\..*\\.extraheader$",
       ],
-      true,
+      { allowFailure: true },
     );
     if (result.status === 1) return [];
     if (result.status !== 0) {
@@ -152,7 +163,7 @@ export function verifyRemoteTagBinding(options: {
   const repository = new GitRepository(resolve(options.workspace));
   const validRef = repository.run(
     ["check-ref-format", `refs/tags/${options.tag}`],
-    true,
+    { allowFailure: true },
   );
   if (validRef.status !== 0) {
     throw new Error(`tag is not a valid Git tag: ${options.tag}`);
@@ -173,7 +184,7 @@ export function verifyRemoteTagExists(options: {
   const repository = new GitRepository(resolve(options.workspace));
   const validRef = repository.run(
     ["check-ref-format", `refs/tags/${options.tag}`],
-    true,
+    { allowFailure: true },
   );
   if (validRef.status !== 0) {
     throw new Error(`tag is not a valid Git tag: ${options.tag}`);
@@ -210,8 +221,9 @@ export async function createEvidenceRepository(options: {
       "origin",
       "+refs/tags/*:refs/tags/*",
     ],
-    false,
-    workspace.localHttpAuthConfig(),
+    {
+      config: workspace.localHttpAuthConfig(),
+    },
   );
 
   const targetRef = `refs/tags/${options.targetTag}`;

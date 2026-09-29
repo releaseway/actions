@@ -481,7 +481,7 @@ test("evidence fetch uses checkout auth transiently without persisting secrets",
       "--get",
       "http.https://github.com/.extraheader",
     ],
-    true,
+    { allowFailure: true },
   );
   assert.equal(persisted.status, 1);
 });
@@ -578,5 +578,24 @@ test("release history collection fails before materializing an oversized graph",
         null,
       ),
     /exceeds maximum commit count/,
+  );
+});
+
+
+test("automatic range rejects contradictory prerelease metadata on prior SemVer releases", async () => {
+  const fixture = await repositoryFixture();
+
+  assert.throws(
+    () =>
+      resolveRange({
+        repository: fixture.repository,
+        targetTag: "v1.2.0",
+        targetSha: fixture.fixSha,
+        targetPrerelease: false,
+        releases: [
+          { tag: "v1.1.0", prerelease: true },
+        ],
+      }),
+    /published release v1\.1\.0 has prerelease state inconsistent with its SemVer tag/,
   );
 });

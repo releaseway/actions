@@ -219,6 +219,11 @@ test("report records included and excluded identities plus stable body digest", 
   });
   assert.equal(report.version, 1);
   assert.equal(report.preset, "standard");
+  assert.equal(report.status, "prepared");
+  assert.deepEqual(report.metadata, {
+    pullRequestMetadataMutable: false,
+    rangeSelectionMutable: true,
+  });
   assert.equal(report.included.length, 4);
   assert.equal(report.excluded.length, 1);
   assert.equal(report.excluded[0].id, `commit:${shas.docs}`);
@@ -338,4 +343,41 @@ test("release-note text size is bounded before publication", () => {
     () => assertNotesSize("x".repeat(MAX_NOTES_BYTES + 1)),
     /exceeds maximum size/,
   );
+});
+
+
+test("report distinguishes mutable tag bases from pinned commit bases", () => {
+  const records = fixtureRecords();
+
+  const tagPolicy = presetPolicy("standard");
+  assert.ok(tagPolicy);
+  tagPolicy.range.from = { tag: "v1.4.0" };
+  const tagChanges = classifyChanges(records, tagPolicy);
+  const tagBody = renderReleaseNotes(tagChanges, tagPolicy, context());
+  const tagReport = buildNotesReport({
+    body: tagBody,
+    changes: tagChanges,
+    policy: tagPolicy,
+    range: range(),
+  });
+  assert.equal(tagReport.metadata.rangeSelectionMutable, true);
+
+  const commitPolicy = presetPolicy("standard");
+  assert.ok(commitPolicy);
+  commitPolicy.range.from = {
+    commit: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  };
+  const commitChanges = classifyChanges(records, commitPolicy);
+  const commitBody = renderReleaseNotes(
+    commitChanges,
+    commitPolicy,
+    context(),
+  );
+  const commitReport = buildNotesReport({
+    body: commitBody,
+    changes: commitChanges,
+    policy: commitPolicy,
+    range: range(),
+  });
+  assert.equal(commitReport.metadata.rangeSelectionMutable, false);
 });

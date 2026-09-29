@@ -9476,14 +9476,15 @@ function associationNumber(value) {
 }
 function parsePullRequestView(value, repository) {
   const pr = object(value, "pull request");
-  if (typeof pr.number !== "number" || typeof pr.title !== "string" || typeof pr.mergedAt !== "string") {
+  if (typeof pr.number !== "number" || typeof pr.title !== "string") {
     return null;
   }
-  const mergeCommit = object(
-    pr.mergeCommit,
-    "pull request merge commit"
-  );
-  if (typeof mergeCommit.oid !== "string") return null;
+  const mergeCommit = typeof pr.mergeCommit === "object" && pr.mergeCommit !== null ? object(pr.mergeCommit, "pull request merge commit") : null;
+  const mergedAt = typeof pr.mergedAt === "string" ? pr.mergedAt : null;
+  const mergeCommitSha = mergeCommit && typeof mergeCommit.oid === "string" ? mergeCommit.oid.toLowerCase() : null;
+  if (mergedAt === null !== (mergeCommitSha === null)) {
+    return null;
+  }
   const author = typeof pr.author === "object" && pr.author !== null ? object(pr.author, "pull request author") : null;
   const labels = Array.isArray(pr.labels) ? pr.labels.flatMap((item) => {
     if (typeof item !== "object" || item === null) return [];
@@ -9496,8 +9497,8 @@ function parsePullRequestView(value, repository) {
     number: pr.number,
     title: pr.title,
     body: typeof pr.body === "string" ? pr.body : "",
-    mergedAt: pr.mergedAt,
-    mergeCommitSha: mergeCommit.oid.toLowerCase(),
+    mergedAt,
+    mergeCommitSha,
     userLogin: author ? stringOrNull(author.login) : null,
     userType: isBot === null ? null : isBot ? "Bot" : "User",
     labels,
@@ -10392,7 +10393,11 @@ var GitRepository = class {
   constructor(path) {
     this.path = path;
   }
-  run(args, allowFailure = false, config = []) {
+  run(args, options = {}) {
+    const {
+      allowFailure = false,
+      config = []
+    } = options;
     const configEnv = {};
     if (config.length > 0) {
       configEnv.GIT_CONFIG_COUNT = String(config.length);
@@ -10425,12 +10430,15 @@ var GitRepository = class {
     return this.run(["rev-parse", `${ref}^{commit}`]).stdout.trim().toLowerCase();
   }
   hasRef(ref) {
-    return this.run(["rev-parse", "--verify", "--quiet", ref], true).status === 0;
+    return this.run(
+      ["rev-parse", "--verify", "--quiet", ref],
+      { allowFailure: true }
+    ).status === 0;
   }
   isAncestor(ancestor, descendant) {
     const result = this.run(
       ["merge-base", "--is-ancestor", ancestor, descendant],
-      true
+      { allowFailure: true }
     );
     if (result.status === 0) return true;
     if (result.status === 1) return false;
@@ -10455,7 +10463,7 @@ var GitRepository = class {
         "--get-regexp",
         "^http\\..*\\.extraheader$"
       ],
-      true
+      { allowFailure: true }
     );
     if (result.status === 1) return [];
     if (result.status !== 0) {
@@ -10501,7 +10509,7 @@ function verifyRemoteTagBinding(options) {
   const repository = new GitRepository((0, import_node_path2.resolve)(options.workspace));
   const validRef = repository.run(
     ["check-ref-format", `refs/tags/${options.tag}`],
-    true
+    { allowFailure: true }
   );
   if (validRef.status !== 0) {
     throw new Error(`tag is not a valid Git tag: ${options.tag}`);
@@ -10518,7 +10526,7 @@ function verifyRemoteTagExists(options) {
   const repository = new GitRepository((0, import_node_path2.resolve)(options.workspace));
   const validRef = repository.run(
     ["check-ref-format", `refs/tags/${options.tag}`],
-    true
+    { allowFailure: true }
   );
   if (validRef.status !== 0) {
     throw new Error(`tag is not a valid Git tag: ${options.tag}`);
@@ -10540,8 +10548,9 @@ async function createEvidenceRepository(options) {
       "origin",
       "+refs/tags/*:refs/tags/*"
     ],
-    false,
-    workspace.localHttpAuthConfig()
+    {
+      config: workspace.localHttpAuthConfig()
+    }
   );
   const targetRef = `refs/tags/${options.targetTag}`;
   if (!repository.hasRef(targetRef)) {
@@ -10753,6 +10762,9 @@ function commitRecord(evidence) {
 }
 
 // src/provider.ts
+function isMergedPullRequest(pr, repository) {
+  return pr.baseRepository === repository && pr.mergedAt !== null && pr.mergeCommitSha !== null;
+}
 function pullRequestRecord(pr, commits) {
   const parsed = parseConventionalCommit(pr.title);
   const ordered = [...commits].sort(
@@ -10797,7 +10809,9 @@ function pullRequestRecord(pr, commits) {
   };
 }
 function samePullRequest(left, right) {
-  return left.number === right.number && left.title === right.title && left.body === right.body && left.mergedAt === right.mergedAt && left.mergeCommitSha === right.mergeCommitSha && left.baseRepository === right.baseRepository;
+  const leftLabels = [...left.labels].sort();
+  const rightLabels = [...right.labels].sort();
+  return left.number === right.number && left.title === right.title && left.body === right.body && left.mergedAt === right.mergedAt && left.mergeCommitSha === right.mergeCommitSha && left.baseRepository === right.baseRepository && left.userLogin === right.userLogin && left.userType === right.userType && leftLabels.length === rightLabels.length && leftLabels.every((label, index) => label === rightLabels[index]);
 }
 async function collectPullRequestRecords(options) {
   const selectedShas = new Set(
@@ -10814,7 +10828,7 @@ async function collectPullRequestRecords(options) {
       commit.sha
     );
     const merged = associations.filter(
-      (pr2) => pr2.baseRepository === options.repository && pr2.mergedAt.length > 0
+      (pr2) => isMergedPullRequest(pr2, options.repository)
     );
     if (merged.length === 0) {
       diagnostics.push(
@@ -11158,6 +11172,11 @@ function buildNotesReport(options) {
   return {
     version: 1,
     preset: options.policy.preset,
+    status: "prepared",
+    metadata: {
+      pullRequestMetadataMutable: options.policy.source !== "commits",
+      rangeSelectionMutable: options.policy.range.from === void 0 || "tag" in options.policy.range.from
+    },
     effectivePolicy: options.policy,
     range: options.range,
     included: options.changes.included.map((record) => ({
@@ -11299,6 +11318,11 @@ function releaseCandidates(repository, target, releases, strategy, tagPattern) {
       continue;
     }
     if (!import_semver.default.lt(parsed.version, target.version)) continue;
+    if (strategy === "auto" && !stable(parsed.version) !== release.prerelease) {
+      throw new Error(
+        `published release ${release.tag} has prerelease state inconsistent with its SemVer tag; choose an explicit range policy/base or correct the release metadata`
+      );
+    }
     let eligible = false;
     if (strategy === "previous-release") {
       eligible = true;
@@ -11633,7 +11657,10 @@ async function prepareNotes(options) {
     );
     configOrigin = {
       path: loaded.path,
-      sha256: (0, import_node_crypto2.createHash)("sha256").update(loaded.text, "utf8").digest("hex")
+      sha256: (0, import_node_crypto2.createHash)("sha256").update(loaded.text, "utf8").digest("hex"),
+      checkoutRevision: new GitRepository(
+        (0, import_node_path3.resolve)(options.workspace)
+      ).resolveCommit("HEAD")
     };
   }
   const resolved = resolveConfig(mode, configDocument);

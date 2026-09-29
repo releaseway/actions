@@ -196,6 +196,14 @@ function releaseCandidates(
       continue;
     }
     if (!semver.lt(parsed.version, target.version)) continue;
+    if (
+      strategy === "auto" &&
+      (!stable(parsed.version)) !== release.prerelease
+    ) {
+      throw new Error(
+        `published release ${release.tag} has prerelease state inconsistent with its SemVer tag; choose an explicit range policy/base or correct the release metadata`,
+      );
+    }
 
     let eligible = false;
     if (strategy === "previous-release") {

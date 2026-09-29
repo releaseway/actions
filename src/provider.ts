@@ -16,8 +16,24 @@ export interface PullRequestCollection {
   diagnostics: string[];
 }
 
-function pullRequestRecord(
+type MergedPullRequestAssociation = PullRequestAssociation & {
+  mergedAt: string;
+  mergeCommitSha: string;
+};
+
+function isMergedPullRequest(
   pr: PullRequestAssociation,
+  repository: string,
+): pr is MergedPullRequestAssociation {
+  return (
+    pr.baseRepository === repository &&
+    pr.mergedAt !== null &&
+    pr.mergeCommitSha !== null
+  );
+}
+
+function pullRequestRecord(
+  pr: MergedPullRequestAssociation,
   commits: readonly CommitEvidence[],
 ): ChangeRecord {
   const parsed = parseConventionalCommit(pr.title);
@@ -78,16 +94,22 @@ function pullRequestRecord(
 }
 
 function samePullRequest(
-  left: PullRequestAssociation,
-  right: PullRequestAssociation,
+  left: MergedPullRequestAssociation,
+  right: MergedPullRequestAssociation,
 ): boolean {
+  const leftLabels = [...left.labels].sort();
+  const rightLabels = [...right.labels].sort();
   return (
     left.number === right.number &&
     left.title === right.title &&
     left.body === right.body &&
     left.mergedAt === right.mergedAt &&
     left.mergeCommitSha === right.mergeCommitSha &&
-    left.baseRepository === right.baseRepository
+    left.baseRepository === right.baseRepository &&
+    left.userLogin === right.userLogin &&
+    left.userType === right.userType &&
+    leftLabels.length === rightLabels.length &&
+    leftLabels.every((label, index) => label === rightLabels[index])
   );
 }
 
@@ -102,7 +124,7 @@ export async function collectPullRequestRecords(options: {
   const assignments = new Map<
     number,
     {
-      pr: PullRequestAssociation;
+      pr: MergedPullRequestAssociation;
       commits: CommitEvidence[];
     }
   >();
@@ -116,10 +138,8 @@ export async function collectPullRequestRecords(options: {
       options.repository,
       commit.sha,
     );
-    const merged = associations.filter(
-      (pr) =>
-        pr.baseRepository === options.repository &&
-        pr.mergedAt.length > 0,
+    const merged = associations.filter((pr) =>
+      isMergedPullRequest(pr, options.repository),
     );
 
     if (merged.length === 0) {

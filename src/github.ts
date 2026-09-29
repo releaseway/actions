@@ -4,8 +4,8 @@ export interface PullRequestAssociation {
   number: number;
   title: string;
   body: string;
-  mergedAt: string;
-  mergeCommitSha: string;
+  mergedAt: string | null;
+  mergeCommitSha: string | null;
   userLogin: string | null;
   userType: string | null;
   labels: string[];
@@ -110,17 +110,24 @@ function parsePullRequestView(
   const pr = object(value, "pull request");
   if (
     typeof pr.number !== "number" ||
-    typeof pr.title !== "string" ||
-    typeof pr.mergedAt !== "string"
+    typeof pr.title !== "string"
   ) {
     return null;
   }
 
-  const mergeCommit = object(
-    pr.mergeCommit,
-    "pull request merge commit",
-  );
-  if (typeof mergeCommit.oid !== "string") return null;
+  const mergeCommit =
+    typeof pr.mergeCommit === "object" && pr.mergeCommit !== null
+      ? object(pr.mergeCommit, "pull request merge commit")
+      : null;
+  const mergedAt =
+    typeof pr.mergedAt === "string" ? pr.mergedAt : null;
+  const mergeCommitSha =
+    mergeCommit && typeof mergeCommit.oid === "string"
+      ? mergeCommit.oid.toLowerCase()
+      : null;
+  if ((mergedAt === null) !== (mergeCommitSha === null)) {
+    return null;
+  }
 
   const author =
     typeof pr.author === "object" && pr.author !== null
@@ -141,8 +148,8 @@ function parsePullRequestView(
     number: pr.number,
     title: pr.title,
     body: typeof pr.body === "string" ? pr.body : "",
-    mergedAt: pr.mergedAt,
-    mergeCommitSha: mergeCommit.oid.toLowerCase(),
+    mergedAt,
+    mergeCommitSha,
     userLogin: author ? stringOrNull(author.login) : null,
     userType: isBot === null ? null : isBot ? "Bot" : "User",
     labels,
