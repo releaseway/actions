@@ -201,7 +201,7 @@ notes:
 
 ## Range selection
 
-Custom generation resolves the target tag in an isolated evidence repository fetched from the caller's `origin`; it does not mutate caller refs or assume the checkout is positioned at the target commit.
+Custom generation resolves the target tag in an isolated evidence repository fetched from the caller's `origin`; it does not mutate caller refs or assume the checkout is positioned at the target commit. For private HTTPS checkouts, the checkout's HTTP authorization header is forwarded only to the isolated fetch subprocess and is not persisted in the evidence repository.
 
 The default policy is:
 
@@ -214,7 +214,7 @@ range:
 
 Published GitHub Releases and ordinary Git tags are deliberately different inputs. `auto`, `previous-release`, and `previous-stable` select from published releases. `previous-tag` may select an unpublished tag.
 
-Automatic selection is ancestry-aware. If eligible published releases exist but none lies on the requested target's first-parent ancestry, the action fails rather than silently treating the target as a first release. Choose `ancestry: reachable` or an explicit base when that is intentional. An unrelated explicit base is rejected.
+Automatic selection is ancestry-aware. For `auto`, SemVer prerelease syntax, the requested `prerelease` state, and the prerelease flags of relevant published SemVer releases must agree; contradictory metadata fails instead of being silently reclassified. If eligible published releases exist but none lies on the requested target's first-parent ancestry, the action fails rather than silently treating the target as a first release. Choose `ancestry: reachable` or an explicit base when that is intentional. An unrelated explicit base is rejected.
 
 For a first release with no eligible base, `first-release: all` includes all target-reachable history, `empty` intentionally produces no changes, and `error` requires the caller to specify a base.
 
@@ -231,7 +231,7 @@ Commit-based presets infer display meaning from commit messages and Git history.
 
 PR modes start from the exact released commit set. For each selected commit the action asks GitHub which PR numbers are associated with it, then hydrates each PR's merged landing identity and metadata before assigning coverage.
 
-A PR is used only when its verified landing commit is inside the released range. Ambiguous associations stay uncovered; title similarity is never used as identity.
+A PR is used only when it is actually merged and its verified landing commit is inside the released range. Open or closed-unmerged associations are ignored for coverage. Ambiguous merged associations stay uncovered; title similarity is never used as identity.
 
 `pull-requests` defaults to `unmatched: error`. With `unmatched: omit`, the body includes an explicit notice and the diagnostics report records the omitted commit identities. `hybrid` keeps uncovered commits as commit records instead.
 
@@ -339,7 +339,7 @@ A prerelease cannot use `latest: "true"`.
 | `notes-report` | Local path to the versioned JSON diagnostics report. |
 | `notes-state` | `prepared` in preview, `verified` when requested body equality was established, or `preserved` when an existing body was intentionally retained. |
 
-The report records the effective policy, selected range, included/excluded identities, diagnostics, and final body SHA-256/byte length for custom generation.
+The report records its preparation status, the effective policy, configuration path/digest plus caller checkout revision when a config is used, selected range, included/excluded identities, diagnostics, metadata-mutability flags, and final body SHA-256/byte length for custom generation. `notes-state` remains the authoritative lifecycle outcome after publication verification.
 
 ## Release lifecycle guarantees
 

@@ -34,6 +34,10 @@ test("README documents every public release-note mode and lifecycle policy", asy
   assert.match(readme, /at most 10,000 commits/);
   assert.match(readme, /at most 1 MiB of UTF-8 text/);
   assert.match(readme, /when `title` is omitted, the existing published title is preserved/);
+  assert.match(readme, /Open or closed-unmerged associations are ignored for coverage/);
+  assert.match(readme, /HTTP authorization header is forwarded only to the isolated fetch subprocess/);
+  assert.match(readme, /metadata-mutability flags/);
+  assert.match(readme, /contradictory metadata fails instead of being silently reclassified/);
   for (const layout of [
     "standard",
     "compact",
