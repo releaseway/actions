@@ -46,6 +46,7 @@ function inputs(overrides = {}) {
     notesExisting: "auto",
     notesPreview: false,
     prerelease: false,
+    latest: "automatic",
     ...overrides,
   };
 }
@@ -433,4 +434,64 @@ test("GitHub native mode validates previous tag and returned text before output"
       }),
     /unsupported control characters/,
   );
+});
+
+
+test("first-release empty skips evidence records and PR provider collection", async () => {
+  const root = await mkdtemp(join(tmpdir(), "releaseway-first-empty-"));
+  const origin = join(root, "origin.git");
+  const workspace = join(root, "work");
+  execFileSync("git", ["init", "--bare", origin]);
+  execFileSync("git", ["init", "-b", "main", workspace]);
+  git(workspace, "config", "user.email", "fixture@example.invalid");
+  git(workspace, "config", "user.name", "Fixture");
+  git(workspace, "config", "commit.gpgsign", "false");
+  git(workspace, "config", "tag.gpgSign", "false");
+  git(workspace, "config", "core.hooksPath", "/dev/null");
+  git(workspace, "remote", "add", "origin", origin);
+
+  await writeFile(join(workspace, "one.txt"), "one\n");
+  git(workspace, "add", "one.txt");
+  git(workspace, "commit", "-m", "feat: first");
+  await writeFile(join(workspace, "two.txt"), "two\n");
+  git(workspace, "add", "two.txt");
+  git(workspace, "commit", "-m", "fix: second");
+  const target = git(workspace, "rev-parse", "HEAD");
+  git(workspace, "tag", "v1.0.0");
+  git(workspace, "push", "origin", "main", "--tags");
+
+  const configPath = join(root, "empty.yml");
+  await writeFile(
+    configPath,
+    "version: 1\nnotes:\n  range:\n    first-release: empty\n",
+    "utf8",
+  );
+
+  const api = new FakeApi();
+  let associationReads = 0;
+  api.associatedPullRequests = async () => {
+    associationReads += 1;
+    throw new Error("PR provider must not be called for an empty range");
+  };
+
+  const prepared = await prepareNotes({
+    inputs: inputs({
+      notes: "pull-requests",
+      notesConfig: configPath,
+    }),
+    repository: "releaseway/example",
+    tag: "v1.0.0",
+    commit: target,
+    workspace,
+    runnerTemp: root,
+    api,
+  });
+
+  assert.equal(prepared.body, "");
+  assert.equal(associationReads, 0);
+  const report = JSON.parse(await readFile(prepared.reportPath, "utf8"));
+  assert.equal(report.range.firstRelease, true);
+  assert.equal(report.range.empty, true);
+  assert.deepEqual(report.included, []);
+  assert.deepEqual(report.excluded, []);
 });

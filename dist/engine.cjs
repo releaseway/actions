@@ -9562,21 +9562,37 @@ var GhCliApi = class {
     return { body: raw.body, name: raw.name };
   }
   async releaseByTag(repository, tag) {
-    let output;
+    let releaseIdText;
     try {
-      output = this.runGh([
-        "api",
-        "-H",
-        "Accept: application/vnd.github+json",
-        "-H",
-        "X-GitHub-Api-Version: 2026-03-10",
-        `repos/${repository}/releases/tags/${encodeURIComponent(tag)}`
-      ]);
+      releaseIdText = this.runGh([
+        "release",
+        "view",
+        tag,
+        "--repo",
+        repository,
+        "--json",
+        "databaseId",
+        "--jq",
+        ".databaseId"
+      ]).trim();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (/404|not found/i.test(message)) return null;
+      if (/gh api failed: release not found$/i.test(message)) return null;
       throw error;
     }
+    if (!/^[1-9][0-9]*$/.test(releaseIdText)) {
+      throw new Error(
+        `release lookup returned invalid database id for ${tag}`
+      );
+    }
+    const output = this.runGh([
+      "api",
+      "-H",
+      "Accept: application/vnd.github+json",
+      "-H",
+      "X-GitHub-Api-Version: 2026-03-10",
+      `repos/${repository}/releases/${releaseIdText}`
+    ]);
     const raw = object(JSON.parse(output), "release response");
     if (typeof raw.id !== "number" || typeof raw.tag_name !== "string" || typeof raw.draft !== "boolean" || typeof raw.prerelease !== "boolean") {
       throw new Error("release response is missing required fields");

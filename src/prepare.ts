@@ -276,11 +276,13 @@ export async function prepareNotes(
     targetPrerelease: options.inputs.prerelease,
     policy: policy.range,
   });
-  const commits = collectCommitEvidence(
-    evidence.repository,
-    range.targetSha,
-    range.baseSha,
-  );
+  const commits = range.empty
+    ? []
+    : collectCommitEvidence(
+        evidence.repository,
+        range.targetSha,
+        range.baseSha,
+      );
   const commitRecords = commits.map(commitRecord);
   const transportMergeIds = new Set(
     commits.flatMap((commit, index) => {

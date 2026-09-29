@@ -283,21 +283,37 @@ export class GhCliApi implements GitHubApi {
     repository: string,
     tag: string,
   ): Promise<ReleaseSnapshot | null> {
-    let output: string;
+    let releaseIdText: string;
     try {
-      output = this.runGh([
-        "api",
-        "-H",
-        "Accept: application/vnd.github+json",
-        "-H",
-        "X-GitHub-Api-Version: 2026-03-10",
-        `repos/${repository}/releases/tags/${encodeURIComponent(tag)}`,
-      ]);
+      releaseIdText = this.runGh([
+        "release",
+        "view",
+        tag,
+        "--repo",
+        repository,
+        "--json",
+        "databaseId",
+        "--jq",
+        ".databaseId",
+      ]).trim();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (/404|not found/i.test(message)) return null;
+      if (/gh api failed: release not found$/i.test(message)) return null;
       throw error;
     }
+    if (!/^[1-9][0-9]*$/.test(releaseIdText)) {
+      throw new Error(
+        `release lookup returned invalid database id for ${tag}`,
+      );
+    }
+    const output = this.runGh([
+      "api",
+      "-H",
+      "Accept: application/vnd.github+json",
+      "-H",
+      "X-GitHub-Api-Version: 2026-03-10",
+      `repos/${repository}/releases/${releaseIdText}`,
+    ]);
     const raw = object(JSON.parse(output), "release response");
     if (
       typeof raw.id !== "number" ||

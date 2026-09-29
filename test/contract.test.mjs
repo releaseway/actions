@@ -14,6 +14,7 @@ test("notes defaults to standard with explicit lifecycle defaults", () => {
     notesExisting: "auto",
     notesPreview: false,
     prerelease: false,
+    latest: "automatic",
   });
 });
 
@@ -59,6 +60,7 @@ test("file mode requires the file and rejects generation config", () => {
       notesExisting: "auto",
       notesPreview: false,
       prerelease: false,
+      latest: "automatic",
     },
   );
 });
@@ -93,7 +95,7 @@ test("none rejects configuration and booleans are not mode aliases", () => {
   );
 });
 
-test("existing policy, preview, and prerelease are strict booleans/enums", () => {
+test("existing policy, preview, prerelease, and latest are strict", () => {
   assert.equal(
     resolveActionInputs({ INPUT_NOTES_EXISTING: "verify" }).notesExisting,
     "verify",
@@ -117,5 +119,21 @@ test("existing policy, preview, and prerelease are strict booleans/enums", () =>
   assert.throws(
     () => resolveActionInputs({ INPUT_PRERELEASE: "yes" }),
     /prerelease must be true or false/,
+  );
+  assert.equal(
+    resolveActionInputs({ INPUT_LATEST: "false" }).latest,
+    "false",
+  );
+  assert.throws(
+    () => resolveActionInputs({ INPUT_LATEST: "newest" }),
+    /latest must be one of/,
+  );
+  assert.throws(
+    () =>
+      resolveActionInputs({
+        INPUT_PRERELEASE: "true",
+        INPUT_LATEST: "true",
+      }),
+    /prerelease releases cannot be marked latest/,
   );
 });

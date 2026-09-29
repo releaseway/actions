@@ -9419,6 +9419,14 @@ function resolveActionInputs(env = process.env) {
     "prerelease",
     input(env, "prerelease").trim() || "false"
   );
+  const latest = parseEnum(
+    "latest",
+    input(env, "latest").trim() || "automatic",
+    ["automatic", "true", "false"]
+  );
+  if (prerelease && latest === "true") {
+    throw new Error("prerelease releases cannot be marked latest");
+  }
   if (notes === "file") {
     if (!notesFile) {
       throw new Error("notes-file is required when notes=file");
@@ -9438,7 +9446,8 @@ function resolveActionInputs(env = process.env) {
     notesFile,
     notesExisting,
     notesPreview,
-    prerelease
+    prerelease,
+    latest
   };
 }
 
@@ -9603,21 +9612,37 @@ var GhCliApi = class {
     return { body: raw.body, name: raw.name };
   }
   async releaseByTag(repository, tag) {
-    let output;
+    let releaseIdText;
     try {
-      output = this.runGh([
-        "api",
-        "-H",
-        "Accept: application/vnd.github+json",
-        "-H",
-        "X-GitHub-Api-Version: 2026-03-10",
-        `repos/${repository}/releases/tags/${encodeURIComponent(tag)}`
-      ]);
+      releaseIdText = this.runGh([
+        "release",
+        "view",
+        tag,
+        "--repo",
+        repository,
+        "--json",
+        "databaseId",
+        "--jq",
+        ".databaseId"
+      ]).trim();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (/404|not found/i.test(message)) return null;
+      if (/gh api failed: release not found$/i.test(message)) return null;
       throw error;
     }
+    if (!/^[1-9][0-9]*$/.test(releaseIdText)) {
+      throw new Error(
+        `release lookup returned invalid database id for ${tag}`
+      );
+    }
+    const output = this.runGh([
+      "api",
+      "-H",
+      "Accept: application/vnd.github+json",
+      "-H",
+      "X-GitHub-Api-Version: 2026-03-10",
+      `repos/${repository}/releases/${releaseIdText}`
+    ]);
     const raw = object(JSON.parse(output), "release response");
     if (typeof raw.id !== "number" || typeof raw.tag_name !== "string" || typeof raw.draft !== "boolean" || typeof raw.prerelease !== "boolean") {
       throw new Error("release response is missing required fields");
@@ -11716,7 +11741,7 @@ async function prepareNotes(options) {
     targetPrerelease: options.inputs.prerelease,
     policy: policy.range
   });
-  const commits = collectCommitEvidence(
+  const commits = range.empty ? [] : collectCommitEvidence(
     evidence.repository,
     range.targetSha,
     range.baseSha
@@ -11970,6 +11995,8 @@ async function runAction(options = {}) {
     INPUT_NOTES_FILE: preserveBody ? "" : prepared.notesPath,
     INPUT_NOTES_EXISTING: inputs.notesExisting,
     INPUT_NOTES_PREVIEW: "false",
+    INPUT_PRERELEASE: String(inputs.prerelease),
+    INPUT_LATEST: inputs.latest,
     RELEASE_ACTIONS_PRESERVE_BODY: preserveBody ? "true" : "false",
     RELEASE_ACTIONS_ACCEPTED_BODY_FILE: preserveBody ? prepared.notesPath : "",
     RELEASE_ACTIONS_VERIFY_TITLE: existing && !existing.draft && (env.INPUT_TITLE ?? "") === "" ? "false" : "true",

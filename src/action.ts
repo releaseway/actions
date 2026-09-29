@@ -272,6 +272,8 @@ export async function runAction(
     INPUT_NOTES_FILE: preserveBody ? "" : prepared.notesPath,
     INPUT_NOTES_EXISTING: inputs.notesExisting,
     INPUT_NOTES_PREVIEW: "false",
+    INPUT_PRERELEASE: String(inputs.prerelease),
+    INPUT_LATEST: inputs.latest,
     RELEASE_ACTIONS_PRESERVE_BODY: preserveBody ? "true" : "false",
     RELEASE_ACTIONS_ACCEPTED_BODY_FILE: preserveBody
       ? prepared.notesPath

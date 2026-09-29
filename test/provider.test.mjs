@@ -350,3 +350,63 @@ test("GitHub CLI adapter preserves native generated body opaquely and sends expl
     ),
   );
 });
+
+
+test("release lookup returns null only for the explicit missing-release signal", async () => {
+  const missing = new GhCliApi((args) => {
+    if (args[0] === "release" && args[1] === "view") {
+      throw new Error("gh api failed: release not found");
+    }
+    throw new Error(`unexpected command: ${args.join(" ")}`);
+  });
+  assert.equal(
+    await missing.releaseByTag("releaseway/example", "v1.0.0"),
+    null,
+  );
+
+  const ambiguous404 = new GhCliApi((args) => {
+    if (args[0] === "release" && args[1] === "view") {
+      throw new Error(
+        "gh api failed: HTTP 404: Not Found (https://api.github.com/repos/releaseway/example)",
+      );
+    }
+    throw new Error(`unexpected command: ${args.join(" ")}`);
+  });
+  await assert.rejects(
+    () => ambiguous404.releaseByTag("releaseway/example", "v1.0.0"),
+    /HTTP 404: Not Found/,
+  );
+});
+
+test("release lookup resolves the release id before reading the snapshot", async () => {
+  const calls = [];
+  const api = new GhCliApi((args) => {
+    calls.push([...args]);
+    if (args[0] === "release" && args[1] === "view") {
+      return "42\n";
+    }
+    if (args[0] === "api") {
+      return JSON.stringify({
+        id: 42,
+        tag_name: "v1.0.0",
+        name: "Release title",
+        body: "Body\n",
+        draft: false,
+        prerelease: false,
+        immutable: true,
+        html_url: "https://example.invalid/release/42",
+      });
+    }
+    throw new Error(`unexpected command: ${args.join(" ")}`);
+  });
+
+  const release = await api.releaseByTag(
+    "releaseway/example",
+    "v1.0.0",
+  );
+  assert.equal(release.id, 42);
+  assert.equal(release.name, "Release title");
+  assert.equal(release.body, "Body\n");
+  assert.equal(calls[0][0], "release");
+  assert.ok(calls[1].some((arg) => arg.endsWith("/releases/42")));
+});
