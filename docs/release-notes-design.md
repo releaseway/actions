@@ -268,13 +268,13 @@ Custom commit-only generation needs no Pull requests API permission. Custom PR/h
 
 Use local Git for complete commit evidence rather than treating the REST compare response as a complete history/path database. GitHub's unpaginated compare commit limit and separate file-list limit are reasons not to infer completeness from a small successful response. [S6]
 
-Bound file sizes, parser depth, history traversal, API concurrency/pages/retries, and output size. Publish the actual tested limits with the implementation. Exhaustion, failed pagination, missing permissions, and invalid evidence are errors before publication, not empty changelogs or silent truncation. Retry transient reads/native preparation only within a finite budget; do not indiscriminately retry state-changing release operations without rereading state. Do not expose arbitrary matching code or unbounded regular expressions through configuration.
+Bound file sizes, parser depth, history traversal, provider calls, pagination, and output size. The selected implementation limits are: 256 KiB notes-config files, parsed config depth 16, 10,000 commits per custom release range, 20 GitHub list/association pages of 100 records each, 30 seconds per notes-engine Git or GitHub CLI subprocess, and 1 MiB per prepared UTF-8 release-note body. Exhaustion, failed pagination, missing permissions, timeouts, and invalid evidence are errors before publication, not empty changelogs or silent truncation. Do not indiscriminately retry state-changing release operations without rereading state. Do not expose arbitrary matching code or unbounded regular expressions through configuration.
 
 ## 10. Preview and documentation experience
 
 `notes-preview: true` verifies repository/target identity, resolves the requested policy, and prepares output/report without release mutation or asset validation/upload. Existing `tag` and `commit` remain required; preview does not create tags. Set `state: preview`, leave `release-url` empty, and return notes outputs. For `none`, prepare an empty file and an explanatory report. Preview is a point-in-time result; it does not reserve release state or freeze PR metadata for a later independent invocation.
 
-The README continues to describe the old implementation until the new implementation passes its gates. When it ships, documentation must include: preset gallery from one common fixture, source/layout distinction, input conflict table, complete schema, default range examples including prereleases/backports/first release, per-provider capability and permission tables, notes/title/rerun semantics, preview and file replay examples, source-information limitations, and the clean-break notice.
+The README is part of the shipped contract and includes: a preset gallery from one common fixture, source/layout distinction, input conflict table, complete schema, default range examples including prereleases/backports/first release, per-provider capability and permission tables, notes/title/rerun semantics, preview and file replay examples, source-information limitations, tested execution limits, and the clean-break notice.
 
 Illustrative standard output, not a claim of executed generator output:
 
@@ -309,7 +309,7 @@ In the fixture, the breaking explanation comes from its commit footer; it is not
 
 The external acceptance repository is `releaseway/release-fixture`. This is not a synthetic unit-test directory: it is the black-box consumer that owns real Git tags, GitHub Releases, deterministic assets, and public workflow calls. Candidate validation must exercise `releaseway/actions` through its action interface from this repository, never by importing action implementation modules.
 
-As observed on 2026-09-28, the fixture has published immutable releases `v0.1.0`, `v0.1.1`, and `v0.1.2`; tags `v1.0.0` and `v1.1.0` exist without published releases; and there are currently no pull requests. Its existing `release.yml` pins released `releaseway/actions` and remains the ordinary product-fixture workflow. Candidate acceptance gets a separate workflow so testing an unreleased action does not require temporarily repinning that stable workflow.
+The fixture retains ordinary product releases/tags plus a permanent release-note dataset: merge, squash, and rebase PRs; a direct uncovered commit; unpublished-tag range fixtures; and dedicated immutable prerelease acceptance tags. Its existing `release.yml` remains the ordinary product-fixture workflow. Candidate acceptance uses a separate workflow that checks out the exact `releaseway/actions` candidate SHA, so testing an unreleased action never requires temporarily repinning the stable product workflow.
 
 ### 11.1 Mandatory validation layers
 

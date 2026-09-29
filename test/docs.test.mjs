@@ -29,6 +29,25 @@ test("README documents every public release-note mode and lifecycle policy", asy
   assert.match(readme, /old boolean `generate-notes` input is removed/);
   assert.match(readme, /GitHub-native preview\/generation \| `contents: write`/);
   assert.match(readme, /PR\/hybrid preview \| `contents: read`, `pull-requests: read`/);
+  assert.match(readme, /### Preset gallery/);
+  assert.match(readme, /### Input combinations/);
+  assert.match(readme, /at most 10,000 commits/);
+  assert.match(readme, /at most 1 MiB of UTF-8 text/);
+  assert.match(readme, /when `title` is omitted, the existing published title is preserved/);
+  for (const layout of [
+    "standard",
+    "compact",
+    "conventional",
+    "changelog",
+    "detailed",
+    "scoped",
+  ]) {
+    assert.match(
+      readme,
+      new RegExp(`\\| \\\`${layout}\\\` \\\|`),
+      `README preset gallery is missing ${layout}`,
+    );
+  }
 });
 
 test("README input and output tables cover action metadata", async () => {

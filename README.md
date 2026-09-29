@@ -70,6 +70,43 @@ There is no compatibility alias for the old input.
 
 The custom presets share one evidence and classification model. Changing only the render layout does not silently change the selected Git range.
 
+
+### Preset gallery
+
+The six custom layouts below use the same evidence so the difference is presentation, not collection:
+
+```text
+feat(config)!: replace option format
+feat(cli): add validation command
+fix(upload): handle paths with spaces
+docs: clarify setup
+```
+
+| Preset | Shape from that common fixture |
+| --- | --- |
+| `standard` | `Breaking Changes`, `Features`, `Fixes`, `Documentation` |
+| `compact` | `Breaking Changes` plus one `Changes` section |
+| `conventional` | `Breaking Changes`, then sections named by commit type such as `feat`, `fix`, `docs` |
+| `changelog` | `Breaking Changes`, then changelog-style `Added`, `Fixed`, and `Other Changes` |
+| `detailed` | Standard grouping plus available source body text and author attribution |
+| `scoped` | Scope headings such as `config`, `cli`, `upload`, and `Unscoped`, with categories nested below |
+
+Breaking entries are shown once in the dedicated breaking section rather than duplicated in their ordinary category.
+
+### Input combinations
+
+| Combination | Result |
+| --- | --- |
+| `notes: file` + `notes-file` | valid; file is required |
+| any non-`file` mode + `notes-file` | error |
+| `notes: file` + `notes-config` | error |
+| `notes: none` + `notes-config` | error |
+| custom preset + `notes-config` | valid; config overrides the preset |
+| `notes: github` + GitHub-only config | valid |
+| `range.strategy` + `range.from` in one config | error |
+| `unmatched: omit` with a source other than `pull-requests` | error |
+
+
 ### Default classification
 
 The standard categories recognize these Conventional Commit types:
@@ -181,6 +218,15 @@ Automatic selection is ancestry-aware. If eligible published releases exist but 
 
 For a first release with no eligible base, `first-release: all` includes all target-reachable history, `empty` intentionally produces no changes, and `error` requires the caller to specify a base.
 
+Typical `auto` examples:
+
+- stable `v1.2.0` after published `v1.1.0` → base `v1.1.0`;
+- `v1.3.0-beta.2` after published `v1.3.0-beta.1` → base `v1.3.0-beta.1`;
+- maintenance `v1.0.2` on the `v1.0.x` first-parent line → nearest published ancestor such as `v1.0.1`, not a newer release on another branch;
+- first stable release with only earlier prereleases in its family → first-release policy applies rather than silently using the last prerelease.
+
+Commit-based presets infer display meaning from commit messages and Git history. They do not inspect code semantics, changed paths, issue text, or runtime behavior, and they do not invent migration guidance or impact claims.
+
 ## Pull-request and hybrid evidence
 
 PR modes start from the exact released commit set. For each selected commit the action asks GitHub which PR numbers are associated with it, then hydrates each PR's merged landing identity and metadata before assigning coverage.
@@ -202,6 +248,8 @@ PR labels can choose the primary category, while breaking/security/deprecation/r
 | `preserve` | Preserve the observed body and verify it does not change during the run. | Preserve the observed body and verify it does not change during the run. |
 
 No policy automatically overwrites an existing release body.
+
+Release title handling is separate from the body policy. New releases and existing drafts use the explicit `title` or the tag when it is omitted. For an already published release, an explicit `title` must match; when `title` is omitted, the existing published title is preserved.
 
 For new publication, the prepared body is passed to the draft and verified again after publication. Exact comparisons preserve trailing-newline semantics.
 
@@ -239,6 +287,14 @@ The file must contain valid UTF-8. Its byte-level newline choice is preserved. `
 ## Permissions
 
 The action uses the caller's `github.token` by default.
+
+| Evidence/provider | Available metadata | Important limitation |
+| --- | --- | --- |
+| commit presets | full commit message, SHA, commit author, Git ancestry | no PR labels/bot identity; semantics come from messages |
+| `pull-requests` | verified PR identity, title/body, labels, author, covered commits | every released commit must be covered unless `unmatched: omit` is explicit |
+| `hybrid` | verified PR metadata plus uncovered commit evidence | uncovered entries have only commit metadata |
+| `github` | GitHub Generate Release Notes result | formatting/classification is GitHub-owned and opaque to Releaseway |
+| `file` / `none` | caller-provided bytes / empty body | no automatic change evidence is collected |
 
 | Operation | Minimum repository permissions |
 | --- | --- |
@@ -303,8 +359,11 @@ Immutable releases are a repository prerequisite; this action does not enable th
 
 The current implementation deliberately bounds external evidence work:
 
-- each Git subprocess has a 30-second timeout;
+- each notes-engine Git subprocess has a 30-second timeout;
+- each notes-engine GitHub CLI/API subprocess has a 30-second timeout;
 - GitHub list/association reads use at most 20 pages of 100 records each;
+- one custom release range may contain at most 10,000 commits;
+- a prepared release-note body may contain at most 1 MiB of UTF-8 text;
 - `notes-config` is limited to 256 KiB and parsed depth 16.
 
 Exhausted pagination, invalid evidence, missing permissions, or ambiguous range selection are errors rather than silent truncation.
