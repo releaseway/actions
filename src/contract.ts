@@ -28,6 +28,7 @@ export interface ActionInputs {
   notesFile: string;
   notesExisting: NotesExistingPolicy;
   notesPreview: boolean;
+  prerelease: boolean;
 }
 
 function inputName(name: string): string {
@@ -77,6 +78,10 @@ export function resolveActionInputs(
     "notes-preview",
     input(env, "notes-preview").trim() || "false",
   );
+  const prerelease = parseBoolean(
+    "prerelease",
+    input(env, "prerelease").trim() || "false",
+  );
 
   if (notes === "file") {
     if (!notesFile) {
@@ -99,6 +104,7 @@ export function resolveActionInputs(
     notesFile,
     notesExisting,
     notesPreview,
+    prerelease,
   };
 }
 

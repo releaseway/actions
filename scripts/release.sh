@@ -391,6 +391,18 @@ verify_latest_state() {
   esac
 }
 
+verify_requested_title() {
+  local expected_title actual_title
+
+  [ "${RELEASE_ACTIONS_VERIFY_TITLE:-true}" = "true" ] || return 0
+  expected_title="${INPUT_TITLE:-$INPUT_TAG}"
+  actual_title="$(
+    api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --jq '.name // ""'
+  )" || die "could not read release title for $INPUT_TAG"
+  [ "$actual_title" = "$expected_title" ] ||
+    die "release title does not match requested title: $INPUT_TAG"
+}
+
 verify_requested_body() {
   local expected_file
 
@@ -422,6 +434,7 @@ verify_published_release() {
   verify_release_assets "false"
   verify_latest_state
   verify_remote_tag "$INPUT_TAG" "$INPUT_COMMIT"
+  verify_requested_title
   verify_requested_body
 }
 
@@ -502,6 +515,7 @@ main() {
         die "existing published release is not immutable: $INPUT_TAG"
       verify_release_assets "false"
       verify_latest_state
+      verify_requested_title
       verify_requested_body
       set_outputs "existing"
       echo "::notice::verified existing immutable release $INPUT_TAG"
@@ -523,6 +537,7 @@ main() {
           die "concurrent published release is not immutable: $INPUT_TAG"
         verify_release_assets "false"
         verify_latest_state
+        verify_requested_title
         verify_requested_body
         set_outputs "existing"
         echo "::notice::verified concurrently published immutable release $INPUT_TAG"
@@ -543,6 +558,7 @@ main() {
   upload_missing_assets
   verify_release_assets "false"
   verify_remote_tag "$INPUT_TAG" "$INPUT_COMMIT"
+  verify_draft_metadata
   publish_draft_release
   verify_published_release
   set_outputs "$state"

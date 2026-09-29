@@ -9415,6 +9415,10 @@ function resolveActionInputs(env = process.env) {
     "notes-preview",
     input(env, "notes-preview").trim() || "false"
   );
+  const prerelease = parseBoolean(
+    "prerelease",
+    input(env, "prerelease").trim() || "false"
+  );
   if (notes === "file") {
     if (!notesFile) {
       throw new Error("notes-file is required when notes=file");
@@ -9433,7 +9437,8 @@ function resolveActionInputs(env = process.env) {
     notesConfig,
     notesFile,
     notesExisting,
-    notesPreview
+    notesPreview,
+    prerelease
   };
 }
 
@@ -9442,7 +9447,8 @@ var import_node_child_process = require("node:child_process");
 function defaultRunGh(args) {
   const result = (0, import_node_child_process.spawnSync)("gh", [...args], {
     encoding: "utf8",
-    env: process.env
+    env: process.env,
+    timeout: 3e4
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
@@ -9918,6 +9924,20 @@ function stringValue(value, path, options = {}) {
   }
   return value;
 }
+function fullCommitShaValue(value, path) {
+  const text = stringValue(value, path, { nonempty: true }).toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(text)) {
+    throw new Error(`${path} must be a full 40-character commit SHA`);
+  }
+  return text;
+}
+function repositoryPathValue(value, path) {
+  const text = stringValue(value, path, { nonempty: true });
+  if (text.startsWith("/") || text.includes("\\") || text.split("/").some((segment) => segment === "..")) {
+    throw new Error(`${path} must be a relative repository path`);
+  }
+  return text;
+}
 function booleanValue(value, path) {
   if (typeof value !== "boolean") {
     throw new Error(`${path} must be a boolean`);
@@ -10051,6 +10071,11 @@ function parseCategory(value, index) {
   const title = stringValue(category.title, path + ".title", {
     nonempty: true
   });
+  if (id === "other") {
+    throw new Error(
+      path + ".id uses reserved fallback category id: other"
+    );
+  }
   return {
     id,
     title,
@@ -10107,10 +10132,9 @@ function applyRange(policy, value) {
         { nonempty: true }
       )
     } : {
-      commit: stringValue(
+      commit: fullCommitShaValue(
         from.commit,
-        path + ".from.commit",
-        { nonempty: true }
+        path + ".from.commit"
       )
     };
   }
@@ -10277,10 +10301,9 @@ function resolveGitHubConfig(notes) {
       )
     } : {},
     ...github["configuration-file"] !== void 0 ? {
-      configurationFile: stringValue(
+      configurationFile: repositoryPathValue(
         github["configuration-file"],
-        "config.notes.github.configuration-file",
-        { nonempty: true }
+        "config.notes.github.configuration-file"
       )
     } : {}
   };
@@ -10363,16 +10386,26 @@ function resolveConfig(mode, document) {
 var import_node_child_process2 = require("node:child_process");
 var import_promises2 = require("node:fs/promises");
 var import_node_path2 = require("node:path");
+var MAX_RELEASE_COMMITS = 1e4;
 var GitRepository = class {
   path;
   constructor(path) {
     this.path = path;
   }
-  run(args, allowFailure = false) {
+  run(args, allowFailure = false, config = []) {
+    const configEnv = {};
+    if (config.length > 0) {
+      configEnv.GIT_CONFIG_COUNT = String(config.length);
+      config.forEach(({ key, value }, index) => {
+        configEnv[`GIT_CONFIG_KEY_${index}`] = key;
+        configEnv[`GIT_CONFIG_VALUE_${index}`] = value;
+      });
+    }
     const result = (0, import_node_child_process2.spawnSync)("git", ["-C", this.path, ...args], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
-      timeout: 3e4
+      timeout: 3e4,
+      env: { ...process.env, ...configEnv }
     });
     if (result.error) {
       throw new Error(`git ${args.join(" ")} failed: ${result.error.message}`);
@@ -10414,7 +10447,84 @@ var GitRepository = class {
   remoteUrl(name = "origin") {
     return this.run(["remote", "get-url", name]).stdout.trim();
   }
+  localHttpAuthConfig() {
+    const result = this.run(
+      [
+        "config",
+        "--local",
+        "--get-regexp",
+        "^http\\..*\\.extraheader$"
+      ],
+      true
+    );
+    if (result.status === 1) return [];
+    if (result.status !== 0) {
+      throw new Error("could not read checkout authentication configuration");
+    }
+    return result.stdout.split("\n").filter(Boolean).map((line) => {
+      const separator = line.search(/\s/);
+      if (separator <= 0) {
+        throw new Error("checkout authentication configuration is malformed");
+      }
+      return {
+        key: line.slice(0, separator),
+        value: line.slice(separator + 1)
+      };
+    });
+  }
+  remoteTagTarget(tag) {
+    const result = this.run([
+      "ls-remote",
+      "origin",
+      `refs/tags/${tag}`,
+      `refs/tags/${tag}^{}`
+    ]);
+    let object3 = "";
+    let target = "";
+    for (const line of result.stdout.split("\n")) {
+      const [sha, ref] = line.trim().split(/\s+/, 2);
+      if (!sha || !ref) continue;
+      if (ref === `refs/tags/${tag}`) object3 = sha.toLowerCase();
+      if (ref === `refs/tags/${tag}^{}`) target = sha.toLowerCase();
+    }
+    if (!object3) {
+      throw new Error(`release tag is missing from origin: ${tag}`);
+    }
+    return target || object3;
+  }
 };
+function verifyRemoteTagBinding(options) {
+  const expected = options.expectedCommit.toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(expected)) {
+    throw new Error("commit must be a full 40-character SHA");
+  }
+  const repository = new GitRepository((0, import_node_path2.resolve)(options.workspace));
+  const validRef = repository.run(
+    ["check-ref-format", `refs/tags/${options.tag}`],
+    true
+  );
+  if (validRef.status !== 0) {
+    throw new Error(`tag is not a valid Git tag: ${options.tag}`);
+  }
+  const target = repository.remoteTagTarget(options.tag);
+  if (target !== expected) {
+    throw new Error(
+      `release tag target does not match commit: tag=${target} expected=${expected}`
+    );
+  }
+  return target;
+}
+function verifyRemoteTagExists(options) {
+  const repository = new GitRepository((0, import_node_path2.resolve)(options.workspace));
+  const validRef = repository.run(
+    ["check-ref-format", `refs/tags/${options.tag}`],
+    true
+  );
+  if (validRef.status !== 0) {
+    throw new Error(`tag is not a valid Git tag: ${options.tag}`);
+  }
+  return repository.remoteTagTarget(options.tag);
+}
 async function createEvidenceRepository(options) {
   const workspace = new GitRepository((0, import_node_path2.resolve)(options.workspace));
   const origin = workspace.remoteUrl();
@@ -10422,13 +10532,17 @@ async function createEvidenceRepository(options) {
   const repository = new GitRepository(path);
   repository.run(["init", "--bare"]);
   repository.run(["remote", "add", "origin", origin]);
-  repository.run([
-    "fetch",
-    "--force",
-    "--no-recurse-submodules",
-    "origin",
-    "+refs/tags/*:refs/tags/*"
-  ]);
+  repository.run(
+    [
+      "fetch",
+      "--force",
+      "--no-recurse-submodules",
+      "origin",
+      "+refs/tags/*:refs/tags/*"
+    ],
+    false,
+    workspace.localHttpAuthConfig()
+  );
   const targetRef = `refs/tags/${options.targetTag}`;
   if (!repository.hasRef(targetRef)) {
     throw new Error(`release tag is missing from evidence origin: ${options.targetTag}`);
@@ -10449,9 +10563,27 @@ async function createEvidenceRepository(options) {
   };
 }
 function selectedCommitGraph(repository, targetSha, baseSha) {
-  const args = ["rev-list", "--parents", targetSha];
-  if (baseSha) args.push(`^${baseSha}`);
-  const rows = repository.run(args).stdout.trim().split("\n").filter(Boolean);
+  const range = [targetSha];
+  if (baseSha) range.push(`^${baseSha}`);
+  const countText = repository.run([
+    "rev-list",
+    "--count",
+    ...range
+  ]).stdout.trim();
+  const count = Number.parseInt(countText, 10);
+  if (!Number.isInteger(count) || count < 0) {
+    throw new Error("could not determine release commit count");
+  }
+  if (count > MAX_RELEASE_COMMITS) {
+    throw new Error(
+      `release history exceeds maximum commit count ${MAX_RELEASE_COMMITS}: ${count}`
+    );
+  }
+  const rows = repository.run([
+    "rev-list",
+    "--parents",
+    ...range
+  ]).stdout.trim().split("\n").filter(Boolean);
   const selected = new Set(rows.map((row) => row.split(/\s+/)[0].toLowerCase()));
   const graph = /* @__PURE__ */ new Map();
   for (const row of rows) {
@@ -10517,32 +10649,48 @@ function collectCommitEvidence(repository, targetSha, baseSha) {
 var HEADER = /^([A-Za-z][A-Za-z0-9._-]*)(?:\(([^)\r\n]+)\))?(!)?: (.+)$/;
 var BREAKING_FOOTER = /^BREAKING(?: CHANGE|-CHANGE):\s*(.*)$/;
 var FOOTER = /^[A-Za-z][A-Za-z0-9-]*(?: #[^\s]+|: .*)$/;
-function splitBodyAndFooters(lines) {
-  const breaking = [];
-  const body = [];
-  let activeBreaking = null;
-  for (const line of lines) {
-    const match = line.match(BREAKING_FOOTER);
-    if (match) {
-      activeBreaking = [match[1] ?? ""];
-      breaking.push(activeBreaking[0]);
-      continue;
-    }
-    if (activeBreaking) {
-      if (FOOTER.test(line)) {
-        activeBreaking = null;
-        continue;
-      }
-      if (line.trim() === "") {
-        activeBreaking = null;
-        continue;
-      }
-      activeBreaking.push(line);
-      breaking[breaking.length - 1] = activeBreaking.join("\n").trim();
-      continue;
-    }
-    if (!FOOTER.test(line)) body.push(line);
+function parseFooterBlock(lines) {
+  if (lines.length === 0 || !lines[0] || !(BREAKING_FOOTER.test(lines[0]) || FOOTER.test(lines[0]))) {
+    return null;
   }
+  const breaking = [];
+  let activeBreaking = -1;
+  let activeFooter = false;
+  for (const line of lines) {
+    if (line.trim() === "") return null;
+    const breakingMatch = line.match(BREAKING_FOOTER);
+    if (breakingMatch) {
+      breaking.push((breakingMatch[1] ?? "").trim());
+      activeBreaking = breaking.length - 1;
+      activeFooter = true;
+      continue;
+    }
+    if (FOOTER.test(line)) {
+      activeBreaking = -1;
+      activeFooter = true;
+      continue;
+    }
+    if (!activeFooter) return null;
+    if (activeBreaking >= 0) {
+      breaking[activeBreaking] = (breaking[activeBreaking] + "\n" + line).trim();
+    }
+  }
+  return breaking.filter(Boolean);
+}
+function splitBodyAndFooters(lines) {
+  let end = lines.length;
+  while (end > 0 && lines[end - 1].trim() === "") end -= 1;
+  const trimmed = lines.slice(0, end);
+  let footerStart = -1;
+  let breaking = [];
+  for (let index = trimmed.length - 1; index >= 1; index -= 1) {
+    if (trimmed[index - 1].trim() !== "") continue;
+    const parsed = parseFooterBlock(trimmed.slice(index));
+    if (parsed === null) continue;
+    footerStart = index;
+    breaking = parsed;
+  }
+  const body = footerStart >= 0 ? trimmed.slice(0, footerStart - 1) : trimmed;
   while (body.length > 0 && body[0].trim() === "") body.shift();
   while (body.length > 0 && body.at(-1).trim() === "") body.pop();
   return { body, breaking };
@@ -10552,6 +10700,7 @@ function parseConventionalCommit(message) {
   const lines = normalized.split("\n");
   const header = lines[0] ?? "";
   const match = header.match(HEADER);
+  const rest = splitBodyAndFooters(lines.slice(1));
   if (!match) {
     const first = header.trim() || "(empty commit message)";
     return {
@@ -10559,12 +10708,11 @@ function parseConventionalCommit(message) {
       type: null,
       scope: null,
       description: first,
-      body: lines.slice(1).join("\n").trim(),
-      breaking: false,
-      breakingDescriptions: []
+      body: rest.body.join("\n").trim(),
+      breaking: rest.breaking.length > 0,
+      breakingDescriptions: rest.breaking
     };
   }
-  const rest = splitBodyAndFooters(lines.slice(1));
   const breaking = Boolean(match[3]) || rest.breaking.length > 0;
   return {
     conventional: true,
@@ -10573,7 +10721,7 @@ function parseConventionalCommit(message) {
     description: match[4].trim(),
     body: rest.body.join("\n").trim(),
     breaking,
-    breakingDescriptions: rest.breaking.filter(Boolean)
+    breakingDescriptions: rest.breaking
   };
 }
 
@@ -10656,7 +10804,6 @@ async function collectPullRequestRecords(options) {
     options.commits.map((commit) => commit.sha.toLowerCase())
   );
   const assignments = /* @__PURE__ */ new Map();
-  const hydrated = /* @__PURE__ */ new Map();
   const uncovered = new Map(
     options.commits.map((commit) => [commit.sha, commit])
   );
@@ -10681,19 +10828,7 @@ async function collectPullRequestRecords(options) {
       );
       continue;
     }
-    let pr = merged[0];
-    if (pr.mergeCommitSha === null) {
-      const cached = hydrated.get(pr.number);
-      if (cached) {
-        pr = cached;
-      } else {
-        pr = await options.api.pullRequest(
-          options.repository,
-          pr.number
-        );
-        hydrated.set(pr.number, pr);
-      }
-    }
+    const pr = merged[0];
     const existing = assignments.get(pr.number);
     if (existing && !samePullRequest(existing.pr, pr)) {
       throw new Error(
@@ -10708,7 +10843,7 @@ async function collectPullRequestRecords(options) {
   }
   const records = [];
   for (const { pr, commits } of assignments.values()) {
-    if (pr.mergeCommitSha === null || !selectedShas.has(pr.mergeCommitSha)) {
+    if (!selectedShas.has(pr.mergeCommitSha)) {
       diagnostics.push(
         `pull-request:${pr.number}: merge commit ${pr.mergeCommitSha} is not in the released range; keeping associated commits uncovered`
       );
@@ -10763,6 +10898,23 @@ function appendProviderDiagnostics(changes, diagnostics) {
   };
 }
 
+// src/text.ts
+var MAX_NOTES_BYTES = 1024 * 1024;
+var UNSUPPORTED_CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u;
+function assertSupportedText(value, label) {
+  if (UNSUPPORTED_CONTROL.test(value)) {
+    throw new Error(`${label} contains unsupported control characters`);
+  }
+}
+function assertNotesSize(value, label = "release notes") {
+  const bytes = Buffer.byteLength(value, "utf8");
+  if (bytes > MAX_NOTES_BYTES) {
+    throw new Error(
+      `${label} exceeds maximum size ${MAX_NOTES_BYTES} bytes`
+    );
+  }
+}
+
 // src/render.ts
 function repositoryUrl(repository) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
@@ -10771,6 +10923,7 @@ function repositoryUrl(repository) {
   return `https://github.com/${repository}`;
 }
 function escapeMarkdown(value) {
+  assertSupportedText(value, "release-note text");
   return value.replace(/([\\`*_{}\[\]()<>#+\-.!|])/g, "\\$1");
 }
 function reference(record, context) {
@@ -11292,6 +11445,14 @@ function resolveRange(options) {
     };
   }
   const parsedTarget = parseVersionedTag(options.targetTag);
+  if (parsedTarget && policy.strategy === "auto" && options.targetPrerelease !== void 0) {
+    const tagPrerelease = !stable(parsedTarget.version);
+    if (tagPrerelease !== options.targetPrerelease) {
+      throw new Error(
+        "target tag prerelease classification conflicts with requested prerelease state; choose an explicit range policy/base or make the release state match the tag"
+      );
+    }
+  }
   if (!parsedTarget && policy.strategy !== "previous-tag" && !policy.tagPattern) {
     throw new Error(
       "automatic release selection for a non-SemVer tag requires tag-pattern or an explicit base"
@@ -11358,11 +11519,20 @@ function withVisibleNotices(body, notices) {
   return body ? noticeBlock + "\n\n" + body : noticeBlock + "\n";
 }
 function decodeUtf8(bytes, label) {
+  let text;
   try {
-    return utf8.decode(bytes);
+    text = utf8.decode(bytes);
   } catch {
     throw new Error(`${label} must contain valid UTF-8`);
   }
+  assertSupportedText(text, label);
+  assertNotesSize(text, label);
+  return text;
+}
+function validatePreparedBody(body, label = "release notes") {
+  assertSupportedText(body, label);
+  assertNotesSize(body, label);
+  return body;
 }
 function digestText(text) {
   return (0, import_node_crypto2.createHash)("sha256").update(text, "utf8").digest("hex");
@@ -11468,6 +11638,12 @@ async function prepareNotes(options) {
   }
   const resolved = resolveConfig(mode, configDocument);
   if (mode === "github") {
+    if (resolved.github?.previousTag) {
+      verifyRemoteTagExists({
+        workspace: options.workspace,
+        tag: resolved.github.previousTag
+      });
+    }
     const generated = await api.generateReleaseNotes({
       repository: options.repository,
       tag: options.tag,
@@ -11475,12 +11651,16 @@ async function prepareNotes(options) {
       previousTag: resolved.github?.previousTag,
       configurationFile: resolved.github?.configurationFile
     });
+    const body2 = validatePreparedBody(
+      generated.body,
+      "GitHub-generated release notes"
+    );
     return writePrepared(
       output,
-      generated.body,
+      body2,
       simpleReport({
         mode,
-        body: generated.body,
+        body: body2,
         status: "prepared",
         details: {
           source: "github",
@@ -11501,16 +11681,12 @@ async function prepareNotes(options) {
     expectedTargetSha: options.commit
   });
   const published = await api.publishedReleases(options.repository);
-  const currentRelease = await api.releaseByTag(
-    options.repository,
-    options.tag
-  );
   const range = resolveRange({
     repository: evidence.repository,
     targetTag: options.tag,
     targetSha: options.commit,
     releases: published,
-    targetPrerelease: currentRelease?.prerelease ?? false,
+    targetPrerelease: options.inputs.prerelease,
     policy: policy.range
   });
   const commits = collectCommitEvidence(
@@ -11519,8 +11695,19 @@ async function prepareNotes(options) {
     range.baseSha
   );
   const commitRecords = commits.map(commitRecord);
-  let records = commitRecords;
-  let providerDiagnostics = [];
+  const transportMergeIds = new Set(
+    commits.flatMap((commit, index) => {
+      const record = commitRecords[index];
+      return commit.parents.length > 1 && record.type === null && !record.breaking ? [record.id] : [];
+    })
+  );
+  const presentationCommitRecords = commitRecords.filter(
+    (record) => !transportMergeIds.has(record.id)
+  );
+  let records = presentationCommitRecords;
+  let providerDiagnostics = policy.source === "pull-requests" ? [] : [...transportMergeIds].map(
+    (id) => `${id}: omitted ordinary merge-summary transport record`
+  );
   const visibleNotices = [];
   if (policy.source !== "commits") {
     const collection = await collectPullRequestRecords({
@@ -11528,7 +11715,7 @@ async function prepareNotes(options) {
       commits,
       api
     });
-    providerDiagnostics = collection.diagnostics;
+    providerDiagnostics.push(...collection.diagnostics);
     if (policy.source === "pull-requests") {
       enforcePullRequestCoverage({
         collection,
@@ -11543,11 +11730,21 @@ async function prepareNotes(options) {
     } else {
       records = combineHybridRecords({
         pullRequests: collection,
-        commitRecords
+        commitRecords: presentationCommitRecords
       });
     }
   }
   let changes = classifyChanges(records, policy);
+  for (const diagnostic of changes.diagnostics) {
+    const match = diagnostic.match(
+      /^(.*): breaking change excluded by explicit filter/
+    );
+    if (match) {
+      visibleNotices.push(
+        `Breaking change ${match[1]} was excluded by an explicit filter.`
+      );
+    }
+  }
   changes = appendProviderDiagnostics(
     changes,
     providerDiagnostics
@@ -11562,6 +11759,7 @@ async function prepareNotes(options) {
     intentionallyEmpty: range.empty && range.firstRelease
   });
   body = withVisibleNotices(body, visibleNotices);
+  validatePreparedBody(body);
   const report = buildNotesReport({
     body,
     changes,
@@ -11613,8 +11811,8 @@ function shouldPreserve(existing, inputs) {
   return inputs.notesExisting === "preserve" || inputs.notesExisting === "auto" && !existing.draft;
 }
 function verifyPublishedTitle(existing, env) {
-  const requested = (env.INPUT_TITLE ?? "").trim();
-  if (requested && requested !== existing.name) {
+  const requested = env.INPUT_TITLE ?? "";
+  if (requested !== "" && requested !== existing.name) {
     throw new Error(
       `existing published release title does not match requested title: expected=${requested} actual=${existing.name}`
     );
@@ -11624,7 +11822,7 @@ function defaultIdentityCheck(workspace, repository) {
   const origin = (0, import_node_child_process3.spawnSync)(
     "git",
     ["-C", workspace, "remote", "get-url", "origin"],
-    { encoding: "utf8" }
+    { encoding: "utf8", timeout: 3e4 }
   );
   if (origin.status !== 0) {
     throw new Error("could not resolve checkout origin");
@@ -11633,7 +11831,7 @@ function defaultIdentityCheck(workspace, repository) {
   const resolved = (0, import_node_child_process3.spawnSync)(
     "gh",
     ["repo", "view", remote, "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
-    { encoding: "utf8", env: process.env }
+    { encoding: "utf8", env: process.env, timeout: 3e4 }
   );
   if (resolved.status !== 0) {
     throw new Error("could not resolve checkout repository identity");
@@ -11644,6 +11842,14 @@ function defaultIdentityCheck(workspace, repository) {
       `checkout repository does not match GITHUB_REPOSITORY: checkout=${actual} expected=${repository}`
     );
   }
+}
+function defaultProvenanceCheck(options) {
+  defaultIdentityCheck(options.workspace, options.repository);
+  verifyRemoteTagBinding({
+    workspace: options.workspace,
+    tag: options.tag,
+    expectedCommit: options.commit
+  });
 }
 async function runAction(options = {}) {
   const env = options.env ?? process.env;
@@ -11662,7 +11868,18 @@ async function runAction(options = {}) {
   );
   const api = options.api ?? new GhCliApi();
   const appendOutput = options.appendOutput ?? import_node_fs.appendFileSync;
+  (options.provenanceCheck ?? defaultProvenanceCheck)({
+    workspace,
+    repository,
+    tag,
+    commit
+  });
   const existing = await api.releaseByTag(repository, tag);
+  if (existing && existing.prerelease !== inputs.prerelease) {
+    throw new Error(
+      `existing release prerelease state does not match requested state: ${tag}`
+    );
+  }
   if (existing && !existing.draft) {
     verifyPublishedTitle(existing, env);
   }
@@ -11670,10 +11887,6 @@ async function runAction(options = {}) {
   let notesState;
   let preserveBody = false;
   if (inputs.notesPreview) {
-    (options.identityCheck ?? defaultIdentityCheck)(
-      workspace,
-      repository
-    );
     prepared = await prepareNotes({
       inputs,
       repository,
@@ -11732,6 +11945,7 @@ async function runAction(options = {}) {
     INPUT_NOTES_PREVIEW: "false",
     RELEASE_ACTIONS_PRESERVE_BODY: preserveBody ? "true" : "false",
     RELEASE_ACTIONS_ACCEPTED_BODY_FILE: preserveBody ? prepared.notesPath : "",
+    RELEASE_ACTIONS_VERIFY_TITLE: existing && !existing.draft && (env.INPUT_TITLE ?? "") === "" ? "false" : "true",
     RELEASE_ACTIONS_NODE: process.execPath,
     RELEASE_ACTIONS_ENGINE: (0, import_node_path4.resolve)(actionPath, "dist/engine.cjs")
   };

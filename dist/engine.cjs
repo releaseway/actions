@@ -9406,7 +9406,8 @@ var import_node_child_process = require("node:child_process");
 function defaultRunGh(args) {
   const result = (0, import_node_child_process.spawnSync)("gh", [...args], {
     encoding: "utf8",
-    env: process.env
+    env: process.env,
+    timeout: 3e4
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
@@ -9625,6 +9626,23 @@ var GhCliApi = class {
   }
 };
 
+// src/text.ts
+var MAX_NOTES_BYTES = 1024 * 1024;
+var UNSUPPORTED_CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u;
+function assertSupportedText(value, label) {
+  if (UNSUPPORTED_CONTROL.test(value)) {
+    throw new Error(`${label} contains unsupported control characters`);
+  }
+}
+function assertNotesSize(value, label = "release notes") {
+  const bytes = Buffer.byteLength(value, "utf8");
+  if (bytes > MAX_NOTES_BYTES) {
+    throw new Error(
+      `${label} exceeds maximum size ${MAX_NOTES_BYTES} bytes`
+    );
+  }
+}
+
 // src/report.ts
 var import_node_crypto = require("node:crypto");
 function bodyDigest(body) {
@@ -9637,11 +9655,15 @@ var import_semver = __toESM(require_semver2(), 1);
 // src/prepare.ts
 var utf8 = new TextDecoder("utf-8", { fatal: true });
 function decodeUtf8(bytes, label) {
+  let text;
   try {
-    return utf8.decode(bytes);
+    text = utf8.decode(bytes);
   } catch {
     throw new Error(`${label} must contain valid UTF-8`);
   }
+  assertSupportedText(text, label);
+  assertNotesSize(text, label);
+  return text;
 }
 async function verifyReleaseBody(options) {
   const api = options.api ?? new GhCliApi();

@@ -16,6 +16,7 @@ import {
   prepareNotes,
   type PreparedNotes,
 } from "./prepare.ts";
+import { verifyRemoteTagBinding } from "./git.ts";
 
 interface SpawnResult {
   status: number | null;
@@ -107,8 +108,8 @@ function verifyPublishedTitle(
   existing: ReleaseSnapshot,
   env: NodeJS.ProcessEnv,
 ): void {
-  const requested = (env.INPUT_TITLE ?? "").trim();
-  if (requested && requested !== existing.name) {
+  const requested = env.INPUT_TITLE ?? "";
+  if (requested !== "" && requested !== existing.name) {
     throw new Error(
       `existing published release title does not match requested title: expected=${requested} actual=${existing.name}`,
     );
@@ -122,7 +123,7 @@ function defaultIdentityCheck(
   const origin = spawnSync(
     "git",
     ["-C", workspace, "remote", "get-url", "origin"],
-    { encoding: "utf8" },
+    { encoding: "utf8", timeout: 30_000 },
   );
   if (origin.status !== 0) {
     throw new Error("could not resolve checkout origin");
@@ -131,7 +132,7 @@ function defaultIdentityCheck(
   const resolved = spawnSync(
     "gh",
     ["repo", "view", remote, "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
-    { encoding: "utf8", env: process.env },
+    { encoding: "utf8", env: process.env, timeout: 30_000 },
   );
   if (resolved.status !== 0) {
     throw new Error("could not resolve checkout repository identity");
@@ -144,6 +145,20 @@ function defaultIdentityCheck(
   }
 }
 
+function defaultProvenanceCheck(options: {
+  workspace: string;
+  repository: string;
+  tag: string;
+  commit: string;
+}): void {
+  defaultIdentityCheck(options.workspace, options.repository);
+  verifyRemoteTagBinding({
+    workspace: options.workspace,
+    tag: options.tag,
+    expectedCommit: options.commit,
+  });
+}
+
 export async function runAction(
   options: {
     env?: NodeJS.ProcessEnv;
@@ -153,7 +168,12 @@ export async function runAction(
     appendOutput?: AppendOutput;
     nodeVersion?: string;
     api?: GitHubApi;
-    identityCheck?: (workspace: string, repository: string) => void;
+    provenanceCheck?: (options: {
+      workspace: string;
+      repository: string;
+      tag: string;
+      commit: string;
+    }) => void;
   } = {},
 ): Promise<void> {
   const env = options.env ?? process.env;
@@ -172,8 +192,19 @@ export async function runAction(
   );
   const api = options.api ?? new GhCliApi();
   const appendOutput = options.appendOutput ?? appendFileSync;
+  (options.provenanceCheck ?? defaultProvenanceCheck)({
+    workspace,
+    repository,
+    tag,
+    commit,
+  });
   const existing = await api.releaseByTag(repository, tag);
 
+  if (existing && existing.prerelease !== inputs.prerelease) {
+    throw new Error(
+      `existing release prerelease state does not match requested state: ${tag}`,
+    );
+  }
   if (existing && !existing.draft) {
     verifyPublishedTitle(existing, env);
   }
@@ -183,10 +214,6 @@ export async function runAction(
   let preserveBody = false;
 
   if (inputs.notesPreview) {
-    (options.identityCheck ?? defaultIdentityCheck)(
-      workspace,
-      repository,
-    );
     prepared = await prepareNotes({
       inputs,
       repository,
@@ -249,6 +276,12 @@ export async function runAction(
     RELEASE_ACTIONS_ACCEPTED_BODY_FILE: preserveBody
       ? prepared.notesPath
       : "",
+    RELEASE_ACTIONS_VERIFY_TITLE:
+      existing &&
+      !existing.draft &&
+      (env.INPUT_TITLE ?? "") === ""
+        ? "false"
+        : "true",
     RELEASE_ACTIONS_NODE: process.execPath,
     RELEASE_ACTIONS_ENGINE: resolve(actionPath, "dist/engine.cjs"),
   };

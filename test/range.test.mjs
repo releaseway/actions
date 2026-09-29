@@ -9,6 +9,8 @@ import {
   collectCommitEvidence,
   createEvidenceRepository,
   GitRepository,
+  MAX_RELEASE_COMMITS,
+  verifyRemoteTagBinding,
 } from "../src/git.ts";
 import {
   parseVersionedTag,
@@ -451,5 +453,130 @@ test("evidence collection is independent of caller HEAD and shallow history", as
   assert.equal(
     shallowEvidence.repository.resolveCommit("refs/tags/v1.0.0"),
     fixture.rootSha,
+  );
+});
+
+
+test("evidence fetch uses checkout auth transiently without persisting secrets", async () => {
+  const fixture = await repositoryFixture();
+  git(
+    fixture.work,
+    "config",
+    "--local",
+    "http.https://github.com/.extraheader",
+    "AUTHORIZATION: basic fixture-token",
+  );
+
+  const evidence = await createEvidenceRepository({
+    workspace: fixture.work,
+    tempRoot: fixture.root,
+    targetTag: "v1.2.0",
+    expectedTargetSha: fixture.fixSha,
+  });
+
+  const persisted = evidence.repository.run(
+    [
+      "config",
+      "--local",
+      "--get",
+      "http.https://github.com/.extraheader",
+    ],
+    true,
+  );
+  assert.equal(persisted.status, 1);
+});
+
+test("remote tag binding is enforced independently of notes mode", async () => {
+  const fixture = await repositoryFixture();
+  assert.equal(
+    verifyRemoteTagBinding({
+      workspace: fixture.work,
+      tag: "v1.2.0",
+      expectedCommit: fixture.fixSha,
+    }),
+    fixture.fixSha,
+  );
+  assert.throws(
+    () =>
+      verifyRemoteTagBinding({
+        workspace: fixture.work,
+        tag: "v1.2.0",
+        expectedCommit: fixture.featureSha,
+      }),
+    /release tag target does not match commit/,
+  );
+});
+
+test("automatic SemVer channel rejects contradictory prerelease state", async () => {
+  const fixture = await repositoryFixture();
+  await writeFile(join(fixture.work, "beta.txt"), "beta\n");
+  git(fixture.work, "add", "beta.txt");
+  git(fixture.work, "commit", "--no-gpg-sign", "-m", "feat: beta");
+  const beta = git(fixture.work, "rev-parse", "HEAD");
+  git(fixture.work, "tag", "--no-sign", "v1.3.0-beta.1");
+
+  assert.throws(
+    () =>
+      resolveRange({
+        repository: fixture.repository,
+        targetTag: "v1.3.0-beta.1",
+        targetSha: beta,
+        targetPrerelease: false,
+        releases: [{ tag: "v1.2.0", prerelease: false }],
+      }),
+    /prerelease classification conflicts/,
+  );
+});
+
+test("non-SemVer automatic selection uses requested prerelease state", async () => {
+  const fixture = await repositoryFixture();
+  git(fixture.work, "tag", "--no-sign", "train-stable", fixture.rootSha);
+  git(fixture.work, "tag", "--no-sign", "train-rc1", fixture.featureSha);
+  git(fixture.work, "tag", "--no-sign", "train-rc2", fixture.fixSha);
+
+  const prerelease = resolveRange({
+    repository: fixture.repository,
+    targetTag: "train-rc2",
+    targetSha: fixture.fixSha,
+    targetPrerelease: true,
+    releases: [
+      { tag: "train-stable", prerelease: false },
+      { tag: "train-rc1", prerelease: true },
+    ],
+    policy: { tagPattern: "train-*" },
+  });
+  assert.equal(prerelease.baseTag, "train-rc1");
+
+  const stable = resolveRange({
+    repository: fixture.repository,
+    targetTag: "train-rc2",
+    targetSha: fixture.fixSha,
+    targetPrerelease: false,
+    releases: [
+      { tag: "train-stable", prerelease: false },
+      { tag: "train-rc1", prerelease: true },
+    ],
+    policy: { tagPattern: "train-*" },
+  });
+  assert.equal(stable.baseTag, "train-stable");
+});
+
+test("release history collection fails before materializing an oversized graph", () => {
+  const repository = {
+    run(args) {
+      if (args[0] === "rev-list" && args[1] === "--count") {
+        return { stdout: String(MAX_RELEASE_COMMITS + 1), status: 0 };
+      }
+      throw new Error(`unexpected git call: ${args.join(" ")}`);
+    },
+  };
+  assert.throws(
+    () =>
+      collectCommitEvidence(
+        repository,
+        "a".repeat(40),
+        null,
+      ),
+    /exceeds maximum commit count/,
   );
 });

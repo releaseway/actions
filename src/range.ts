@@ -394,6 +394,18 @@ export function resolveRange(options: {
   }
 
   const parsedTarget = parseVersionedTag(options.targetTag);
+  if (
+    parsedTarget &&
+    policy.strategy === "auto" &&
+    options.targetPrerelease !== undefined
+  ) {
+    const tagPrerelease = !stable(parsedTarget.version);
+    if (tagPrerelease !== options.targetPrerelease) {
+      throw new Error(
+        "target tag prerelease classification conflicts with requested prerelease state; choose an explicit range policy/base or make the release state match the tag",
+      );
+    }
+  }
   if (!parsedTarget && policy.strategy !== "previous-tag" && !policy.tagPattern) {
     throw new Error(
       "automatic release selection for a non-SemVer tag requires tag-pattern or an explicit base",

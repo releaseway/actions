@@ -13,6 +13,7 @@ test("notes defaults to standard with explicit lifecycle defaults", () => {
     notesFile: "",
     notesExisting: "auto",
     notesPreview: false,
+    prerelease: false,
   });
 });
 
@@ -57,6 +58,7 @@ test("file mode requires the file and rejects generation config", () => {
       notesFile: "notes.md",
       notesExisting: "auto",
       notesPreview: false,
+      prerelease: false,
     },
   );
 });
@@ -91,7 +93,7 @@ test("none rejects configuration and booleans are not mode aliases", () => {
   );
 });
 
-test("existing policy and preview are strict enums", () => {
+test("existing policy, preview, and prerelease are strict booleans/enums", () => {
   assert.equal(
     resolveActionInputs({ INPUT_NOTES_EXISTING: "verify" }).notesExisting,
     "verify",
@@ -104,8 +106,16 @@ test("existing policy and preview are strict enums", () => {
     () => resolveActionInputs({ INPUT_NOTES_EXISTING: "repair" }),
     /notes-existing must be one of/,
   );
+  assert.equal(
+    resolveActionInputs({ INPUT_PRERELEASE: "true" }).prerelease,
+    true,
+  );
   assert.throws(
     () => resolveActionInputs({ INPUT_NOTES_PREVIEW: "yes" }),
     /notes-preview must be true or false/,
+  );
+  assert.throws(
+    () => resolveActionInputs({ INPUT_PRERELEASE: "yes" }),
+    /prerelease must be true or false/,
   );
 });

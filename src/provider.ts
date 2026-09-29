@@ -106,7 +106,6 @@ export async function collectPullRequestRecords(options: {
       commits: CommitEvidence[];
     }
   >();
-  const hydrated = new Map<number, PullRequestAssociation>();
   const uncovered = new Map(
     options.commits.map((commit) => [commit.sha, commit]),
   );
@@ -136,19 +135,7 @@ export async function collectPullRequestRecords(options: {
       continue;
     }
 
-    let pr = merged[0]!;
-    if (pr.mergeCommitSha === null) {
-      const cached = hydrated.get(pr.number);
-      if (cached) {
-        pr = cached;
-      } else {
-        pr = await options.api.pullRequest(
-          options.repository,
-          pr.number,
-        );
-        hydrated.set(pr.number, pr);
-      }
-    }
+    const pr = merged[0]!;
     const existing = assignments.get(pr.number);
     if (existing && !samePullRequest(existing.pr, pr)) {
       throw new Error(
@@ -164,10 +151,7 @@ export async function collectPullRequestRecords(options: {
 
   const records: ChangeRecord[] = [];
   for (const { pr, commits } of assignments.values()) {
-    if (
-      pr.mergeCommitSha === null ||
-      !selectedShas.has(pr.mergeCommitSha)
-    ) {
+    if (!selectedShas.has(pr.mergeCommitSha)) {
       diagnostics.push(
         `pull-request:${pr.number}: merge commit ${pr.mergeCommitSha} is not in the released range; keeping associated commits uncovered`,
       );

@@ -13,6 +13,7 @@ import type { ActionInputs } from "./contract.ts";
 import {
   collectCommitEvidence,
   createEvidenceRepository,
+  verifyRemoteTagExists,
 } from "./git.ts";
 import {
   GhCliApi,
@@ -28,6 +29,10 @@ import {
 import { renderReleaseNotes } from "./render.ts";
 import { buildNotesReport, bodyDigest } from "./report.ts";
 import { resolveRange } from "./range.ts";
+import {
+  assertNotesSize,
+  assertSupportedText,
+} from "./text.ts";
 
 const utf8 = new TextDecoder("utf-8", { fatal: true });
 
@@ -62,11 +67,24 @@ export function withVisibleNotices(
 }
 
 function decodeUtf8(bytes: Uint8Array, label: string): string {
+  let text: string;
   try {
-    return utf8.decode(bytes);
+    text = utf8.decode(bytes);
   } catch {
     throw new Error(`${label} must contain valid UTF-8`);
   }
+  assertSupportedText(text, label);
+  assertNotesSize(text, label);
+  return text;
+}
+
+function validatePreparedBody(
+  body: string,
+  label = "release notes",
+): string {
+  assertSupportedText(body, label);
+  assertNotesSize(body, label);
+  return body;
 }
 
 function digestText(text: string): string {
@@ -201,6 +219,12 @@ export async function prepareNotes(
 
   const resolved = resolveConfig(mode, configDocument);
   if (mode === "github") {
+    if (resolved.github?.previousTag) {
+      verifyRemoteTagExists({
+        workspace: options.workspace,
+        tag: resolved.github.previousTag,
+      });
+    }
     const generated = await api.generateReleaseNotes({
       repository: options.repository,
       tag: options.tag,
@@ -208,12 +232,16 @@ export async function prepareNotes(
       previousTag: resolved.github?.previousTag,
       configurationFile: resolved.github?.configurationFile,
     });
+    const body = validatePreparedBody(
+      generated.body,
+      "GitHub-generated release notes",
+    );
     return writePrepared(
       output,
-      generated.body,
+      body,
       simpleReport({
         mode,
-        body: generated.body,
+        body,
         status: "prepared",
         details: {
           source: "github",
@@ -236,16 +264,12 @@ export async function prepareNotes(
     expectedTargetSha: options.commit,
   });
   const published = await api.publishedReleases(options.repository);
-  const currentRelease = await api.releaseByTag(
-    options.repository,
-    options.tag,
-  );
   const range = resolveRange({
     repository: evidence.repository,
     targetTag: options.tag,
     targetSha: options.commit,
     releases: published,
-    targetPrerelease: currentRelease?.prerelease ?? false,
+    targetPrerelease: options.inputs.prerelease,
     policy: policy.range,
   });
   const commits = collectCommitEvidence(
@@ -254,8 +278,26 @@ export async function prepareNotes(
     range.baseSha,
   );
   const commitRecords = commits.map(commitRecord);
-  let records: ChangeRecord[] = commitRecords;
-  let providerDiagnostics: string[] = [];
+  const transportMergeIds = new Set(
+    commits.flatMap((commit, index) => {
+      const record = commitRecords[index]!;
+      return commit.parents.length > 1 &&
+          record.type === null &&
+          !record.breaking
+        ? [record.id]
+        : [];
+    }),
+  );
+  const presentationCommitRecords = commitRecords.filter(
+    (record) => !transportMergeIds.has(record.id),
+  );
+  let records: ChangeRecord[] = presentationCommitRecords;
+  let providerDiagnostics: string[] =
+    policy.source === "pull-requests"
+      ? []
+      : [...transportMergeIds].map(
+          (id) => `${id}: omitted ordinary merge-summary transport record`,
+        );
   const visibleNotices: string[] = [];
 
   if (policy.source !== "commits") {
@@ -264,7 +306,7 @@ export async function prepareNotes(
       commits,
       api,
     });
-    providerDiagnostics = collection.diagnostics;
+    providerDiagnostics.push(...collection.diagnostics);
     if (policy.source === "pull-requests") {
       enforcePullRequestCoverage({
         collection,
@@ -282,12 +324,22 @@ export async function prepareNotes(
     } else {
       records = combineHybridRecords({
         pullRequests: collection,
-        commitRecords,
+        commitRecords: presentationCommitRecords,
       });
     }
   }
 
   let changes = classifyChanges(records, policy);
+  for (const diagnostic of changes.diagnostics) {
+    const match = diagnostic.match(
+      /^(.*): breaking change excluded by explicit filter/,
+    );
+    if (match) {
+      visibleNotices.push(
+        `Breaking change ${match[1]} was excluded by an explicit filter.`,
+      );
+    }
+  }
   changes = appendProviderDiagnostics(
     changes,
     providerDiagnostics,
@@ -302,6 +354,7 @@ export async function prepareNotes(
     intentionallyEmpty: range.empty && range.firstRelease,
   });
   body = withVisibleNotices(body, visibleNotices);
+  validatePreparedBody(body);
   const report = buildNotesReport({
     body,
     changes,

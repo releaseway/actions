@@ -46,6 +46,7 @@ function baseEnv(overrides = {}) {
     INPUT_NOTES: "none",
     INPUT_NOTES_EXISTING: "auto",
     INPUT_NOTES_PREVIEW: "false",
+    INPUT_PRERELEASE: "false",
     ...overrides,
   };
 }
@@ -85,6 +86,33 @@ test("action metadata keeps composite token injection and exposes new notes cont
   }
 });
 
+test("provenance validation runs before provider reads", async () => {
+  const calls = [];
+  const api = new FakeApi(null);
+  api.releaseByTag = async () => {
+    calls.push("provider");
+    return null;
+  };
+
+  await runAction({
+    nodeVersion: "24.0.0",
+    actionPath: "/action",
+    env: baseEnv({ INPUT_NOTES_PREVIEW: "true" }),
+    api,
+    provenanceCheck(options) {
+      calls.push("provenance");
+      assert.equal(options.tag, "v1.0.0");
+      assert.equal(
+        options.commit,
+        "0123456789abcdef0123456789abcdef01234567",
+      );
+    },
+    appendOutput() {},
+  });
+
+  assert.deepEqual(calls.slice(0, 2), ["provenance", "provider"]);
+});
+
 test("runtime rejects Node versions below 24", () => {
   assert.doesNotThrow(() => requireNode24("24.0.0"));
   assert.doesNotThrow(() => requireNode24("26.1.0"));
@@ -99,6 +127,7 @@ test("none mode prepares an empty body then invokes the publisher", async () => 
     actionPath: "/action",
     env: baseEnv(),
     api: new FakeApi(null),
+    provenanceCheck() {},
     appendOutput(path, data, options) {
       writes.push({ path, data, options });
     },
@@ -125,7 +154,7 @@ test("preview prepares outputs and never invokes the publisher", async () => {
     actionPath: "/action",
     env: baseEnv({ INPUT_NOTES_PREVIEW: "true" }),
     api: new FakeApi(null),
-    identityCheck() {},
+    provenanceCheck() {},
     appendOutput(_path, data) {
       writes.push(data);
     },
@@ -167,6 +196,7 @@ test("published auto mode preserves observed body without generation", async () 
     actionPath: "/action",
     env: baseEnv(),
     api,
+    provenanceCheck() {},
     appendOutput(_path, data) {
       writes.push(data);
     },
@@ -184,6 +214,59 @@ test("published auto mode preserves observed body without generation", async () 
     /releaseway-notes-/,
   );
   assert.match(writes.join(""), /notes-state=preserved/);
+});
+
+test("existing published title is preserved when title input is omitted", async () => {
+  const release = {
+    id: 42,
+    tag: "v1.0.0",
+    name: "Human edited title",
+    body: "notes\n",
+    draft: false,
+    prerelease: false,
+    immutable: true,
+    url: "https://example.invalid/release/42",
+  };
+  const calls = [];
+  await runAction({
+    nodeVersion: "24.0.0",
+    actionPath: "/action",
+    env: baseEnv(),
+    api: new FakeApi(release),
+    provenanceCheck() {},
+    appendOutput() {},
+    spawnPublisher(_command, _args, options) {
+      calls.push(options);
+      return { status: 0 };
+    },
+  });
+
+  assert.equal(calls[0].env.RELEASE_ACTIONS_VERIFY_TITLE, "false");
+});
+
+test("explicit published title remains a verified invariant", async () => {
+  const release = {
+    id: 42,
+    tag: "v1.0.0",
+    name: "Expected title",
+    body: "notes\n",
+    draft: false,
+    prerelease: false,
+    immutable: true,
+    url: "https://example.invalid/release/42",
+  };
+  await assert.rejects(
+    () =>
+      runAction({
+        nodeVersion: "24.0.0",
+        actionPath: "/action",
+        env: baseEnv({ INPUT_TITLE: "Different title" }),
+        api: new FakeApi(release),
+        provenanceCheck() {},
+        appendOutput() {},
+      }),
+    /published release title does not match/,
+  );
 });
 
 test("committed engine bundle executes as CommonJS", () => {

@@ -8,6 +8,7 @@ import { commitRecord } from "../src/model.ts";
 import { presetPolicy } from "../src/policy.ts";
 import { renderReleaseNotes } from "../src/render.ts";
 import { buildNotesReport } from "../src/report.ts";
+import { assertNotesSize, MAX_NOTES_BYTES } from "../src/text.ts";
 
 const shas = {
   breaking: "1111111111111111111111111111111111111111",
@@ -246,5 +247,95 @@ test("Markdown metacharacters are escaped and intentionally empty releases stay 
       { ...context(), intentionallyEmpty: true },
     ),
     "",
+  );
+});
+
+
+test("Conventional parser keeps footer-shaped body lines outside the trailing footer block", () => {
+  const parsed = parseConventionalCommit(
+    "feat: explain config\n\nBackground\nNote: this belongs to the body\n\nRefs: #123",
+  );
+  assert.equal(parsed.body, "Background\nNote: this belongs to the body");
+  assert.equal(parsed.breaking, false);
+});
+
+test("nonconforming merge messages preserve explicit breaking footers", () => {
+  const parsed = parseConventionalCommit(
+    "Merge branch 'next'\n\nBREAKING CHANGE: merge changes the public contract",
+  );
+  assert.equal(parsed.conventional, false);
+  assert.equal(parsed.breaking, true);
+  assert.deepEqual(parsed.breakingDescriptions, [
+    "merge changes the public contract",
+  ]);
+});
+
+test("configuration rejects ambiguous fallback ids, non-SHA explicit commits, and non-repository native paths", () => {
+  const fallback = parseConfigText(
+    `version: 1
+notes:
+  classify:
+    categories:
+      - id: other
+        title: Duplicate fallback
+`,
+    ".yml",
+  );
+  assert.throws(
+    () => resolveConfig("standard", fallback),
+    /reserved fallback category id/,
+  );
+
+  const badCommit = parseConfigText(
+    `version: 1
+notes:
+  range:
+    from:
+      commit: main
+`,
+    ".yml",
+  );
+  assert.throws(
+    () => resolveConfig("standard", badCommit),
+    /full 40-character commit SHA/,
+  );
+
+  const badNativePath = parseConfigText(
+    `version: 1
+notes:
+  github:
+    configuration-file: ../release.yml
+`,
+    ".yml",
+  );
+  assert.throws(
+    () => resolveConfig("github", badNativePath),
+    /relative repository path/,
+  );
+});
+
+test("custom rendering rejects unsupported control data", () => {
+  const policy = presetPolicy("standard");
+  assert.ok(policy);
+  const record = commitRecord(
+    evidence(shas.feature, 0, "feat: unsafe \u001btitle"),
+  );
+  assert.throws(
+    () =>
+      renderReleaseNotes(
+        classifyChanges([record], policy),
+        policy,
+        context(),
+      ),
+    /unsupported control characters/,
+  );
+});
+
+
+test("release-note text size is bounded before publication", () => {
+  assert.doesNotThrow(() => assertNotesSize("x".repeat(MAX_NOTES_BYTES)));
+  assert.throws(
+    () => assertNotesSize("x".repeat(MAX_NOTES_BYTES + 1)),
+    /exceeds maximum size/,
   );
 });

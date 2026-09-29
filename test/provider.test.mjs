@@ -49,30 +49,6 @@ class FakeApi {
   }
 }
 
-test("nullable commit association landing is hydrated from PR detail", async () => {
-  const merge = commit("0101010101010101010101010101010101010101", 0);
-  const partial = {
-    ...pr(9, merge.sha),
-    mergeCommitSha: null,
-  };
-  const api = new FakeApi(new Map([[merge.sha, [partial]]]));
-  api.pullRequest = async (_repository, number) => {
-    assert.equal(number, 9);
-    return pr(9, merge.sha);
-  };
-
-  const result = await collectPullRequestRecords({
-    repository: "releaseway/example",
-    commits: [merge],
-    api,
-  });
-
-  assert.deepEqual(result.records.map((record) => record.id), [
-    "pull-request:9",
-  ]);
-  assert.deepEqual(result.uncovered, []);
-});
-
 test("ordinary merge coverage coalesces exactly associated released commits", async () => {
   const side = commit("1111111111111111111111111111111111111111", 0);
   const merge = commit("2222222222222222222222222222222222222222", 1);

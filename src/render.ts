@@ -3,6 +3,7 @@ import {
   STANDARD_SECTION_ORDER,
   type EffectiveNotesPolicy,
 } from "./policy.ts";
+import { assertSupportedText } from "./text.ts";
 
 export interface RenderContext {
   repository: string;
@@ -22,6 +23,7 @@ function repositoryUrl(repository: string): string {
 }
 
 export function escapeMarkdown(value: string): string {
+  assertSupportedText(value, "release-note text");
   return value.replace(/([\\`*_{}\[\]()<>#+\-.!|])/g, "\\$1");
 }
 

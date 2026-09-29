@@ -211,6 +211,14 @@ if args[:2] == ["release", "upload"]:
         state["concurrent_upload_name"] = None
         save()
         sys.exit(1)
+    mutation = state.get("mutate_after_upload")
+    if mutation and mutation.get("name") == name:
+        if "title" in mutation:
+            release["name"] = mutation["title"]
+        if "body" in mutation:
+            release["body"] = mutation["body"]
+        state["mutate_after_upload"] = None
+        save()
     move = state.get("move_tag_after_upload")
     if move and move["name"] == name:
         state["move_tag_after_upload"] = None
@@ -740,6 +748,42 @@ def main():
             INPUT_NOTES_FILE=str(notes),
         )
         require_failure(result, "draft release notes do not match")
+
+        draft_body_race = release_state(a, b, draft=True, immutable=False)
+        draft_body_race["release"]["assets"] = draft_body_race["release"]["assets"][:1]
+        draft_body_race["release"]["body"] = "expected notes\n"
+        draft_body_race["mutate_after_upload"] = {
+            "name": b.name,
+            "body": "changed concurrently",
+        }
+        result, state, _ = run_case(
+            work,
+            fakebin,
+            tmp,
+            commit,
+            assets,
+            draft_body_race,
+            INPUT_NOTES_FILE=str(notes),
+        )
+        require_failure(result, "draft release notes do not match")
+        assert state["release"]["draft"] is True
+
+        draft_title_race = release_state(a, b, draft=True, immutable=False)
+        draft_title_race["release"]["assets"] = draft_title_race["release"]["assets"][:1]
+        draft_title_race["mutate_after_upload"] = {
+            "name": b.name,
+            "title": "changed concurrently",
+        }
+        result, state, _ = run_case(
+            work,
+            fakebin,
+            tmp,
+            commit,
+            assets,
+            draft_title_race,
+        )
+        require_failure(result, "draft release title does not match")
+        assert state["release"]["draft"] is True
 
         concurrent = {
             "immutable_enabled": True,

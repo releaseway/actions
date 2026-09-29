@@ -69,6 +69,7 @@ function defaultRunGh(args: readonly string[]): string {
   const result = spawnSync("gh", [...args], {
     encoding: "utf8",
     env: process.env,
+    timeout: 30_000,
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {

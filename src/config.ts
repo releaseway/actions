@@ -75,6 +75,26 @@ function stringValue(
   return value;
 }
 
+function fullCommitShaValue(value: unknown, path: string): string {
+  const text = stringValue(value, path, { nonempty: true }).toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(text)) {
+    throw new Error(`${path} must be a full 40-character commit SHA`);
+  }
+  return text;
+}
+
+function repositoryPathValue(value: unknown, path: string): string {
+  const text = stringValue(value, path, { nonempty: true });
+  if (
+    text.startsWith("/") ||
+    text.includes("\\") ||
+    text.split("/").some((segment) => segment === "..")
+  ) {
+    throw new Error(`${path} must be a relative repository path`);
+  }
+  return text;
+}
+
 function booleanValue(value: unknown, path: string): boolean {
   if (typeof value !== "boolean") {
     throw new Error(`${path} must be a boolean`);
@@ -247,6 +267,11 @@ function parseCategory(
   const title = stringValue(category.title, path + ".title", {
     nonempty: true,
   });
+  if (id === "other") {
+    throw new Error(
+      path + ".id uses reserved fallback category id: other",
+    );
+  }
   return {
     id,
     title,
@@ -320,10 +345,9 @@ function applyRange(
             ),
           }
         : {
-            commit: stringValue(
+            commit: fullCommitShaValue(
               from.commit,
               path + ".from.commit",
-              { nonempty: true },
             ),
           };
   }
@@ -510,10 +534,9 @@ function resolveGitHubConfig(
       : {}),
     ...(github["configuration-file"] !== undefined
       ? {
-          configurationFile: stringValue(
+          configurationFile: repositoryPathValue(
             github["configuration-file"],
             "config.notes.github.configuration-file",
-            { nonempty: true },
           ),
         }
       : {}),
