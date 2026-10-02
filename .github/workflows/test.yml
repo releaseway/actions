@@ -28,5 +28,7 @@ jobs:
       - run: npm run check:dist
       - name: Release lifecycle regression
         run: python3 test/release.py
+      - name: Release evidence regression
+        run: python3 test/release-evidence.py
       - name: Whitespace
         run: git diff --check

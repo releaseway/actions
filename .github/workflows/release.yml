@@ -7,9 +7,14 @@ on:
         description: Existing stable SemVer tag to publish.
         required: true
         type: string
+      acceptance-runs:
+        description: Successful exact-candidate fixture run IDs, comma-separated
+        required: true
+        type: string
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release-${{ inputs.tag }}
@@ -51,6 +56,29 @@ jobs:
           ref: ${{ steps.release.outputs.target }}
           path: release-action
           persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Verify tagged action
+        working-directory: release-action
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run check:dist
+          python3 test/release.py
+
+      - name: Verify exact-candidate CI and acceptance evidence
+        env:
+          GH_TOKEN: ${{ secrets.RELEASEWAY_EVIDENCE_TOKEN || github.token }}
+          CANDIDATE: ${{ steps.release.outputs.target }}
+          ACCEPTANCE_RUNS: ${{ inputs.acceptance-runs }}
+        run: |
+          python3 scripts/verify-release-evidence.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --candidate "$CANDIDATE" \
+            --acceptance-runs "$ACCEPTANCE_RUNS"
 
       - name: Publish immutable action release
         id: publish

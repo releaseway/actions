@@ -393,12 +393,19 @@ npm test
 npm run build
 npm run check:dist
 python3 test/release.py
+python3 test/release-evidence.py
 git diff --check
 ```
 
 CI runs the packaged checks on Ubuntu and macOS.
 
 Live black-box acceptance lives in `releaseway/release-fixture`. It validates the exact candidate action SHA against real GitHub range/native/PR behavior and an immutable publication + rerun campaign before release readiness.
+
+The repository release workflow requires `acceptance-runs` for a successful
+`suite=all` fixture run and latest successful push CI at the tag's exact SHA. It also
+checks the tagged action's typecheck, unit, dist and lifecycle behavior. See the
+[candidate guide](https://github.com/releaseway/release-fixture#candidate-release-readiness)
+for artifact retention, read permissions and retries.
 
 ## License
 
