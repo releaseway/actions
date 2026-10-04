@@ -7,7 +7,10 @@ die() {
 }
 
 cleanup() {
-  local path
+  local status="$?" path
+  if [ -n "${RELEASE_ACTIONS_PHASE:-}" ]; then
+    record_phase "$status" || true
+  fi
   for path in \
     "${RELEASE_ACTIONS_ASSETS_FILE:-}" \
     "${RELEASE_ACTIONS_MISSING_FILE:-}" \
@@ -17,6 +20,7 @@ cleanup() {
       rm -f "$path"
     fi
   done
+  exit "$status"
 }
 
 trap cleanup EXIT
@@ -275,24 +279,34 @@ upload_missing_assets() {
     (trap - EXIT; upload_one_asset "$name" "$path" "$digest") &
     pids+=("$!")
     if [ "${#pids[@]}" -eq "${INPUT_UPLOAD_CONCURRENCY:-1}" ]; then
-      wait_upload_batch "${pids[@]}" || return 1
+      wait_upload_batch "${pids[@]}" || die "asset upload batch failed; draft retained for retry"
       pids=()
     fi
   done <"$RELEASE_ACTIONS_MISSING_FILE"
-  if [ "${#pids[@]}" -gt 0 ]; then wait_upload_batch "${pids[@]}" || return 1; fi
+  if [ "${#pids[@]}" -gt 0 ]; then
+    wait_upload_batch "${pids[@]}" || die "asset upload batch failed; draft retained for retry"
+  fi
   return 0
 }
 
-timed_phase() {
-  local name="$1" started="$SECONDS" status=0
-  shift
-  "$@" || status=$?
-  local elapsed=$((SECONDS-started))
+record_phase() {
+  local status="$1" name="$RELEASE_ACTIONS_PHASE"
+  local elapsed=$((SECONDS-RELEASE_ACTIONS_PHASE_STARTED))
+  RELEASE_ACTIONS_PHASE=""
   echo "::notice::releaseway phase=$name seconds=$elapsed status=$status"
   if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     printf '| %s | %s | %s |\n' "$name" "$elapsed" "$status" >>"$GITHUB_STEP_SUMMARY"
   fi
-  return "$status"
+}
+
+timed_phase() {
+  RELEASE_ACTIONS_PHASE="$1"
+  RELEASE_ACTIONS_PHASE_STARTED="$SECONDS"
+  shift
+  # Keep errexit and release state in the parent shell. EXIT records failures,
+  # including verification functions that call die instead of returning.
+  "$@"
+  record_phase 0
 }
 
 verify_draft_metadata() {
@@ -595,7 +609,7 @@ main() {
   if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     printf '\n## Releaseway transfer timing\n\n| Phase | Seconds | Status |\n| --- | ---: | ---: |\n' >>"$GITHUB_STEP_SUMMARY"
   fi
-  timed_phase upload upload_missing_assets || die "asset upload batch failed; draft retained for retry"
+  timed_phase upload upload_missing_assets
   timed_phase verify-assets verify_release_assets "false"
   verify_remote_tag "$INPUT_TAG" "$INPUT_COMMIT"
   verify_draft_metadata

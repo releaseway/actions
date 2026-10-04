@@ -176,6 +176,8 @@ if args[0] == "api":
         sys.exit(0)
 
     if "-X" in args and "PATCH" in args:
+        if state.get("fail_publish"):
+            sys.exit(1)
         release = state["release"]
         release["draft"] = field("draft") == "true"
         release["prerelease"] = field("prerelease") == "true"
@@ -384,8 +386,31 @@ def require_failure(result, text):
     assert text in result.stderr, result.stderr
 
 
+def require_phase(result, summary, phase, status):
+    notices = [line for line in result.stdout.splitlines() if f"phase={phase} " in line]
+    assert len(notices) == 1, result.stdout
+    assert notices[0].endswith(f"status={status}"), notices
+    rows = [line for line in summary.read_text().splitlines() if line.startswith(f"| {phase} |")]
+    assert len(rows) == 1, summary.read_text()
+    assert rows[0].endswith(f"| {status} |"), rows
+
+
 def main():
     subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
+
+    # A timed command must retain errexit instead of hiding an early failure
+    # behind a successful later command. Preserve the original exit status.
+    functions = SCRIPT.read_text().rsplit('\nmain "$@"', 1)[0]
+    for command, status in (("false", 1), ("return 7", 7), ('die "probe failure"', 1)):
+        result = subprocess.run(
+            ["bash"], input=functions + '\nprobe() { ' + command + '; echo continued; }\ntimed_phase probe probe\n',
+            text=True, capture_output=True,
+            env={**os.environ, "GITHUB_STEP_SUMMARY": ""},
+        )
+        assert result.returncode == status, result
+        assert "continued" not in result.stdout, result.stdout
+        assert result.stdout.count("phase=probe ") == 1, result.stdout
+        assert f"status={status}" in result.stdout, result.stdout
 
     metadata = (ROOT / "action.yml").read_text()
     assert "using: composite" in metadata
@@ -893,39 +918,79 @@ def main():
         assert active == 0
         assert "phase=upload" in result.stdout
         assert "| upload |" in summary.read_text()
+        for phase in ("upload", "verify-assets", "publish", "verify-publication"):
+            require_phase(result, summary, phase, 0)
 
         # Failure in the last, incomplete batch must propagate; completed peers
         # remain in the draft and the next attempt uploads only the missing file.
-        result, state, _ = run_case(
+        summary.write_text("")
+        result, state, output = run_case(
             work, fakebin, tmp, commit, patterns,
             {"immutable_enabled": True, "release": None, "fail_upload_name": parallel_assets[-1].name},
             INPUT_UPLOAD_CONCURRENCY="4",
+            GITHUB_STEP_SUMMARY=str(summary),
         )
         require_failure(result, "asset upload batch failed")
+        require_phase(result, summary, "upload", 1)
+        assert "phase=verify-assets" not in result.stdout
+        assert output == ""
         assert state["release"]["draft"] is True
         assert len(state["release"]["assets"]) == 8
         state.pop("fail_upload_name")
-        result, state, _ = run_case(work, fakebin, tmp, commit, patterns, state, INPUT_UPLOAD_CONCURRENCY="4")
+        events.write_text("")
+        result, state, _ = run_case(work, fakebin, tmp, commit, patterns, state,
+            INPUT_UPLOAD_CONCURRENCY="4", FAKE_UPLOAD_EVENTS=str(events))
         assert result.returncode == 0, result.stderr
         assert len(state["release"]["assets"]) == 9
         assert state["release"]["immutable"] is True
+        starts = [json.loads(line)["name"] for line in events.read_text().splitlines()
+                  if json.loads(line)["event"] == "start"]
+        assert starts == [parallel_assets[-1].name], starts
 
+        events.write_text("")
         result, state, _ = run_case(
             work, fakebin, tmp, commit, patterns,
             {"immutable_enabled": True, "release": None, "fail_upload_name": parallel_assets[0].name},
             INPUT_UPLOAD_CONCURRENCY="4",
+            FAKE_UPLOAD_EVENTS=str(events),
         )
         require_failure(result, "asset upload batch failed")
         assert state["release"]["draft"] is True
         assert len(state["release"]["assets"]) == 3
+        upload_events = [json.loads(line) for line in events.read_text().splitlines()]
+        assert {item["name"] for item in upload_events} == {path.name for path in parallel_assets[:4]}
+        assert sum(item["event"] == "start" for item in upload_events) == 4
+        assert sum(item["event"] == "end" for item in upload_events) == 4
 
-        result, state, _ = run_case(
+        summary.write_text("")
+        result, state, output = run_case(
             work, fakebin, tmp, commit, patterns,
             {"immutable_enabled": True, "release": None, "corrupt_upload_name": parallel_assets[0].name},
             INPUT_UPLOAD_CONCURRENCY="4",
+            GITHUB_STEP_SUMMARY=str(summary),
         )
         require_failure(result, "release asset digest mismatch")
+        require_phase(result, summary, "verify-assets", 1)
+        assert "phase=publish" not in result.stdout
+        assert output == ""
         assert state["release"]["draft"] is True
+
+        for failure, phase, message, draft in (
+            ({"fail_publish": True}, "publish", "failed to publish draft release", True),
+            ({"immutable_enabled": False}, "verify-publication", "published release is not immutable", False),
+        ):
+            summary.write_text("")
+            result, state, output = run_case(
+                work, fakebin, tmp, commit, patterns,
+                {"immutable_enabled": True, "release": None, **failure},
+                INPUT_UPLOAD_CONCURRENCY="4", GITHUB_STEP_SUMMARY=str(summary),
+            )
+            require_failure(result, message)
+            require_phase(result, summary, phase, 1)
+            assert state["release"]["draft"] is draft
+            assert output == ""
+            if phase == "publish":
+                assert "phase=verify-publication" not in result.stdout
 
         for invalid in ("0", "9", "02", "2.0", "unsafe"):
             result, state, _ = run_case(work, fakebin, tmp, commit, assets,
