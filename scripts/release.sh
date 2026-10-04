@@ -248,18 +248,51 @@ verify_uploaded_asset() {
   return 1
 }
 
+upload_one_asset() {
+  local name="$1" path="$2" digest="$3"
+  if ! gh release upload "$INPUT_TAG" "$path" --repo "$GITHUB_REPOSITORY"; then
+    if verify_uploaded_asset "$name" "$digest"; then
+      echo "::notice::release asset was uploaded concurrently: $name"
+      return 0
+    fi
+    die "failed to upload release asset: $name"
+  fi
+}
+
+wait_upload_batch() {
+  local pid failed=0
+  for pid in "$@"; do
+    if ! wait "$pid"; then failed=1; fi
+  done
+  return "$failed"
+}
+
 upload_missing_assets() {
   local name path digest
+  local -a pids=()
   while IFS=$'\t' read -r name path digest; do
     [ -n "$name" ] || continue
-    if ! gh release upload "$INPUT_TAG" "$path" --repo "$GITHUB_REPOSITORY"; then
-      if verify_uploaded_asset "$name" "$digest"; then
-        echo "::notice::release asset was uploaded concurrently: $name"
-        continue
-      fi
-      die "failed to upload release asset: $name"
+    (trap - EXIT; upload_one_asset "$name" "$path" "$digest") &
+    pids+=("$!")
+    if [ "${#pids[@]}" -eq "${INPUT_UPLOAD_CONCURRENCY:-1}" ]; then
+      wait_upload_batch "${pids[@]}" || return 1
+      pids=()
     fi
   done <"$RELEASE_ACTIONS_MISSING_FILE"
+  if [ "${#pids[@]}" -gt 0 ]; then wait_upload_batch "${pids[@]}" || return 1; fi
+  return 0
+}
+
+timed_phase() {
+  local name="$1" started="$SECONDS" status=0
+  shift
+  "$@" || status=$?
+  local elapsed=$((SECONDS-started))
+  echo "::notice::releaseway phase=$name seconds=$elapsed status=$status"
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    printf '| %s | %s | %s |\n' "$name" "$elapsed" "$status" >>"$GITHUB_STEP_SUMMARY"
+  fi
+  return "$status"
 }
 
 verify_draft_metadata() {
@@ -477,6 +510,10 @@ preflight() {
   INPUT_COMMIT="$(lowercase "$INPUT_COMMIT")"
 
   validate_boolean "prerelease" "${INPUT_PRERELEASE:-false}"
+  case "${INPUT_UPLOAD_CONCURRENCY:-1}" in
+    [1-8]) ;;
+    *) die "upload-concurrency must be an integer from 1 to 8" ;;
+  esac
   case "${INPUT_LATEST:-automatic}" in
     automatic|true|false) ;;
     *) die "latest must be automatic, true, or false" ;;
@@ -555,12 +592,15 @@ main() {
     verify_release_assets "true"
   fi
 
-  upload_missing_assets
-  verify_release_assets "false"
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    printf '\n## Releaseway transfer timing\n\n| Phase | Seconds | Status |\n| --- | ---: | ---: |\n' >>"$GITHUB_STEP_SUMMARY"
+  fi
+  timed_phase upload upload_missing_assets || die "asset upload batch failed; draft retained for retry"
+  timed_phase verify-assets verify_release_assets "false"
   verify_remote_tag "$INPUT_TAG" "$INPUT_COMMIT"
   verify_draft_metadata
-  publish_draft_release
-  verify_published_release
+  timed_phase publish publish_draft_release
+  timed_phase verify-publication verify_published_release
   set_outputs "$state"
   echo "::notice::published immutable release $INPUT_TAG ($state)"
 }

@@ -11,16 +11,27 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "release.sh"
 
 FAKE_GH = r"""#!/usr/bin/env python3
+import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 state_path = Path(os.environ["FAKE_GH_STATE"])
-state = json.loads(state_path.read_text())
 args = sys.argv[1:]
+if args[:2] == ["release", "upload"] and os.environ.get("FAKE_UPLOAD_EVENTS"):
+    with open(os.environ["FAKE_UPLOAD_EVENTS"], "a") as events:
+        events.write(json.dumps({"event":"start", "name":Path(args[3]).name, "time":time.monotonic()})+"\n")
+    time.sleep(0.15)
+    with open(os.environ["FAKE_UPLOAD_EVENTS"], "a") as events:
+        events.write(json.dumps({"event":"end", "name":Path(args[3]).name, "time":time.monotonic()})+"\n")
+# Simulate atomic remote API state updates even when uploads overlap.
+state_lock = open(str(state_path)+".lock", "w")
+fcntl.flock(state_lock, fcntl.LOCK_EX)
+state = json.loads(state_path.read_text())
 
 
 def save():
@@ -198,9 +209,13 @@ if args[:2] == ["release", "upload"]:
     if release["tag"] != tag or not release["draft"]:
         sys.exit(1)
     name = path.name
+    if state.get("fail_upload_name") == name:
+        sys.exit(1)
     if any(asset["name"] == name for asset in release["assets"]):
         sys.exit(1)
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if state.get("corrupt_upload_name") == name:
+        digest = "0"*64
     release["assets"].append({
         "name": name,
         "state": "uploaded",
@@ -301,6 +316,7 @@ def run_case(work, fakebin, tmp, commit, assets, state, **overrides):
         "INPUT_TAG": "v1.0.0",
         "INPUT_COMMIT": commit,
         "INPUT_ASSETS": assets,
+        "INPUT_UPLOAD_CONCURRENCY": "1",
         "INPUT_TITLE": "",
         "INPUT_NOTES": "none",
         "INPUT_NOTES_CONFIG": "",
@@ -850,6 +866,72 @@ def main():
             INPUT_LATEST="true",
         )
         require_failure(result, "prerelease releases cannot be marked latest")
+
+        parallel_assets = []
+        for number in range(9):
+            path = work / f"parallel-{number}.bin"
+            path.write_text(str(number))
+            parallel_assets.append(path)
+        patterns = "\n".join(str(path) for path in parallel_assets)
+        events = tmp / "upload-events.jsonl"
+        events.write_text("")
+        summary = tmp / "summary.md"
+        result, state, _ = run_case(
+            work, fakebin, tmp, commit, patterns,
+            {"immutable_enabled": True, "release": None},
+            INPUT_UPLOAD_CONCURRENCY="4", FAKE_UPLOAD_EVENTS=str(events),
+            GITHUB_STEP_SUMMARY=str(summary),
+        )
+        assert result.returncode == 0, result.stderr
+        assert state["release"]["immutable"] is True
+        assert len(state["release"]["assets"]) == 9
+        active = peak = 0
+        for event in sorted((json.loads(line) for line in events.read_text().splitlines()), key=lambda item:item['time']):
+            active += 1 if event["event"] == "start" else -1
+            peak = max(peak, active)
+        assert 1 < peak <= 4, peak
+        assert active == 0
+        assert "phase=upload" in result.stdout
+        assert "| upload |" in summary.read_text()
+
+        # Failure in the last, incomplete batch must propagate; completed peers
+        # remain in the draft and the next attempt uploads only the missing file.
+        result, state, _ = run_case(
+            work, fakebin, tmp, commit, patterns,
+            {"immutable_enabled": True, "release": None, "fail_upload_name": parallel_assets[-1].name},
+            INPUT_UPLOAD_CONCURRENCY="4",
+        )
+        require_failure(result, "asset upload batch failed")
+        assert state["release"]["draft"] is True
+        assert len(state["release"]["assets"]) == 8
+        state.pop("fail_upload_name")
+        result, state, _ = run_case(work, fakebin, tmp, commit, patterns, state, INPUT_UPLOAD_CONCURRENCY="4")
+        assert result.returncode == 0, result.stderr
+        assert len(state["release"]["assets"]) == 9
+        assert state["release"]["immutable"] is True
+
+        result, state, _ = run_case(
+            work, fakebin, tmp, commit, patterns,
+            {"immutable_enabled": True, "release": None, "fail_upload_name": parallel_assets[0].name},
+            INPUT_UPLOAD_CONCURRENCY="4",
+        )
+        require_failure(result, "asset upload batch failed")
+        assert state["release"]["draft"] is True
+        assert len(state["release"]["assets"]) == 3
+
+        result, state, _ = run_case(
+            work, fakebin, tmp, commit, patterns,
+            {"immutable_enabled": True, "release": None, "corrupt_upload_name": parallel_assets[0].name},
+            INPUT_UPLOAD_CONCURRENCY="4",
+        )
+        require_failure(result, "release asset digest mismatch")
+        assert state["release"]["draft"] is True
+
+        for invalid in ("0", "9", "02", "2.0", "unsafe"):
+            result, state, _ = run_case(work, fakebin, tmp, commit, assets,
+                {"immutable_enabled": True, "release": None}, INPUT_UPLOAD_CONCURRENCY=invalid)
+            require_failure(result, "upload-concurrency must be")
+            assert state["release"] is None
 
     print("release-actions regression passed")
 

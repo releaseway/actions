@@ -12,6 +12,10 @@ inputs:
     description: Optional newline-separated asset paths or glob patterns. Every pattern must match at least one regular file.
     required: false
     default: ""
+  upload-concurrency:
+    description: Maximum simultaneous asset uploads, from 1 to 8. Failed uploads leave a resumable draft.
+    required: false
+    default: "1"
   title:
     description: Release title. Defaults to the tag.
     required: false
@@ -80,6 +84,7 @@ runs:
         INPUT_TAG: ${{ inputs.tag }}
         INPUT_COMMIT: ${{ inputs.commit }}
         INPUT_ASSETS: ${{ inputs.assets }}
+        INPUT_UPLOAD_CONCURRENCY: ${{ inputs.upload-concurrency }}
         INPUT_TITLE: ${{ inputs.title }}
         INPUT_NOTES: ${{ inputs.notes }}
         INPUT_NOTES_CONFIG: ${{ inputs.notes-config }}

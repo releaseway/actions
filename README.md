@@ -317,6 +317,7 @@ The checked-out repository must resolve to the same `owner/name` as `GITHUB_REPO
 | `tag` | yes | — | Existing remote Git tag to publish or preview. |
 | `commit` | yes | — | Full 40-character commit SHA the remote tag must resolve to. |
 | `assets` | no | empty | Newline-separated file paths or glob patterns. Every supplied pattern must match at least one regular file. |
+| `upload-concurrency` | no | `1` | Maximum simultaneous asset uploads, from `1` to `8`. Use `4` to overlap transfers while bounding requests. |
 | `title` | no | tag | Release title. Independent of notes mode. |
 | `notes` | no | `standard` | Release-note preset/mode listed above. |
 | `notes-config` | no | empty | Explicit versioned YAML/JSON policy file. |
@@ -346,6 +347,8 @@ The report records its preparation status, the effective policy, configuration p
 Every publishing invocation verifies that the remote tag resolves to the requested commit and that the checked-out repository identity matches `GITHUB_REPOSITORY`.
 
 For a new release, the action creates a draft with the prepared body, uploads requested assets, verifies the exact asset set and SHA-256 digests, re-verifies the remote tag, publishes the draft, verifies immutability, verifies the final body, and checks the final asset set again.
+
+Uploads run in bounded batches when `upload-concurrency` exceeds `1`. Every started upload in the batch finishes before its result is accepted. A failed batch stops publication and leaves completed files in the draft; a retry verifies their digests and uploads only missing files. Upload, asset verification, publication and final verification durations appear in notices and the Actions job summary.
 
 An existing draft is resumed only when prerelease state, requested title, notes policy, and assets are compatible. An existing published release is accepted only when its tag target, prerelease state, immutability, requested asset set, and requested existing-body policy all pass.
 
