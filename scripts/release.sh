@@ -256,7 +256,7 @@ upload_one_asset() {
   local name="$1" path="$2" digest="$3"
   if ! gh release upload "$INPUT_TAG" "$path" --repo "$GITHUB_REPOSITORY"; then
     if verify_uploaded_asset "$name" "$digest"; then
-      echo "::notice::release asset was uploaded concurrently: $name"
+      echo "release asset was uploaded concurrently: $name"
       return 0
     fi
     die "failed to upload release asset: $name"
@@ -293,7 +293,7 @@ record_phase() {
   local status="$1" name="$RELEASE_ACTIONS_PHASE"
   local elapsed=$((SECONDS-RELEASE_ACTIONS_PHASE_STARTED))
   RELEASE_ACTIONS_PHASE=""
-  echo "::notice::releaseway phase=$name seconds=$elapsed status=$status"
+  echo "releaseway phase=$name seconds=$elapsed status=$status"
   if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     printf '| %s | %s | %s |\n' "$name" "$elapsed" "$status" >>"$GITHUB_STEP_SUMMARY"
   fi
@@ -405,7 +405,7 @@ publish_draft_release() {
       [ "$RELEASE_PRERELEASE" = "${INPUT_PRERELEASE:-false}" ] &&
       [ "$RELEASE_IMMUTABLE" = "true" ]; then
       verify_release_assets "false"
-      echo "::notice::release was published concurrently: $INPUT_TAG"
+      echo "release was published concurrently: $INPUT_TAG"
       return 0
     fi
     die "failed to publish draft release $INPUT_TAG"
@@ -569,7 +569,7 @@ main() {
       verify_requested_title
       verify_requested_body
       set_outputs "existing"
-      echo "::notice::verified existing immutable release $INPUT_TAG"
+      echo "verified existing immutable release $INPUT_TAG"
       exit 0
     fi
 
@@ -591,7 +591,7 @@ main() {
         verify_requested_title
         verify_requested_body
         set_outputs "existing"
-        echo "::notice::verified concurrently published immutable release $INPUT_TAG"
+        echo "verified concurrently published immutable release $INPUT_TAG"
         exit 0
       fi
 
@@ -616,7 +616,7 @@ main() {
   timed_phase publish publish_draft_release
   timed_phase verify-publication verify_published_release
   set_outputs "$state"
-  echo "::notice::published immutable release $INPUT_TAG ($state)"
+  echo "published immutable release $INPUT_TAG ($state)"
 }
 
 main "$@"
