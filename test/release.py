@@ -341,6 +341,7 @@ def run_case(work, fakebin, tmp, commit, assets, state, **overrides):
         text=True,
         capture_output=True,
     )
+    assert "::notice::" not in result.stdout, result.stdout
     return result, json.loads(state_path.read_text()), output.read_text()
 
 
@@ -384,12 +385,13 @@ def assetless_release_state(*, draft=False, immutable=True, prerelease=False):
 def require_failure(result, text):
     assert result.returncode != 0, result.stdout
     assert text in result.stderr, result.stderr
+    assert "::error::" in result.stderr, result.stderr
 
 
 def require_phase(result, summary, phase, status):
-    notices = [line for line in result.stdout.splitlines() if f"phase={phase} " in line]
-    assert len(notices) == 1, result.stdout
-    assert notices[0].endswith(f"status={status}"), notices
+    phases = [line for line in result.stdout.splitlines() if f"phase={phase} " in line]
+    assert len(phases) == 1, result.stdout
+    assert phases[0].endswith(f"status={status}"), phases
     rows = [line for line in summary.read_text().splitlines() if line.startswith(f"| {phase} |")]
     assert len(rows) == 1, summary.read_text()
     assert rows[0].endswith(f"| {status} |"), rows
