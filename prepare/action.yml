@@ -1,0 +1,69 @@
+name: Prepare Releaseway release
+description: Plan a version series, atomically push its release commit and tag, resume a saved plan, or verify an existing release tag.
+inputs:
+  mode:
+    description: plan, prepare, resume, resolve, or tag. Resolve verifies an existing stable tag; tag creates or verifies an explicit tag binding.
+    default: prepare
+  release-config:
+    description: Repository-relative release policy path. Not required for resolve.
+    default: .github/releaseway.yml
+  prerelease-id:
+    description: Optional prerelease identifier such as rc or beta.
+    default: ""
+  plan-path:
+    description: Saved plan path for resume; defaults to a file in RUNNER_TEMP.
+    default: ""
+  tag:
+    description: Existing stable SemVer tag for resolve, or explicit versioned tag for tag mode.
+    default: ""
+  commit:
+    description: Full commit SHA for tag mode; must belong to the configured origin branch.
+    default: ""
+  branch:
+    description: Origin branch for resolve mode.
+    default: main
+outputs:
+  tag:
+    value: ${{ steps.prepare.outputs.tag }}
+    description: Release tag.
+  version:
+    value: ${{ steps.prepare.outputs.version }}
+    description: Exact release version.
+  commit:
+    value: ${{ steps.prepare.outputs.commit }}
+    description: Exact release commit SHA.
+  target:
+    value: ${{ steps.prepare.outputs.target }}
+    description: Existing tag commit in resolve mode.
+  source:
+    value: ${{ steps.prepare.outputs.source }}
+    description: Source SHA before the release marker commit.
+  plan-path:
+    value: ${{ steps.prepare.outputs.plan-path }}
+    description: Saved plan for inspection or resume, including when push fails.
+  latest:
+    value: ${{ steps.prepare.outputs.latest }}
+    description: Configured GitHub latest policy.
+  prerelease:
+    value: ${{ steps.prepare.outputs.prerelease }}
+    description: Whether the prepared release is a prerelease.
+  state:
+    value: ${{ steps.prepare.outputs.state }}
+    description: planned or existing.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: "24"
+    - id: prepare
+      shell: bash
+      env:
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_RELEASE_CONFIG: ${{ inputs.release-config }}
+        INPUT_PRERELEASE_ID: ${{ inputs.prerelease-id }}
+        INPUT_PLAN_PATH: ${{ inputs.plan-path }}
+        INPUT_TAG: ${{ inputs.tag }}
+        INPUT_COMMIT: ${{ inputs.commit }}
+        INPUT_BRANCH: ${{ inputs.branch }}
+      run: node "$GITHUB_ACTION_PATH/../dist/engine.cjs" release-prepare

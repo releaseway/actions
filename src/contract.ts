@@ -21,7 +21,7 @@ export const NOTES_EXISTING_POLICIES = [
 export type NotesMode = (typeof NOTES_MODES)[number];
 export type NotesExistingPolicy =
   (typeof NOTES_EXISTING_POLICIES)[number];
-export type LatestPolicy = "automatic" | "true" | "false";
+export type LatestPolicy = "automatic" | "true" | "false" | "current-series";
 
 export interface ActionInputs {
   notes: NotesMode;
@@ -87,7 +87,7 @@ export function resolveActionInputs(
   const latest = parseEnum(
     "latest",
     input(env, "latest").trim() || "automatic",
-    ["automatic", "true", "false"] as const,
+    ["automatic", "true", "false", "current-series"] as const,
   );
   if (prerelease && latest === "true") {
     throw new Error("prerelease releases cannot be marked latest");

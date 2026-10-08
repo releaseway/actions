@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 export interface GitCommandResult {
   stdout: string;
   status: number;
+  stderr?: string;
 }
 
 export const MAX_RELEASE_COMMITS = 10_000;
@@ -54,6 +55,7 @@ export class GitRepository {
     }
     return {
       stdout: result.stdout ?? "",
+      stderr: result.stderr ?? "",
       status,
     };
   }

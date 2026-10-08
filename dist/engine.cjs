@@ -997,14 +997,14 @@ var require_foldFlowLines = __commonJS({
     var FOLD_FLOW = "flow";
     var FOLD_BLOCK = "block";
     var FOLD_QUOTED = "quoted";
-    function foldFlowLines(text, indent, mode = "flow", { indentAtStart, lineWidth = 80, minContentWidth = 20, onFold, onOverflow } = {}) {
+    function foldFlowLines(text2, indent, mode = "flow", { indentAtStart, lineWidth = 80, minContentWidth = 20, onFold, onOverflow } = {}) {
       if (!lineWidth || lineWidth < 0)
-        return text;
+        return text2;
       if (lineWidth < minContentWidth)
         minContentWidth = 0;
       const endStep = Math.max(1 + minContentWidth, 1 + lineWidth - indent.length);
-      if (text.length <= endStep)
-        return text;
+      if (text2.length <= endStep)
+        return text2;
       const folds = [];
       const escapedFolds = {};
       let end = lineWidth - indent.length;
@@ -1021,14 +1021,14 @@ var require_foldFlowLines = __commonJS({
       let escStart = -1;
       let escEnd = -1;
       if (mode === FOLD_BLOCK) {
-        i = consumeMoreIndentedLines(text, i, indent.length);
+        i = consumeMoreIndentedLines(text2, i, indent.length);
         if (i !== -1)
           end = i + endStep;
       }
-      for (let ch; ch = text[i += 1]; ) {
+      for (let ch; ch = text2[i += 1]; ) {
         if (mode === FOLD_QUOTED && ch === "\\") {
           escStart = i;
-          switch (text[i + 1]) {
+          switch (text2[i + 1]) {
             case "x":
               i += 3;
               break;
@@ -1045,12 +1045,12 @@ var require_foldFlowLines = __commonJS({
         }
         if (ch === "\n") {
           if (mode === FOLD_BLOCK)
-            i = consumeMoreIndentedLines(text, i, indent.length);
+            i = consumeMoreIndentedLines(text2, i, indent.length);
           end = i + indent.length + endStep;
           split = void 0;
         } else {
           if (ch === " " && prev && prev !== " " && prev !== "\n" && prev !== "	") {
-            const next = text[i + 1];
+            const next = text2[i + 1];
             if (next && next !== " " && next !== "\n" && next !== "	")
               split = i;
           }
@@ -1062,12 +1062,12 @@ var require_foldFlowLines = __commonJS({
             } else if (mode === FOLD_QUOTED) {
               while (prev === " " || prev === "	") {
                 prev = ch;
-                ch = text[i += 1];
+                ch = text2[i += 1];
                 overflow = true;
               }
               const j = i > escEnd + 1 ? i - 2 : escStart - 1;
               if (escapedFolds[j])
-                return text;
+                return text2;
               folds.push(j);
               escapedFolds[j] = true;
               end = j + endStep;
@@ -1082,39 +1082,39 @@ var require_foldFlowLines = __commonJS({
       if (overflow && onOverflow)
         onOverflow();
       if (folds.length === 0)
-        return text;
+        return text2;
       if (onFold)
         onFold();
-      let res = text.slice(0, folds[0]);
+      let res = text2.slice(0, folds[0]);
       for (let i2 = 0; i2 < folds.length; ++i2) {
         const fold = folds[i2];
-        const end2 = folds[i2 + 1] || text.length;
+        const end2 = folds[i2 + 1] || text2.length;
         if (fold === 0)
           res = `
-${indent}${text.slice(0, end2)}`;
+${indent}${text2.slice(0, end2)}`;
         else {
           if (mode === FOLD_QUOTED && escapedFolds[fold])
-            res += `${text[fold]}\\`;
+            res += `${text2[fold]}\\`;
           res += `
-${indent}${text.slice(fold + 1, end2)}`;
+${indent}${text2.slice(fold + 1, end2)}`;
         }
       }
       return res;
     }
-    function consumeMoreIndentedLines(text, i, indent) {
+    function consumeMoreIndentedLines(text2, i, indent) {
       let end = i;
       let start = i + 1;
-      let ch = text[start];
+      let ch = text2[start];
       while (ch === " " || ch === "	") {
         if (i < start + indent) {
-          ch = text[++i];
+          ch = text2[++i];
         } else {
           do {
-            ch = text[++i];
+            ch = text2[++i];
           } while (ch && ch !== "\n");
           end = i;
           start = i + 1;
-          ch = text[start];
+          ch = text2[start];
         }
       }
       return end;
@@ -3993,10 +3993,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -4010,7 +4010,7 @@ var require_resolve_block_map = __commonJS({
             else if ("indent" in key && key.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
-          if (!keyProps.anchor && !keyProps.tag && !sep) {
+          if (!keyProps.anchor && !keyProps.tag && !sep2) {
             commentEnd = keyProps.end;
             if (keyProps.comment) {
               if (map.comment)
@@ -4034,7 +4034,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        const valueProps = resolveProps.resolveProps(sep ?? [], {
+        const valueProps = resolveProps.resolveProps(sep2 ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -4050,7 +4050,7 @@ var require_resolve_block_map = __commonJS({
             if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
               onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep, null, valueProps, onError);
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep2, null, valueProps, onError);
           if (ctx.schema.compat)
             utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
           offset = valueNode.range[2];
@@ -4141,7 +4141,7 @@ var require_resolve_end = __commonJS({
       let comment = "";
       if (end) {
         let hasSpace = false;
-        let sep = "";
+        let sep2 = "";
         for (const token of end) {
           const { source, type } = token;
           switch (type) {
@@ -4155,13 +4155,13 @@ var require_resolve_end = __commonJS({
               if (!comment)
                 comment = cb;
               else
-                comment += sep + cb;
-              sep = "";
+                comment += sep2 + cb;
+              sep2 = "";
               break;
             }
             case "newline":
               if (comment)
-                sep += source;
+                sep2 += source;
               hasSpace = true;
               break;
             default:
@@ -4204,18 +4204,18 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: false
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep && !value) {
+          if (!props.anchor && !props.tag && !sep2 && !value) {
             if (i === 0 && props.comma)
               onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
             else if (i < fc.items.length - 1)
@@ -4269,8 +4269,8 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep && !props.found) {
-          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
+        if (!isMap && !sep2 && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep2, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
           if (isBlock(value))
@@ -4282,7 +4282,7 @@ var require_resolve_flow_collection = __commonJS({
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
-          const valueProps = resolveProps.resolveProps(sep ?? [], {
+          const valueProps = resolveProps.resolveProps(sep2 ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -4293,8 +4293,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep)
-                for (const st of sep) {
+              if (sep2)
+                for (const st of sep2) {
                   if (st === valueProps.found)
                     break;
                   if (st.type === "newline") {
@@ -4311,7 +4311,7 @@ var require_resolve_flow_collection = __commonJS({
             else
               onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep, null, valueProps, onError) : null;
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep2, null, valueProps, onError) : null;
           if (valueNode) {
             if (isBlock(value))
               onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
@@ -4491,7 +4491,7 @@ var require_resolve_block_scalar = __commonJS({
           chompStart = i + 1;
       }
       let value = "";
-      let sep = "";
+      let sep2 = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
@@ -4508,24 +4508,24 @@ var require_resolve_block_scalar = __commonJS({
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
         } else if (indent.length > trimIndent || content[0] === "	") {
-          if (sep === " ")
-            sep = "\n";
-          else if (!prevMoreIndented && sep === "\n")
-            sep = "\n\n";
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          if (sep2 === " ")
+            sep2 = "\n";
+          else if (!prevMoreIndented && sep2 === "\n")
+            sep2 = "\n\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
-          if (sep === "\n")
+          if (sep2 === "\n")
             value += "\n";
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          value += sep + content;
-          sep = " ";
+          value += sep2 + content;
+          sep2 = " ";
           prevMoreIndented = false;
         }
       }
@@ -4708,25 +4708,25 @@ var require_resolve_flow_scalar = __commonJS({
         trimBoth = /^[ \t]+|[ \t]+$/g;
       }
       let res = match[1].replace(trimEnd, "");
-      let sep = " ";
+      let sep2 = " ";
       let pos = line.lastIndex;
       while (match = line.exec(source)) {
         const lm = match[1].replace(trimBoth, "");
         if (lm === "") {
-          if (sep === "\n")
-            res += sep;
+          if (sep2 === "\n")
+            res += sep2;
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          res += sep + lm;
-          sep = " ";
+          res += sep2 + lm;
+          sep2 = " ";
         }
         pos = line.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
       match = last.exec(source);
-      return res + sep + (match?.[1] ?? "");
+      return res + sep2 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -5536,14 +5536,14 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep, value }) {
+    function stringifyItem({ start, key, sep: sep2, value }) {
       let res = "";
       for (const st of start)
         res += st.source;
       if (key)
         res += stringifyToken(key);
-      if (sep)
-        for (const st of sep)
+      if (sep2)
+        for (const st of sep2)
           res += st.source;
       if (value)
         res += stringifyToken(value);
@@ -6710,18 +6710,18 @@ var require_parser = __commonJS({
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start = getFirstKeyStartProps(prev);
-          let sep;
+          let sep2;
           if (scalar.end) {
-            sep = scalar.end;
-            sep.push(this.sourceToken);
+            sep2 = scalar.end;
+            sep2.push(this.sourceToken);
             delete scalar.end;
           } else
-            sep = [this.sourceToken];
+            sep2 = [this.sourceToken];
           const map = {
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start, key: scalar, sep }]
+            items: [{ start, key: scalar, sep: sep2 }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map;
@@ -6874,15 +6874,15 @@ var require_parser = __commonJS({
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it.start);
                   const key = it.key;
-                  const sep = it.sep;
-                  sep.push(this.sourceToken);
+                  const sep2 = it.sep;
+                  sep2.push(this.sourceToken);
                   delete it.key;
                   delete it.sep;
                   this.stack.push({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep }]
+                    items: [{ start: start2, key, sep: sep2 }]
                   });
                 } else if (start.length > 0) {
                   it.sep = it.sep.concat(start, this.sourceToken);
@@ -7076,13 +7076,13 @@ var require_parser = __commonJS({
             const prev = getPrevProps(parent);
             const start = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            const sep = fc.end.splice(1, fc.end.length);
-            sep.push(this.sourceToken);
+            const sep2 = fc.end.splice(1, fc.end.length);
+            sep2.push(this.sourceToken);
             const map = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep }]
+              items: [{ start, key: fc, sep: sep2 }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map;
@@ -7241,7 +7241,7 @@ var require_public_api = __commonJS({
         return docs;
       return Object.assign([], { empty: true }, composer$1.streamInfo());
     }
-    function parseDocument2(source, options = {}) {
+    function parseDocument3(source, options = {}) {
       const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
       const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
       const composer$1 = new composer.Composer(options);
@@ -7267,7 +7267,7 @@ var require_public_api = __commonJS({
       } else if (options === void 0 && reviver && typeof reviver === "object") {
         options = reviver;
       }
-      const doc = parseDocument2(src, options);
+      const doc = parseDocument3(src, options);
       if (!doc)
         return null;
       doc.warnings.forEach((warning) => log.warn(doc.options.logLevel, warning));
@@ -7303,7 +7303,7 @@ var require_public_api = __commonJS({
     }
     exports2.parse = parse;
     exports2.parseAllDocuments = parseAllDocuments;
-    exports2.parseDocument = parseDocument2;
+    exports2.parseDocument = parseDocument3;
     exports2.stringify = stringify;
   }
 });
@@ -7543,13 +7543,13 @@ var require_semver = __commonJS({
     var { safeRe: re, t } = require_re();
     var parseOptions = require_parse_options();
     var { compareIdentifiers } = require_identifiers();
-    var isPrereleaseIdentifier = (prerelease, identifier) => {
+    var isPrereleaseIdentifier = (prerelease4, identifier) => {
       const identifiers = identifier.split(".");
-      if (identifiers.length > prerelease.length) {
+      if (identifiers.length > prerelease4.length) {
         return false;
       }
       for (let i = 0; i < identifiers.length; i++) {
-        if (compareIdentifiers(prerelease[i], identifiers[i]) !== 0) {
+        if (compareIdentifiers(prerelease4[i], identifiers[i]) !== 0) {
           return false;
         }
       }
@@ -7797,17 +7797,17 @@ var require_semver = __commonJS({
               }
             }
             if (identifier) {
-              let prerelease = [identifier, base];
+              let prerelease4 = [identifier, base];
               if (identifierBase === false) {
-                prerelease = [identifier];
+                prerelease4 = [identifier];
               }
               if (isPrereleaseIdentifier(this.prerelease, identifier)) {
                 const prereleaseBase = this.prerelease[identifier.split(".").length];
                 if (isNaN(prereleaseBase)) {
-                  this.prerelease = prerelease;
+                  this.prerelease = prerelease4;
                 }
               } else {
-                this.prerelease = prerelease;
+                this.prerelease = prerelease4;
               }
             }
             break;
@@ -7853,11 +7853,11 @@ var require_valid = __commonJS({
   "node_modules/semver/functions/valid.js"(exports2, module2) {
     "use strict";
     var parse = require_parse();
-    var valid = (version, options) => {
+    var valid4 = (version, options) => {
       const v = parse(version, options);
       return v ? v.version : null;
     };
-    module2.exports = valid;
+    module2.exports = valid4;
   }
 });
 
@@ -7879,7 +7879,7 @@ var require_inc = __commonJS({
   "node_modules/semver/functions/inc.js"(exports2, module2) {
     "use strict";
     var SemVer = require_semver();
-    var inc = (version, release, options, identifier, identifierBase) => {
+    var inc2 = (version, release, options, identifier, identifierBase) => {
       if (typeof options === "string") {
         identifierBase = identifier;
         identifier = options;
@@ -7894,7 +7894,7 @@ var require_inc = __commonJS({
         return null;
       }
     };
-    module2.exports = inc;
+    module2.exports = inc2;
   }
 });
 
@@ -7977,11 +7977,11 @@ var require_prerelease = __commonJS({
   "node_modules/semver/functions/prerelease.js"(exports2, module2) {
     "use strict";
     var parse = require_parse();
-    var prerelease = (version, options) => {
+    var prerelease4 = (version, options) => {
       const parsed = parse(version, options);
       return parsed && parsed.prerelease.length ? parsed.prerelease : null;
     };
-    module2.exports = prerelease;
+    module2.exports = prerelease4;
   }
 });
 
@@ -7990,8 +7990,8 @@ var require_compare = __commonJS({
   "node_modules/semver/functions/compare.js"(exports2, module2) {
     "use strict";
     var SemVer = require_semver();
-    var compare = (a, b, loose) => new SemVer(a, loose).compare(new SemVer(b, loose));
-    module2.exports = compare;
+    var compare3 = (a, b, loose) => new SemVer(a, loose).compare(new SemVer(b, loose));
+    module2.exports = compare3;
   }
 });
 
@@ -7999,8 +7999,8 @@ var require_compare = __commonJS({
 var require_rcompare = __commonJS({
   "node_modules/semver/functions/rcompare.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var rcompare = (a, b, loose) => compare(b, a, loose);
+    var compare3 = require_compare();
+    var rcompare = (a, b, loose) => compare3(b, a, loose);
     module2.exports = rcompare;
   }
 });
@@ -8009,8 +8009,8 @@ var require_rcompare = __commonJS({
 var require_compare_loose = __commonJS({
   "node_modules/semver/functions/compare-loose.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var compareLoose = (a, b) => compare(a, b, true);
+    var compare3 = require_compare();
+    var compareLoose = (a, b) => compare3(a, b, true);
     module2.exports = compareLoose;
   }
 });
@@ -8053,8 +8053,8 @@ var require_rsort = __commonJS({
 var require_gt = __commonJS({
   "node_modules/semver/functions/gt.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var gt = (a, b, loose) => compare(a, b, loose) > 0;
+    var compare3 = require_compare();
+    var gt = (a, b, loose) => compare3(a, b, loose) > 0;
     module2.exports = gt;
   }
 });
@@ -8063,8 +8063,8 @@ var require_gt = __commonJS({
 var require_lt = __commonJS({
   "node_modules/semver/functions/lt.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var lt = (a, b, loose) => compare(a, b, loose) < 0;
+    var compare3 = require_compare();
+    var lt = (a, b, loose) => compare3(a, b, loose) < 0;
     module2.exports = lt;
   }
 });
@@ -8073,8 +8073,8 @@ var require_lt = __commonJS({
 var require_eq = __commonJS({
   "node_modules/semver/functions/eq.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var eq = (a, b, loose) => compare(a, b, loose) === 0;
+    var compare3 = require_compare();
+    var eq = (a, b, loose) => compare3(a, b, loose) === 0;
     module2.exports = eq;
   }
 });
@@ -8083,8 +8083,8 @@ var require_eq = __commonJS({
 var require_neq = __commonJS({
   "node_modules/semver/functions/neq.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var neq = (a, b, loose) => compare(a, b, loose) !== 0;
+    var compare3 = require_compare();
+    var neq = (a, b, loose) => compare3(a, b, loose) !== 0;
     module2.exports = neq;
   }
 });
@@ -8093,8 +8093,8 @@ var require_neq = __commonJS({
 var require_gte = __commonJS({
   "node_modules/semver/functions/gte.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var gte = (a, b, loose) => compare(a, b, loose) >= 0;
+    var compare3 = require_compare();
+    var gte = (a, b, loose) => compare3(a, b, loose) >= 0;
     module2.exports = gte;
   }
 });
@@ -8103,8 +8103,8 @@ var require_gte = __commonJS({
 var require_lte = __commonJS({
   "node_modules/semver/functions/lte.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var lte = (a, b, loose) => compare(a, b, loose) <= 0;
+    var compare3 = require_compare();
+    var lte = (a, b, loose) => compare3(a, b, loose) <= 0;
     module2.exports = lte;
   }
 });
@@ -8197,9 +8197,9 @@ var require_coerce = __commonJS({
       const major = match[2];
       const minor = match[3] || "0";
       const patch = match[4] || "0";
-      const prerelease = options.includePrerelease && match[5] ? `-${match[5]}` : "";
+      const prerelease4 = options.includePrerelease && match[5] ? `-${match[5]}` : "";
       const build = options.includePrerelease && match[6] ? `+${match[6]}` : "";
-      return parse(`${major}.${minor}.${patch}${prerelease}${build}`, options);
+      return parse(`${major}.${minor}.${patch}${prerelease4}${build}`, options);
     };
     module2.exports = coerce;
   }
@@ -9050,12 +9050,12 @@ var require_simplify = __commonJS({
   "node_modules/semver/ranges/simplify.js"(exports2, module2) {
     "use strict";
     var satisfies = require_satisfies();
-    var compare = require_compare();
+    var compare3 = require_compare();
     module2.exports = (versions, range, options) => {
       const set = [];
       let first = null;
       let prev = null;
-      const v = versions.sort((a, b) => compare(a, b, options));
+      const v = versions.sort((a, b) => compare3(a, b, options));
       for (const version of v) {
         const included = satisfies(version, range, options);
         if (included) {
@@ -9103,7 +9103,7 @@ var require_subset = __commonJS({
     var Comparator = require_comparator();
     var { ANY } = Comparator;
     var satisfies = require_satisfies();
-    var compare = require_compare();
+    var compare3 = require_compare();
     var subset = (sub, dom, options = {}) => {
       if (sub === dom) {
         return true;
@@ -9163,7 +9163,7 @@ var require_subset = __commonJS({
       }
       let gtltComp;
       if (gt && lt) {
-        gtltComp = compare(gt.semver, lt.semver, options);
+        gtltComp = compare3(gt.semver, lt.semver, options);
         if (gtltComp > 0) {
           return null;
         } else if (gtltComp === 0 && (gt.operator !== ">=" || lt.operator !== "<=")) {
@@ -9243,14 +9243,14 @@ var require_subset = __commonJS({
       if (!a) {
         return b;
       }
-      const comp = compare(a.semver, b.semver, options);
+      const comp = compare3(a.semver, b.semver, options);
       return comp > 0 ? a : comp < 0 ? b : b.operator === ">" && a.operator === ">=" ? b : a;
     };
     var lowerLT = (a, b, options) => {
       if (!a) {
         return b;
       }
-      const comp = compare(a.semver, b.semver, options);
+      const comp = compare3(a.semver, b.semver, options);
       return comp < 0 ? a : comp > 0 ? b : b.operator === "<" && a.operator === "<=" ? b : a;
     };
     module2.exports = subset;
@@ -9266,15 +9266,15 @@ var require_semver2 = __commonJS({
     var SemVer = require_semver();
     var identifiers = require_identifiers();
     var parse = require_parse();
-    var valid = require_valid();
+    var valid4 = require_valid();
     var clean = require_clean();
-    var inc = require_inc();
+    var inc2 = require_inc();
     var diff = require_diff();
     var major = require_major();
     var minor = require_minor();
     var patch = require_patch();
-    var prerelease = require_prerelease();
-    var compare = require_compare();
+    var prerelease4 = require_prerelease();
+    var compare3 = require_compare();
     var rcompare = require_rcompare();
     var compareLoose = require_compare_loose();
     var compareBuild = require_compare_build();
@@ -9305,15 +9305,15 @@ var require_semver2 = __commonJS({
     var subset = require_subset();
     module2.exports = {
       parse,
-      valid,
+      valid: valid4,
       clean,
-      inc,
+      inc: inc2,
       diff,
       major,
       minor,
       patch,
-      prerelease,
-      compare,
+      prerelease: prerelease4,
+      compare: compare3,
       rcompare,
       compareLoose,
       compareBuild,
@@ -9401,10 +9401,127 @@ var import_promises = require("node:fs/promises");
 var import_yaml = __toESM(require_dist(), 1);
 var MAX_CONFIG_BYTES = 256 * 1024;
 
-// src/github.ts
+// src/git.ts
 var import_node_child_process = require("node:child_process");
+var GitRepository = class {
+  path;
+  constructor(path) {
+    this.path = path;
+  }
+  run(args, options = {}) {
+    const {
+      allowFailure = false,
+      config = []
+    } = options;
+    const configEnv = {};
+    if (config.length > 0) {
+      configEnv.GIT_CONFIG_COUNT = String(config.length);
+      config.forEach(({ key, value }, index) => {
+        configEnv[`GIT_CONFIG_KEY_${index}`] = key;
+        configEnv[`GIT_CONFIG_VALUE_${index}`] = value;
+      });
+    }
+    const result = (0, import_node_child_process.spawnSync)("git", ["-C", this.path, ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 3e4,
+      env: { ...process.env, ...configEnv }
+    });
+    if (result.error) {
+      throw new Error(`git ${args.join(" ")} failed: ${result.error.message}`);
+    }
+    const status = result.status ?? 1;
+    if (!allowFailure && status !== 0) {
+      throw new Error(
+        `git ${args.join(" ")} failed: ${(result.stderr ?? "").trim()}`
+      );
+    }
+    return {
+      stdout: result.stdout ?? "",
+      stderr: result.stderr ?? "",
+      status
+    };
+  }
+  resolveCommit(ref) {
+    return this.run(["rev-parse", `${ref}^{commit}`]).stdout.trim().toLowerCase();
+  }
+  hasRef(ref) {
+    return this.run(
+      ["rev-parse", "--verify", "--quiet", ref],
+      { allowFailure: true }
+    ).status === 0;
+  }
+  isAncestor(ancestor, descendant) {
+    const result = this.run(
+      ["merge-base", "--is-ancestor", ancestor, descendant],
+      { allowFailure: true }
+    );
+    if (result.status === 0) return true;
+    if (result.status === 1) return false;
+    throw new Error(
+      `could not test ancestry between ${ancestor} and ${descendant}`
+    );
+  }
+  firstParentChain(target) {
+    return this.run(["rev-list", "--first-parent", target]).stdout.trim().split("\n").filter(Boolean).map((sha) => sha.toLowerCase());
+  }
+  tags() {
+    return this.run(["tag", "--list"]).stdout.split("\n").map((tag) => tag.trim()).filter(Boolean);
+  }
+  remoteUrl(name = "origin") {
+    return this.run(["remote", "get-url", name]).stdout.trim();
+  }
+  localHttpAuthConfig() {
+    const result = this.run(
+      [
+        "config",
+        "--local",
+        "--get-regexp",
+        "^http\\..*\\.extraheader$"
+      ],
+      { allowFailure: true }
+    );
+    if (result.status === 1) return [];
+    if (result.status !== 0) {
+      throw new Error("could not read checkout authentication configuration");
+    }
+    return result.stdout.split("\n").filter(Boolean).map((line) => {
+      const separator = line.search(/\s/);
+      if (separator <= 0) {
+        throw new Error("checkout authentication configuration is malformed");
+      }
+      return {
+        key: line.slice(0, separator),
+        value: line.slice(separator + 1)
+      };
+    });
+  }
+  remoteTagTarget(tag) {
+    const result = this.run([
+      "ls-remote",
+      "origin",
+      `refs/tags/${tag}`,
+      `refs/tags/${tag}^{}`
+    ]);
+    let object2 = "";
+    let target = "";
+    for (const line of result.stdout.split("\n")) {
+      const [sha, ref] = line.trim().split(/\s+/, 2);
+      if (!sha || !ref) continue;
+      if (ref === `refs/tags/${tag}`) object2 = sha.toLowerCase();
+      if (ref === `refs/tags/${tag}^{}`) target = sha.toLowerCase();
+    }
+    if (!object2) {
+      throw new Error(`release tag is missing from origin: ${tag}`);
+    }
+    return target || object2;
+  }
+};
+
+// src/github.ts
+var import_node_child_process2 = require("node:child_process");
 function defaultRunGh(args) {
-  const result = (0, import_node_child_process.spawnSync)("gh", [...args], {
+  const result = (0, import_node_child_process2.spawnSync)("gh", [...args], {
     encoding: "utf8",
     env: process.env,
     timeout: 3e4
@@ -9643,6 +9760,86 @@ var GhCliApi = class {
   }
 };
 
+// src/conventional.ts
+var HEADER = /^([A-Za-z][A-Za-z0-9._-]*)(?:\(([^)\r\n]+)\))?(!)?: (.+)$/;
+var BREAKING_FOOTER = /^BREAKING(?: CHANGE|-CHANGE):\s*(.*)$/;
+var FOOTER = /^[A-Za-z][A-Za-z0-9-]*(?: #[^\s]+|: .*)$/;
+function parseFooterBlock(lines) {
+  if (lines.length === 0 || !lines[0] || !(BREAKING_FOOTER.test(lines[0]) || FOOTER.test(lines[0]))) {
+    return null;
+  }
+  const breaking = [];
+  let activeBreaking = -1;
+  let activeFooter = false;
+  for (const line of lines) {
+    if (line.trim() === "") return null;
+    const breakingMatch = line.match(BREAKING_FOOTER);
+    if (breakingMatch) {
+      breaking.push((breakingMatch[1] ?? "").trim());
+      activeBreaking = breaking.length - 1;
+      activeFooter = true;
+      continue;
+    }
+    if (FOOTER.test(line)) {
+      activeBreaking = -1;
+      activeFooter = true;
+      continue;
+    }
+    if (!activeFooter) return null;
+    if (activeBreaking >= 0) {
+      breaking[activeBreaking] = (breaking[activeBreaking] + "\n" + line).trim();
+    }
+  }
+  return breaking.filter(Boolean);
+}
+function splitBodyAndFooters(lines) {
+  let end = lines.length;
+  while (end > 0 && lines[end - 1].trim() === "") end -= 1;
+  const trimmed = lines.slice(0, end);
+  let footerStart = -1;
+  let breaking = [];
+  for (let index = trimmed.length - 1; index >= 1; index -= 1) {
+    if (trimmed[index - 1].trim() !== "") continue;
+    const parsed = parseFooterBlock(trimmed.slice(index));
+    if (parsed === null) continue;
+    footerStart = index;
+    breaking = parsed;
+  }
+  const body = footerStart >= 0 ? trimmed.slice(0, footerStart - 1) : trimmed;
+  while (body.length > 0 && body[0].trim() === "") body.shift();
+  while (body.length > 0 && body.at(-1).trim() === "") body.pop();
+  return { body, breaking };
+}
+function parseConventionalCommit(message) {
+  const normalized = message.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
+  const lines = normalized.split("\n");
+  const header = lines[0] ?? "";
+  const match = header.match(HEADER);
+  const rest = splitBodyAndFooters(lines.slice(1));
+  if (!match) {
+    const first = header.trim() || "(empty commit message)";
+    return {
+      conventional: false,
+      type: null,
+      scope: null,
+      description: first,
+      body: rest.body.join("\n").trim(),
+      breaking: rest.breaking.length > 0,
+      breakingDescriptions: rest.breaking
+    };
+  }
+  const breaking = Boolean(match[3]) || rest.breaking.length > 0;
+  return {
+    conventional: true,
+    type: match[1].toLowerCase(),
+    scope: match[2] ?? null,
+    description: match[4].trim(),
+    body: rest.body.join("\n").trim(),
+    breaking,
+    breakingDescriptions: rest.breaking
+  };
+}
+
 // src/text.ts
 var MAX_NOTES_BYTES = 1024 * 1024;
 var UNSUPPORTED_CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u;
@@ -9668,19 +9865,32 @@ function bodyDigest(body) {
 
 // src/range.ts
 var import_semver = __toESM(require_semver2(), 1);
+var SEMVER_SUFFIX = /(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+function parseVersionedTag(tag) {
+  const match = tag.match(SEMVER_SUFFIX);
+  if (!match || match.index === void 0) return null;
+  const raw = match[0];
+  const parsed = import_semver.default.parse(raw, { loose: false });
+  if (!parsed) return null;
+  return {
+    tag,
+    prefix: tag.slice(0, match.index),
+    version: parsed
+  };
+}
 
 // src/prepare.ts
 var utf8 = new TextDecoder("utf-8", { fatal: true });
 function decodeUtf8(bytes, label) {
-  let text;
+  let text2;
   try {
-    text = utf8.decode(bytes);
+    text2 = utf8.decode(bytes);
   } catch {
     throw new Error(`${label} must contain valid UTF-8`);
   }
-  assertSupportedText(text, label);
-  assertNotesSize(text, label);
-  return text;
+  assertSupportedText(text2, label);
+  assertNotesSize(text2, label);
+  return text2;
 }
 async function verifyReleaseBody(options) {
   const api = options.api ?? new GhCliApi();
@@ -9698,8 +9908,310 @@ async function verifyReleaseBody(options) {
 }
 
 // src/engine.ts
+var import_node_fs3 = require("node:fs");
+var import_node_path3 = require("node:path");
+
+// src/release-config.ts
+var import_node_fs = require("node:fs");
+var import_node_path = require("node:path");
+var import_yaml2 = __toESM(require_dist(), 1);
+var import_semver2 = __toESM(require_semver2(), 1);
+function mapping(value, allowed, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be a mapping`);
+  const object2 = value;
+  for (const key of Object.keys(object2)) if (!allowed.includes(key)) throw new Error(`${label}.${key} is not supported`);
+  return object2;
+}
+function text(value, label) {
+  if (typeof value !== "string" || !value || /[\s\x00-\x1f]/.test(value)) throw new Error(`${label} must be a non-empty whitespace-free string`);
+  return value;
+}
+function stable(value, label) {
+  const version = text(value, label);
+  if ((0, import_semver2.valid)(version) !== version || (0, import_semver2.prerelease)(version) !== null || version.includes("+")) throw new Error(`${label} must be exact stable SemVer without build metadata`);
+  return version;
+}
+function parseReleaseConfig(source) {
+  if (Buffer.byteLength(source) > 256 * 1024) throw new Error("release config exceeds 256 KiB");
+  const document = (0, import_yaml2.parseDocument)(source, { uniqueKeys: true, schema: "core" });
+  if (document.errors.length) throw new Error(document.errors[0].message);
+  const root = mapping(document.toJS({ maxAliasCount: 0 }), ["schema", "branch", "tag-prefix", "initial-version", "bump", "series", "latest"], "release");
+  if (root.schema !== 1) throw new Error("release.schema must be 1");
+  const bump = root.bump ?? "auto";
+  if (typeof bump !== "string" || !["auto", "patch", "minor", "major"].includes(bump)) throw new Error("release.bump must be auto, patch, minor, or major");
+  const latest = root.latest ?? "automatic";
+  if (typeof latest !== "string" || !["automatic", "current-series", "true", "false"].includes(latest)) throw new Error("release.latest must be automatic, current-series, or a quoted true/false string");
+  let series;
+  if (root.series !== void 0) {
+    const value = mapping(root.series, ["base-tag", "start-version"], "release.series");
+    series = { baseTag: text(value["base-tag"], "release.series.base-tag"), startVersion: stable(value["start-version"], "release.series.start-version") };
+  }
+  return {
+    schema: 1,
+    branch: text(root.branch ?? "main", "release.branch"),
+    tagPrefix: root["tag-prefix"] === "" ? "" : text(root["tag-prefix"] ?? "v", "release.tag-prefix"),
+    initialVersion: stable(root["initial-version"] ?? "0.1.0", "release.initial-version"),
+    bump,
+    latest,
+    ...series ? { series } : {}
+  };
+}
+function readReleaseConfig(workspace, path = ".github/releaseway.yml") {
+  const root = (0, import_node_fs.realpathSync)(workspace);
+  const file = (0, import_node_fs.realpathSync)((0, import_node_path.resolve)(root, path));
+  const diff = (0, import_node_path.relative)(root, file);
+  if ((0, import_node_path.isAbsolute)(diff) || diff === ".." || diff.startsWith(".." + import_node_path.sep)) throw new Error("release config must resolve within the workspace");
+  return parseReleaseConfig((0, import_node_fs.readFileSync)(file, "utf8"));
+}
+
+// src/release-execution.ts
+var import_node_child_process3 = require("node:child_process");
+var import_node_crypto2 = require("node:crypto");
+var import_node_fs2 = require("node:fs");
+var import_node_path2 = require("node:path");
+var import_semver4 = __toESM(require_semver2(), 1);
+
+// src/series.ts
+var import_semver3 = __toESM(require_semver2(), 1);
+function seriesTags(config, tags, source, ancestor) {
+  const base = config.series ? tags.find((tag) => tag.tag === config.series.baseTag) : void 0;
+  if (config.series && !base) throw new Error(`Series base tag does not exist on origin: ${config.series.baseTag}`);
+  if (base && !ancestor(base.commit, source)) throw new Error("Series base tag must be an ancestor of the release source");
+  return tags.filter((tag) => {
+    const version = tag.tag.slice(config.tagPrefix.length);
+    return tag.tag.startsWith(config.tagPrefix) && (0, import_semver3.valid)(version) === version && !version.includes("+") && ancestor(tag.commit, source) && (!base || tag.commit !== base.commit && !ancestor(tag.commit, base.commit));
+  });
+}
+function nextSeriesVersion(config, tags, messages, prereleaseId = "") {
+  if (prereleaseId && !/^[A-Za-z][A-Za-z0-9-]*$/.test(prereleaseId)) throw new Error("prerelease-id must be a single nonnumeric SemVer identifier");
+  const versions = tags.map((tag) => tag.tag.slice(config.tagPrefix.length)).sort(import_semver3.compare);
+  const previous = versions.at(-1);
+  let next;
+  if (!previous) {
+    next = config.series?.startVersion ?? config.initialVersion;
+  } else if ((0, import_semver3.prerelease)(previous) !== null) {
+    const core = previous.split("-")[0];
+    const id = (0, import_semver3.prerelease)(previous)[0];
+    next = prereleaseId ? id === prereleaseId ? (0, import_semver3.inc)(previous, "prerelease", prereleaseId) : `${core}-${prereleaseId}.0` : core;
+    if (prereleaseId) {
+      if ((0, import_semver3.compare)(next, previous) <= 0) throw new Error("Prerelease channel change would decrease the current series version");
+      return next;
+    }
+  } else {
+    let bump = config.bump;
+    if (bump === "auto") {
+      const changes = messages.map(parseConventionalCommit);
+      bump = changes.some((change) => change.breaking) ? "major" : changes.some((change) => change.type === "feat") ? "minor" : "patch";
+    }
+    next = (0, import_semver3.inc)(previous, bump);
+  }
+  return prereleaseId ? `${next}-${prereleaseId}.0` : next;
+}
+
+// src/release-execution.ts
+var digest = (config) => (0, import_node_crypto2.createHash)("sha256").update(JSON.stringify(config)).digest("hex");
+function validateRefs(git, config) {
+  git.run(["check-ref-format", `refs/heads/${config.branch}`]);
+  git.run(["check-ref-format", `refs/tags/${config.tagPrefix}0.0.0`]);
+  if (config.series) git.run(["check-ref-format", `refs/tags/${config.series.baseTag}`]);
+}
+function snapshot(git, config) {
+  validateRefs(git, config);
+  const refs = git.run(["ls-remote", "origin", `refs/heads/${config.branch}`, "refs/tags/*"]).stdout;
+  const entries = /* @__PURE__ */ new Map();
+  let branch = "";
+  for (const line of refs.trim().split("\n")) {
+    const [sha, ref] = line.split(/\s+/);
+    if (!sha || !ref || !/^[0-9a-f]{40}$/.test(sha)) continue;
+    if (ref === `refs/heads/${config.branch}`) branch = sha;
+    else if (ref.startsWith("refs/tags/")) {
+      const peeled = ref.endsWith("^{}");
+      const name = ref.slice(10, peeled ? -3 : void 0);
+      const tag = entries.get(name) ?? {};
+      if (peeled) tag.peeled = sha;
+      else tag.direct = sha;
+      entries.set(name, tag);
+    }
+  }
+  if (!branch) throw new Error(`Origin branch does not exist: ${config.branch}`);
+  git.run(["fetch", "--no-tags", "origin", `+refs/heads/${config.branch}:refs/releaseway/branch`, "+refs/tags/*:refs/releaseway/tags/*"]);
+  if (git.resolveCommit("refs/releaseway/branch") !== branch) throw new Error("Origin branch changed while reading release state; retry planning");
+  const tags = [];
+  for (const [tag, entry] of entries) {
+    const commit = entry.peeled ?? entry.direct;
+    if (git.resolveCommit(`refs/releaseway/tags/${tag}`) !== commit) throw new Error(`Origin tag changed while reading release state: ${tag}`);
+    tags.push({ tag, commit });
+  }
+  return { branch, tags };
+}
+function releaseCommit(git, source, tag, config) {
+  const tree = git.run(["rev-parse", `${source}^{tree}`]).stdout.trim();
+  const timestamp = Number(git.run(["show", "-s", "--format=%ct", source]).stdout.trim()) + 1;
+  const result = (0, import_node_child_process3.spawnSync)("git", ["-C", git.path, "commit-tree", tree, "-p", source], {
+    input: `chore(release): ${tag}
+
+Releaseway-Config: ${digest(config)}
+`,
+    encoding: "utf8",
+    timeout: 3e4,
+    env: {
+      ...process.env,
+      GIT_AUTHOR_NAME: "github-actions[bot]",
+      GIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com",
+      GIT_COMMITTER_NAME: "github-actions[bot]",
+      GIT_COMMITTER_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com",
+      GIT_AUTHOR_DATE: `${timestamp} +0000`,
+      GIT_COMMITTER_DATE: `${timestamp} +0000`
+    }
+  });
+  if (result.error || result.status !== 0) throw new Error(`Could not create release commit: ${result.error?.message ?? result.stderr}`);
+  return result.stdout.trim();
+}
+function latestPolicy(config, version) {
+  if (config.latest === "current-series") return (0, import_semver4.prerelease)(version) === null ? "true" : "false";
+  if (config.latest === "true" && (0, import_semver4.prerelease)(version) !== null) throw new Error("Prerelease cannot be marked latest");
+  return config.latest;
+}
+function planRelease(workspace, config, prereleaseId = "", explicitSource) {
+  const git = new GitRepository(workspace);
+  if (git.run(["status", "--porcelain", "--untracked-files=no"]).stdout.trim()) throw new Error("Release planning requires clean tracked source files");
+  const remote = snapshot(git, config);
+  const head = explicitSource ?? git.resolveCommit("HEAD");
+  if (!/^[0-9a-f]{40}$/.test(head)) throw new Error("Release source must be a full commit SHA");
+  const message = git.run(["show", "-s", "--format=%B", head]).stdout.trim();
+  const marker = message.match(/^chore\(release\): (\S+)\n\nReleaseway-Config: ([0-9a-f]{64})$/);
+  if (!explicitSource && marker && marker[2] === digest(config)) {
+    const tag2 = marker[1];
+    const source = git.resolveCommit(`${head}^`);
+    if (releaseCommit(git, source, tag2, config) !== head) throw new Error("Release marker does not match deterministic release commit");
+    const existing2 = remote.tags.find((entry) => entry.tag === tag2);
+    if (existing2?.commit !== head || !git.isAncestor(head, remote.branch)) throw new Error("Release marker is not committed on origin with its matching tag");
+    const version2 = tag2.slice(config.tagPrefix.length);
+    if (!tag2.startsWith(config.tagPrefix) || (0, import_semver4.valid)(version2) !== version2) throw new Error("Release marker has an invalid version tag");
+    if (((0, import_semver4.prerelease)(version2)?.[0] ?? "") !== prereleaseId) throw new Error("Retry prerelease-id differs from the prepared release");
+    return { schema: 1, config, source, commit: head, tag: tag2, version: version2, prereleaseId, latest: latestPolicy(config, version2), state: "existing" };
+  }
+  const eligible = seriesTags(config, remote.tags, head, (a, b) => git.isAncestor(a, b));
+  eligible.sort((a, b) => (0, import_semver4.compare)(a.tag.slice(config.tagPrefix.length), b.tag.slice(config.tagPrefix.length)));
+  const previous = eligible.at(-1);
+  const base = previous?.commit ?? (config.series ? remote.tags.find((entry) => entry.tag === config.series.baseTag).commit : null);
+  const messages = git.run(["log", "--format=%B%x00", ...base ? [`${base}..${head}`] : [head]]).stdout.split("\0").filter((value) => value.trim());
+  const version = nextSeriesVersion(config, eligible, messages.map((message2) => message2.trim()), prereleaseId);
+  const tag = config.tagPrefix + version;
+  git.run(["check-ref-format", `refs/tags/${tag}`]);
+  const commit = releaseCommit(git, head, tag, config);
+  const existing = remote.tags.find((entry) => entry.tag === tag);
+  if (existing && existing.commit !== commit) throw new Error(`Release tag already exists and will not be replaced: ${tag}`);
+  if (!existing && remote.branch !== head) throw new Error("Origin branch differs from the release source; refresh checkout before planning");
+  if (existing && !git.isAncestor(commit, remote.branch)) throw new Error("Matching release tag is not on the configured origin branch");
+  return { schema: 1, config, source: head, commit, tag, version, prereleaseId, latest: latestPolicy(config, version), state: existing ? "existing" : "planned" };
+}
+function saveReleasePlan(path, plan) {
+  (0, import_node_fs2.mkdirSync)((0, import_node_path2.dirname)(path), { recursive: true });
+  (0, import_node_fs2.writeFileSync)(path, JSON.stringify(plan, null, 2) + "\n", { mode: 384 });
+}
+function readReleasePlan(path) {
+  return JSON.parse((0, import_node_fs2.readFileSync)(path, "utf8"));
+}
+function executeReleasePlan(workspace, plan, config) {
+  if (plan.schema !== 1 || JSON.stringify(plan.config) !== JSON.stringify(config)) throw new Error("Release plan configuration changed; create a fresh plan");
+  const fresh = planRelease(workspace, config, plan.prereleaseId, plan.source);
+  for (const key of ["source", "commit", "tag", "version", "latest"]) {
+    if (fresh[key] !== plan[key]) throw new Error(`Release plan ${key} changed; create a fresh plan`);
+  }
+  if (fresh.state === "existing") return fresh;
+  const git = new GitRepository(workspace);
+  const result = git.run(["push", "--atomic", "--no-follow-tags", `--force-with-lease=refs/heads/${config.branch}:${plan.source}`, "origin", `${plan.commit}:refs/heads/${config.branch}`, `${plan.commit}:refs/tags/${plan.tag}`], { allowFailure: true });
+  const remote = snapshot(git, config);
+  const bound = remote.tags.find((tag) => tag.tag === plan.tag);
+  if (bound?.commit === plan.commit && git.isAncestor(plan.commit, remote.branch)) return { ...fresh, state: "existing" };
+  if (result.status !== 0) throw new Error(`Atomic release push failed; no refs are rolled back or overwritten. Resume using the saved plan after checking origin. ${result.stderr?.trim() ?? ""}`);
+  throw new Error("Atomic release push returned success but its remote binding could not be verified; resume using the saved plan");
+}
+function resolveReleaseTag(workspace, tag, branch = "main", stableOnly = true) {
+  const git = new GitRepository(workspace);
+  git.run(["check-ref-format", `refs/tags/${tag}`]);
+  const version = tag.startsWith("v") ? tag.slice(1) : tag;
+  if ((0, import_semver4.valid)(version) !== version || version.includes("+") || stableOnly && (0, import_semver4.prerelease)(version) !== null) throw new Error("Release tag must be exact stable SemVer vX.Y.Z");
+  const remote = snapshot(git, { schema: 1, branch, tagPrefix: "v", initialVersion: "0.1.0", bump: "auto", latest: "automatic" });
+  const entry = remote.tags.find((entry2) => entry2.tag === tag);
+  if (!entry || !git.isAncestor(entry.commit, remote.branch)) throw new Error("Release tag must exist on origin and belong to the configured branch");
+  return { tag, version, commit: entry.commit };
+}
+function resolveSeriesLatest(workspace, config, tag, commit) {
+  const git = new GitRepository(workspace);
+  const remote = snapshot(git, config);
+  const eligible = seriesTags(config, remote.tags, remote.branch, (a, b) => git.isAncestor(a, b));
+  const target = eligible.find((entry) => entry.tag === tag && entry.commit === commit);
+  if (!target) throw new Error("Release tag is outside the current series");
+  const version = tag.slice(config.tagPrefix.length);
+  if ((0, import_semver4.prerelease)(version) !== null) return "false";
+  return eligible.some((entry) => {
+    const candidate = entry.tag.slice(config.tagPrefix.length);
+    return (0, import_semver4.prerelease)(candidate) === null && (0, import_semver4.compare)(candidate, version) > 0;
+  }) ? "false" : "true";
+}
+function bindReleaseTag(workspace, tag, commit, branch = "main") {
+  const git = new GitRepository(workspace);
+  git.run(["check-ref-format", `refs/tags/${tag}`]);
+  const parsed = parseVersionedTag(tag);
+  if (!parsed || parsed.version.build.length) throw new Error("Tag must end in exact SemVer without build metadata");
+  if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error("Tag commit must be a full lowercase 40-character SHA");
+  const config = { schema: 1, branch, tagPrefix: parsed.prefix, initialVersion: "0.1.0", bump: "auto", latest: "automatic" };
+  const verify = () => {
+    const remote = snapshot(git, config);
+    if (!git.isAncestor(commit, remote.branch)) throw new Error("Tag commit is not on the configured origin branch");
+    const existing = remote.tags.find((entry) => entry.tag === tag);
+    if (existing && existing.commit !== commit) throw new Error("Existing release tag resolves to a different commit and will not be replaced");
+    return Boolean(existing);
+  };
+  if (verify()) return { tag, version: parsed.version.version, commit, state: "existing" };
+  const result = git.run(["push", "--atomic", "--no-follow-tags", "origin", `${commit}:refs/tags/${tag}`], { allowFailure: true });
+  if (!verify()) throw new Error(`Release tag push was not verified; retry the same binding. ${result.stderr ?? ""}`);
+  return { tag, version: parsed.version.version, commit, state: "created" };
+}
+
+// src/engine.ts
 async function main(argv) {
   const command = argv[0];
+  if (command === "release-prepare") {
+    const workspace = import_node_process.default.env.GITHUB_WORKSPACE || import_node_process.default.cwd();
+    const mode = import_node_process.default.env.INPUT_MODE || "prepare";
+    const output = (values) => {
+      const body = Object.entries(values).map(([key, value]) => `${key}=${value}
+`).join("");
+      if (import_node_process.default.env.GITHUB_OUTPUT) (0, import_node_fs3.appendFileSync)(import_node_process.default.env.GITHUB_OUTPUT, body);
+      else import_node_process.default.stdout.write(body);
+    };
+    if (mode === "resolve") {
+      const release = resolveReleaseTag(workspace, import_node_process.default.env.INPUT_TAG || "", import_node_process.default.env.INPUT_BRANCH || "main");
+      output({ ...release, target: release.commit, state: "existing" });
+      return;
+    }
+    if (mode === "tag") {
+      const release = bindReleaseTag(workspace, import_node_process.default.env.INPUT_TAG || "", import_node_process.default.env.INPUT_COMMIT || "", import_node_process.default.env.INPUT_BRANCH || "main");
+      output(release);
+      return;
+    }
+    if (!["plan", "prepare", "resume"].includes(mode)) throw new Error("mode must be plan, prepare, resume, resolve, or tag");
+    const config = readReleaseConfig(workspace, import_node_process.default.env.INPUT_RELEASE_CONFIG || ".github/releaseway.yml");
+    const path = import_node_process.default.env.INPUT_PLAN_PATH || (0, import_node_path3.join)(import_node_process.default.env.RUNNER_TEMP || "/tmp", `releaseway-${import_node_process.default.env.GITHUB_RUN_ID || import_node_process.default.pid}-plan.json`);
+    let plan = mode === "resume" ? readReleasePlan(path) : planRelease(workspace, config, import_node_process.default.env.INPUT_PRERELEASE_ID || "");
+    saveReleasePlan(path, plan);
+    output({ tag: plan.tag, version: plan.version, commit: plan.commit, source: plan.source, "plan-path": path, latest: config.latest, prerelease: String(Boolean(plan.prereleaseId)), state: plan.state });
+    if (mode !== "plan") {
+      plan = executeReleasePlan(workspace, plan, config);
+      saveReleasePlan(path, plan);
+      output({ state: plan.state });
+    }
+    return;
+  }
+  if (command === "resolve-series-latest") {
+    const workspace = import_node_process.default.env.GITHUB_WORKSPACE || import_node_process.default.cwd();
+    const config = readReleaseConfig(workspace, import_node_process.default.env.INPUT_RELEASE_CONFIG || ".github/releaseway.yml");
+    import_node_process.default.stdout.write(resolveSeriesLatest(workspace, config, import_node_process.default.env.INPUT_TAG || "", import_node_process.default.env.INPUT_COMMIT || "") + "\n");
+    return;
+  }
   if (command === "contract") {
     import_node_process.default.stdout.write(JSON.stringify(publicContract()) + "\n");
     return;

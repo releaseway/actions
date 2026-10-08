@@ -997,14 +997,14 @@ var require_foldFlowLines = __commonJS({
     var FOLD_FLOW = "flow";
     var FOLD_BLOCK = "block";
     var FOLD_QUOTED = "quoted";
-    function foldFlowLines(text, indent, mode = "flow", { indentAtStart, lineWidth = 80, minContentWidth = 20, onFold, onOverflow } = {}) {
+    function foldFlowLines(text2, indent, mode = "flow", { indentAtStart, lineWidth = 80, minContentWidth = 20, onFold, onOverflow } = {}) {
       if (!lineWidth || lineWidth < 0)
-        return text;
+        return text2;
       if (lineWidth < minContentWidth)
         minContentWidth = 0;
       const endStep = Math.max(1 + minContentWidth, 1 + lineWidth - indent.length);
-      if (text.length <= endStep)
-        return text;
+      if (text2.length <= endStep)
+        return text2;
       const folds = [];
       const escapedFolds = {};
       let end = lineWidth - indent.length;
@@ -1021,14 +1021,14 @@ var require_foldFlowLines = __commonJS({
       let escStart = -1;
       let escEnd = -1;
       if (mode === FOLD_BLOCK) {
-        i = consumeMoreIndentedLines(text, i, indent.length);
+        i = consumeMoreIndentedLines(text2, i, indent.length);
         if (i !== -1)
           end = i + endStep;
       }
-      for (let ch; ch = text[i += 1]; ) {
+      for (let ch; ch = text2[i += 1]; ) {
         if (mode === FOLD_QUOTED && ch === "\\") {
           escStart = i;
-          switch (text[i + 1]) {
+          switch (text2[i + 1]) {
             case "x":
               i += 3;
               break;
@@ -1045,12 +1045,12 @@ var require_foldFlowLines = __commonJS({
         }
         if (ch === "\n") {
           if (mode === FOLD_BLOCK)
-            i = consumeMoreIndentedLines(text, i, indent.length);
+            i = consumeMoreIndentedLines(text2, i, indent.length);
           end = i + indent.length + endStep;
           split = void 0;
         } else {
           if (ch === " " && prev && prev !== " " && prev !== "\n" && prev !== "	") {
-            const next = text[i + 1];
+            const next = text2[i + 1];
             if (next && next !== " " && next !== "\n" && next !== "	")
               split = i;
           }
@@ -1062,12 +1062,12 @@ var require_foldFlowLines = __commonJS({
             } else if (mode === FOLD_QUOTED) {
               while (prev === " " || prev === "	") {
                 prev = ch;
-                ch = text[i += 1];
+                ch = text2[i += 1];
                 overflow = true;
               }
               const j = i > escEnd + 1 ? i - 2 : escStart - 1;
               if (escapedFolds[j])
-                return text;
+                return text2;
               folds.push(j);
               escapedFolds[j] = true;
               end = j + endStep;
@@ -1082,39 +1082,39 @@ var require_foldFlowLines = __commonJS({
       if (overflow && onOverflow)
         onOverflow();
       if (folds.length === 0)
-        return text;
+        return text2;
       if (onFold)
         onFold();
-      let res = text.slice(0, folds[0]);
+      let res = text2.slice(0, folds[0]);
       for (let i2 = 0; i2 < folds.length; ++i2) {
         const fold = folds[i2];
-        const end2 = folds[i2 + 1] || text.length;
+        const end2 = folds[i2 + 1] || text2.length;
         if (fold === 0)
           res = `
-${indent}${text.slice(0, end2)}`;
+${indent}${text2.slice(0, end2)}`;
         else {
           if (mode === FOLD_QUOTED && escapedFolds[fold])
-            res += `${text[fold]}\\`;
+            res += `${text2[fold]}\\`;
           res += `
-${indent}${text.slice(fold + 1, end2)}`;
+${indent}${text2.slice(fold + 1, end2)}`;
         }
       }
       return res;
     }
-    function consumeMoreIndentedLines(text, i, indent) {
+    function consumeMoreIndentedLines(text2, i, indent) {
       let end = i;
       let start = i + 1;
-      let ch = text[start];
+      let ch = text2[start];
       while (ch === " " || ch === "	") {
         if (i < start + indent) {
-          ch = text[++i];
+          ch = text2[++i];
         } else {
           do {
-            ch = text[++i];
+            ch = text2[++i];
           } while (ch && ch !== "\n");
           end = i;
           start = i + 1;
-          ch = text[start];
+          ch = text2[start];
         }
       }
       return end;
@@ -3993,10 +3993,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep: sep2, value } = collItem;
+        const { start, key, sep: sep3, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep2?.[0],
+          next: key ?? sep3?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -4010,7 +4010,7 @@ var require_resolve_block_map = __commonJS({
             else if ("indent" in key && key.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
-          if (!keyProps.anchor && !keyProps.tag && !sep2) {
+          if (!keyProps.anchor && !keyProps.tag && !sep3) {
             commentEnd = keyProps.end;
             if (keyProps.comment) {
               if (map.comment)
@@ -4034,7 +4034,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        const valueProps = resolveProps.resolveProps(sep2 ?? [], {
+        const valueProps = resolveProps.resolveProps(sep3 ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -4050,7 +4050,7 @@ var require_resolve_block_map = __commonJS({
             if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
               onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep2, null, valueProps, onError);
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep3, null, valueProps, onError);
           if (ctx.schema.compat)
             utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
           offset = valueNode.range[2];
@@ -4141,7 +4141,7 @@ var require_resolve_end = __commonJS({
       let comment = "";
       if (end) {
         let hasSpace = false;
-        let sep2 = "";
+        let sep3 = "";
         for (const token of end) {
           const { source, type } = token;
           switch (type) {
@@ -4155,13 +4155,13 @@ var require_resolve_end = __commonJS({
               if (!comment)
                 comment = cb;
               else
-                comment += sep2 + cb;
-              sep2 = "";
+                comment += sep3 + cb;
+              sep3 = "";
               break;
             }
             case "newline":
               if (comment)
-                sep2 += source;
+                sep3 += source;
               hasSpace = true;
               break;
             default:
@@ -4204,18 +4204,18 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep: sep2, value } = collItem;
+        const { start, key, sep: sep3, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep2?.[0],
+          next: key ?? sep3?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: false
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep2 && !value) {
+          if (!props.anchor && !props.tag && !sep3 && !value) {
             if (i === 0 && props.comma)
               onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
             else if (i < fc.items.length - 1)
@@ -4269,8 +4269,8 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep2 && !props.found) {
-          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep2, null, props, onError);
+        if (!isMap && !sep3 && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep3, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
           if (isBlock(value))
@@ -4282,7 +4282,7 @@ var require_resolve_flow_collection = __commonJS({
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
-          const valueProps = resolveProps.resolveProps(sep2 ?? [], {
+          const valueProps = resolveProps.resolveProps(sep3 ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -4293,8 +4293,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep2)
-                for (const st of sep2) {
+              if (sep3)
+                for (const st of sep3) {
                   if (st === valueProps.found)
                     break;
                   if (st.type === "newline") {
@@ -4311,7 +4311,7 @@ var require_resolve_flow_collection = __commonJS({
             else
               onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep2, null, valueProps, onError) : null;
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep3, null, valueProps, onError) : null;
           if (valueNode) {
             if (isBlock(value))
               onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
@@ -4491,7 +4491,7 @@ var require_resolve_block_scalar = __commonJS({
           chompStart = i + 1;
       }
       let value = "";
-      let sep2 = "";
+      let sep3 = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
@@ -4508,24 +4508,24 @@ var require_resolve_block_scalar = __commonJS({
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep2 + indent.slice(trimIndent) + content;
-          sep2 = "\n";
+          value += sep3 + indent.slice(trimIndent) + content;
+          sep3 = "\n";
         } else if (indent.length > trimIndent || content[0] === "	") {
-          if (sep2 === " ")
-            sep2 = "\n";
-          else if (!prevMoreIndented && sep2 === "\n")
-            sep2 = "\n\n";
-          value += sep2 + indent.slice(trimIndent) + content;
-          sep2 = "\n";
+          if (sep3 === " ")
+            sep3 = "\n";
+          else if (!prevMoreIndented && sep3 === "\n")
+            sep3 = "\n\n";
+          value += sep3 + indent.slice(trimIndent) + content;
+          sep3 = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
-          if (sep2 === "\n")
+          if (sep3 === "\n")
             value += "\n";
           else
-            sep2 = "\n";
+            sep3 = "\n";
         } else {
-          value += sep2 + content;
-          sep2 = " ";
+          value += sep3 + content;
+          sep3 = " ";
           prevMoreIndented = false;
         }
       }
@@ -4708,25 +4708,25 @@ var require_resolve_flow_scalar = __commonJS({
         trimBoth = /^[ \t]+|[ \t]+$/g;
       }
       let res = match[1].replace(trimEnd, "");
-      let sep2 = " ";
+      let sep3 = " ";
       let pos = line.lastIndex;
       while (match = line.exec(source)) {
         const lm = match[1].replace(trimBoth, "");
         if (lm === "") {
-          if (sep2 === "\n")
-            res += sep2;
+          if (sep3 === "\n")
+            res += sep3;
           else
-            sep2 = "\n";
+            sep3 = "\n";
         } else {
-          res += sep2 + lm;
-          sep2 = " ";
+          res += sep3 + lm;
+          sep3 = " ";
         }
         pos = line.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
       match = last.exec(source);
-      return res + sep2 + (match?.[1] ?? "");
+      return res + sep3 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -5536,14 +5536,14 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep: sep2, value }) {
+    function stringifyItem({ start, key, sep: sep3, value }) {
       let res = "";
       for (const st of start)
         res += st.source;
       if (key)
         res += stringifyToken(key);
-      if (sep2)
-        for (const st of sep2)
+      if (sep3)
+        for (const st of sep3)
           res += st.source;
       if (value)
         res += stringifyToken(value);
@@ -6710,18 +6710,18 @@ var require_parser = __commonJS({
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start = getFirstKeyStartProps(prev);
-          let sep2;
+          let sep3;
           if (scalar.end) {
-            sep2 = scalar.end;
-            sep2.push(this.sourceToken);
+            sep3 = scalar.end;
+            sep3.push(this.sourceToken);
             delete scalar.end;
           } else
-            sep2 = [this.sourceToken];
+            sep3 = [this.sourceToken];
           const map = {
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start, key: scalar, sep: sep2 }]
+            items: [{ start, key: scalar, sep: sep3 }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map;
@@ -6874,15 +6874,15 @@ var require_parser = __commonJS({
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it.start);
                   const key = it.key;
-                  const sep2 = it.sep;
-                  sep2.push(this.sourceToken);
+                  const sep3 = it.sep;
+                  sep3.push(this.sourceToken);
                   delete it.key;
                   delete it.sep;
                   this.stack.push({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep: sep2 }]
+                    items: [{ start: start2, key, sep: sep3 }]
                   });
                 } else if (start.length > 0) {
                   it.sep = it.sep.concat(start, this.sourceToken);
@@ -7076,13 +7076,13 @@ var require_parser = __commonJS({
             const prev = getPrevProps(parent);
             const start = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            const sep2 = fc.end.splice(1, fc.end.length);
-            sep2.push(this.sourceToken);
+            const sep3 = fc.end.splice(1, fc.end.length);
+            sep3.push(this.sourceToken);
             const map = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep: sep2 }]
+              items: [{ start, key: fc, sep: sep3 }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map;
@@ -7241,7 +7241,7 @@ var require_public_api = __commonJS({
         return docs;
       return Object.assign([], { empty: true }, composer$1.streamInfo());
     }
-    function parseDocument2(source, options = {}) {
+    function parseDocument3(source, options = {}) {
       const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
       const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
       const composer$1 = new composer.Composer(options);
@@ -7267,7 +7267,7 @@ var require_public_api = __commonJS({
       } else if (options === void 0 && reviver && typeof reviver === "object") {
         options = reviver;
       }
-      const doc = parseDocument2(src, options);
+      const doc = parseDocument3(src, options);
       if (!doc)
         return null;
       doc.warnings.forEach((warning) => log.warn(doc.options.logLevel, warning));
@@ -7303,7 +7303,7 @@ var require_public_api = __commonJS({
     }
     exports2.parse = parse;
     exports2.parseAllDocuments = parseAllDocuments;
-    exports2.parseDocument = parseDocument2;
+    exports2.parseDocument = parseDocument3;
     exports2.stringify = stringify;
   }
 });
@@ -7543,13 +7543,13 @@ var require_semver = __commonJS({
     var { safeRe: re, t } = require_re();
     var parseOptions = require_parse_options();
     var { compareIdentifiers } = require_identifiers();
-    var isPrereleaseIdentifier = (prerelease, identifier) => {
+    var isPrereleaseIdentifier = (prerelease5, identifier) => {
       const identifiers = identifier.split(".");
-      if (identifiers.length > prerelease.length) {
+      if (identifiers.length > prerelease5.length) {
         return false;
       }
       for (let i = 0; i < identifiers.length; i++) {
-        if (compareIdentifiers(prerelease[i], identifiers[i]) !== 0) {
+        if (compareIdentifiers(prerelease5[i], identifiers[i]) !== 0) {
           return false;
         }
       }
@@ -7797,17 +7797,17 @@ var require_semver = __commonJS({
               }
             }
             if (identifier) {
-              let prerelease = [identifier, base];
+              let prerelease5 = [identifier, base];
               if (identifierBase === false) {
-                prerelease = [identifier];
+                prerelease5 = [identifier];
               }
               if (isPrereleaseIdentifier(this.prerelease, identifier)) {
                 const prereleaseBase = this.prerelease[identifier.split(".").length];
                 if (isNaN(prereleaseBase)) {
-                  this.prerelease = prerelease;
+                  this.prerelease = prerelease5;
                 }
               } else {
-                this.prerelease = prerelease;
+                this.prerelease = prerelease5;
               }
             }
             break;
@@ -7853,11 +7853,11 @@ var require_valid = __commonJS({
   "node_modules/semver/functions/valid.js"(exports2, module2) {
     "use strict";
     var parse = require_parse();
-    var valid = (version, options) => {
+    var valid4 = (version, options) => {
       const v = parse(version, options);
       return v ? v.version : null;
     };
-    module2.exports = valid;
+    module2.exports = valid4;
   }
 });
 
@@ -7879,7 +7879,7 @@ var require_inc = __commonJS({
   "node_modules/semver/functions/inc.js"(exports2, module2) {
     "use strict";
     var SemVer = require_semver();
-    var inc = (version, release, options, identifier, identifierBase) => {
+    var inc2 = (version, release, options, identifier, identifierBase) => {
       if (typeof options === "string") {
         identifierBase = identifier;
         identifier = options;
@@ -7894,7 +7894,7 @@ var require_inc = __commonJS({
         return null;
       }
     };
-    module2.exports = inc;
+    module2.exports = inc2;
   }
 });
 
@@ -7977,11 +7977,11 @@ var require_prerelease = __commonJS({
   "node_modules/semver/functions/prerelease.js"(exports2, module2) {
     "use strict";
     var parse = require_parse();
-    var prerelease = (version, options) => {
+    var prerelease5 = (version, options) => {
       const parsed = parse(version, options);
       return parsed && parsed.prerelease.length ? parsed.prerelease : null;
     };
-    module2.exports = prerelease;
+    module2.exports = prerelease5;
   }
 });
 
@@ -7990,8 +7990,8 @@ var require_compare = __commonJS({
   "node_modules/semver/functions/compare.js"(exports2, module2) {
     "use strict";
     var SemVer = require_semver();
-    var compare = (a, b, loose) => new SemVer(a, loose).compare(new SemVer(b, loose));
-    module2.exports = compare;
+    var compare3 = (a, b, loose) => new SemVer(a, loose).compare(new SemVer(b, loose));
+    module2.exports = compare3;
   }
 });
 
@@ -7999,8 +7999,8 @@ var require_compare = __commonJS({
 var require_rcompare = __commonJS({
   "node_modules/semver/functions/rcompare.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var rcompare = (a, b, loose) => compare(b, a, loose);
+    var compare3 = require_compare();
+    var rcompare = (a, b, loose) => compare3(b, a, loose);
     module2.exports = rcompare;
   }
 });
@@ -8009,8 +8009,8 @@ var require_rcompare = __commonJS({
 var require_compare_loose = __commonJS({
   "node_modules/semver/functions/compare-loose.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var compareLoose = (a, b) => compare(a, b, true);
+    var compare3 = require_compare();
+    var compareLoose = (a, b) => compare3(a, b, true);
     module2.exports = compareLoose;
   }
 });
@@ -8053,8 +8053,8 @@ var require_rsort = __commonJS({
 var require_gt = __commonJS({
   "node_modules/semver/functions/gt.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var gt = (a, b, loose) => compare(a, b, loose) > 0;
+    var compare3 = require_compare();
+    var gt = (a, b, loose) => compare3(a, b, loose) > 0;
     module2.exports = gt;
   }
 });
@@ -8063,8 +8063,8 @@ var require_gt = __commonJS({
 var require_lt = __commonJS({
   "node_modules/semver/functions/lt.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var lt = (a, b, loose) => compare(a, b, loose) < 0;
+    var compare3 = require_compare();
+    var lt = (a, b, loose) => compare3(a, b, loose) < 0;
     module2.exports = lt;
   }
 });
@@ -8073,8 +8073,8 @@ var require_lt = __commonJS({
 var require_eq = __commonJS({
   "node_modules/semver/functions/eq.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var eq = (a, b, loose) => compare(a, b, loose) === 0;
+    var compare3 = require_compare();
+    var eq = (a, b, loose) => compare3(a, b, loose) === 0;
     module2.exports = eq;
   }
 });
@@ -8083,8 +8083,8 @@ var require_eq = __commonJS({
 var require_neq = __commonJS({
   "node_modules/semver/functions/neq.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var neq = (a, b, loose) => compare(a, b, loose) !== 0;
+    var compare3 = require_compare();
+    var neq = (a, b, loose) => compare3(a, b, loose) !== 0;
     module2.exports = neq;
   }
 });
@@ -8093,8 +8093,8 @@ var require_neq = __commonJS({
 var require_gte = __commonJS({
   "node_modules/semver/functions/gte.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var gte = (a, b, loose) => compare(a, b, loose) >= 0;
+    var compare3 = require_compare();
+    var gte = (a, b, loose) => compare3(a, b, loose) >= 0;
     module2.exports = gte;
   }
 });
@@ -8103,8 +8103,8 @@ var require_gte = __commonJS({
 var require_lte = __commonJS({
   "node_modules/semver/functions/lte.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var lte = (a, b, loose) => compare(a, b, loose) <= 0;
+    var compare3 = require_compare();
+    var lte = (a, b, loose) => compare3(a, b, loose) <= 0;
     module2.exports = lte;
   }
 });
@@ -8197,9 +8197,9 @@ var require_coerce = __commonJS({
       const major = match[2];
       const minor = match[3] || "0";
       const patch = match[4] || "0";
-      const prerelease = options.includePrerelease && match[5] ? `-${match[5]}` : "";
+      const prerelease5 = options.includePrerelease && match[5] ? `-${match[5]}` : "";
       const build = options.includePrerelease && match[6] ? `+${match[6]}` : "";
-      return parse(`${major}.${minor}.${patch}${prerelease}${build}`, options);
+      return parse(`${major}.${minor}.${patch}${prerelease5}${build}`, options);
     };
     module2.exports = coerce;
   }
@@ -9050,12 +9050,12 @@ var require_simplify = __commonJS({
   "node_modules/semver/ranges/simplify.js"(exports2, module2) {
     "use strict";
     var satisfies = require_satisfies();
-    var compare = require_compare();
+    var compare3 = require_compare();
     module2.exports = (versions, range, options) => {
       const set = [];
       let first = null;
       let prev = null;
-      const v = versions.sort((a, b) => compare(a, b, options));
+      const v = versions.sort((a, b) => compare3(a, b, options));
       for (const version of v) {
         const included = satisfies(version, range, options);
         if (included) {
@@ -9103,7 +9103,7 @@ var require_subset = __commonJS({
     var Comparator = require_comparator();
     var { ANY } = Comparator;
     var satisfies = require_satisfies();
-    var compare = require_compare();
+    var compare3 = require_compare();
     var subset = (sub, dom, options = {}) => {
       if (sub === dom) {
         return true;
@@ -9163,7 +9163,7 @@ var require_subset = __commonJS({
       }
       let gtltComp;
       if (gt && lt) {
-        gtltComp = compare(gt.semver, lt.semver, options);
+        gtltComp = compare3(gt.semver, lt.semver, options);
         if (gtltComp > 0) {
           return null;
         } else if (gtltComp === 0 && (gt.operator !== ">=" || lt.operator !== "<=")) {
@@ -9243,14 +9243,14 @@ var require_subset = __commonJS({
       if (!a) {
         return b;
       }
-      const comp = compare(a.semver, b.semver, options);
+      const comp = compare3(a.semver, b.semver, options);
       return comp > 0 ? a : comp < 0 ? b : b.operator === ">" && a.operator === ">=" ? b : a;
     };
     var lowerLT = (a, b, options) => {
       if (!a) {
         return b;
       }
-      const comp = compare(a.semver, b.semver, options);
+      const comp = compare3(a.semver, b.semver, options);
       return comp < 0 ? a : comp > 0 ? b : b.operator === "<" && a.operator === "<=" ? b : a;
     };
     module2.exports = subset;
@@ -9266,15 +9266,15 @@ var require_semver2 = __commonJS({
     var SemVer = require_semver();
     var identifiers = require_identifiers();
     var parse = require_parse();
-    var valid = require_valid();
+    var valid4 = require_valid();
     var clean = require_clean();
-    var inc = require_inc();
+    var inc2 = require_inc();
     var diff = require_diff();
     var major = require_major();
     var minor = require_minor();
     var patch = require_patch();
-    var prerelease = require_prerelease();
-    var compare = require_compare();
+    var prerelease5 = require_prerelease();
+    var compare3 = require_compare();
     var rcompare = require_rcompare();
     var compareLoose = require_compare_loose();
     var compareBuild = require_compare_build();
@@ -9305,15 +9305,15 @@ var require_semver2 = __commonJS({
     var subset = require_subset();
     module2.exports = {
       parse,
-      valid,
+      valid: valid4,
       clean,
-      inc,
+      inc: inc2,
       diff,
       major,
       minor,
       patch,
-      prerelease,
-      compare,
+      prerelease: prerelease5,
+      compare: compare3,
       rcompare,
       compareLoose,
       compareBuild,
@@ -9355,9 +9355,9 @@ var require_semver2 = __commonJS({
 });
 
 // src/action.ts
-var import_node_fs = require("node:fs");
+var import_node_fs2 = require("node:fs");
 var import_node_child_process3 = require("node:child_process");
-var import_node_path4 = require("node:path");
+var import_node_path5 = require("node:path");
 
 // src/contract.ts
 var NOTES_MODES = [
@@ -9415,16 +9415,16 @@ function resolveActionInputs(env = process.env) {
     "notes-preview",
     input(env, "notes-preview").trim() || "false"
   );
-  const prerelease = parseBoolean(
+  const prerelease5 = parseBoolean(
     "prerelease",
     input(env, "prerelease").trim() || "false"
   );
   const latest = parseEnum(
     "latest",
     input(env, "latest").trim() || "automatic",
-    ["automatic", "true", "false"]
+    ["automatic", "true", "false", "current-series"]
   );
-  if (prerelease && latest === "true") {
+  if (prerelease5 && latest === "true") {
     throw new Error("prerelease releases cannot be marked latest");
   }
   if (notes === "file") {
@@ -9446,7 +9446,7 @@ function resolveActionInputs(env = process.env) {
     notesFile,
     notesExisting,
     notesPreview,
-    prerelease,
+    prerelease: prerelease5,
     latest
   };
 }
@@ -9951,18 +9951,18 @@ function stringValue(value, path, options = {}) {
   return value;
 }
 function fullCommitShaValue(value, path) {
-  const text = stringValue(value, path, { nonempty: true }).toLowerCase();
-  if (!/^[0-9a-f]{40}$/.test(text)) {
+  const text2 = stringValue(value, path, { nonempty: true }).toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(text2)) {
     throw new Error(`${path} must be a full 40-character commit SHA`);
   }
-  return text;
+  return text2;
 }
 function repositoryPathValue(value, path) {
-  const text = stringValue(value, path, { nonempty: true });
-  if (text.startsWith("/") || text.includes("\\") || text.split("/").some((segment) => segment === "..")) {
+  const text2 = stringValue(value, path, { nonempty: true });
+  if (text2.startsWith("/") || text2.includes("\\") || text2.split("/").some((segment) => segment === "..")) {
     throw new Error(`${path} must be a relative repository path`);
   }
-  return text;
+  return text2;
 }
 function booleanValue(value, path) {
   if (typeof value !== "boolean") {
@@ -9971,21 +9971,21 @@ function booleanValue(value, path) {
   return value;
 }
 function enumValue(value, path, allowed) {
-  const text = stringValue(value, path);
-  if (!allowed.includes(text)) {
+  const text2 = stringValue(value, path);
+  if (!allowed.includes(text2)) {
     throw new Error(`${path} must be one of: ${allowed.join(", ")}`);
   }
-  return text;
+  return text2;
 }
 function stringArray(value, path, options = {}) {
   if (!Array.isArray(value)) {
     throw new Error(`${path} must be an array`);
   }
   const items = value.map((item, index) => {
-    const text = stringValue(item, `${path}[${index}]`, {
+    const text2 = stringValue(item, `${path}[${index}]`, {
       nonempty: true
     });
-    return options.normalizeLower ? text.toLowerCase() : text;
+    return options.normalizeLower ? text2.toLowerCase() : text2;
   });
   if (options.unique !== false && new Set(items).size !== items.length) {
     throw new Error(`${path} must not contain duplicates`);
@@ -10008,8 +10008,8 @@ function depth(value, current = 0) {
   }
   return current;
 }
-function parseConfigText(text, extension) {
-  if (Buffer.byteLength(text, "utf8") > MAX_CONFIG_BYTES) {
+function parseConfigText(text2, extension) {
+  if (Buffer.byteLength(text2, "utf8") > MAX_CONFIG_BYTES) {
     throw new Error(
       `notes-config exceeds ${MAX_CONFIG_BYTES} bytes`
     );
@@ -10017,14 +10017,14 @@ function parseConfigText(text, extension) {
   let raw;
   if (extension === ".json") {
     try {
-      raw = JSON.parse(text);
+      raw = JSON.parse(text2);
     } catch (error) {
       throw new Error(
         `notes-config JSON is invalid: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   } else if (extension === ".yml" || extension === ".yaml") {
-    const document = (0, import_yaml.parseDocument)(text, {
+    const document = (0, import_yaml.parseDocument)(text2, {
       uniqueKeys: true,
       schema: "core"
     });
@@ -10448,6 +10448,7 @@ var GitRepository = class {
     }
     return {
       stdout: result.stdout ?? "",
+      stderr: result.stderr ?? "",
       status
     };
   }
@@ -11277,8 +11278,8 @@ function candidateAliases(candidates) {
     group.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       if (a.version && b.version) {
-        const compare = import_semver.default.rcompare(a.version, b.version);
-        if (compare !== 0) return compare;
+        const compare3 = import_semver.default.rcompare(a.version, b.version);
+        if (compare3 !== 0) return compare3;
       } else if (a.version && !b.version) return -1;
       else if (!a.version && b.version) return 1;
       return a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0;
@@ -11568,23 +11569,23 @@ function withVisibleNotices(body, notices) {
   return body ? noticeBlock + "\n\n" + body : noticeBlock + "\n";
 }
 function decodeUtf8(bytes, label) {
-  let text;
+  let text2;
   try {
-    text = utf8.decode(bytes);
+    text2 = utf8.decode(bytes);
   } catch {
     throw new Error(`${label} must contain valid UTF-8`);
   }
-  assertSupportedText(text, label);
-  assertNotesSize(text, label);
-  return text;
+  assertSupportedText(text2, label);
+  assertNotesSize(text2, label);
+  return text2;
 }
 function validatePreparedBody(body, label = "release notes") {
   assertSupportedText(body, label);
   assertNotesSize(body, label);
   return body;
 }
-function digestText(text) {
-  return (0, import_node_crypto2.createHash)("sha256").update(text, "utf8").digest("hex");
+function digestText(text2) {
+  return (0, import_node_crypto2.createHash)("sha256").update(text2, "utf8").digest("hex");
 }
 async function outputDirectory(tempRoot) {
   await (0, import_promises3.mkdir)(tempRoot, { recursive: true });
@@ -11823,7 +11824,125 @@ async function prepareNotes(options) {
   return writePrepared(output, body, report);
 }
 
+// src/release-config.ts
+var import_node_fs = require("node:fs");
+var import_node_path4 = require("node:path");
+var import_yaml2 = __toESM(require_dist(), 1);
+var import_semver2 = __toESM(require_semver2(), 1);
+function mapping(value, allowed, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be a mapping`);
+  const object3 = value;
+  for (const key of Object.keys(object3)) if (!allowed.includes(key)) throw new Error(`${label}.${key} is not supported`);
+  return object3;
+}
+function text(value, label) {
+  if (typeof value !== "string" || !value || /[\s\x00-\x1f]/.test(value)) throw new Error(`${label} must be a non-empty whitespace-free string`);
+  return value;
+}
+function stable2(value, label) {
+  const version = text(value, label);
+  if ((0, import_semver2.valid)(version) !== version || (0, import_semver2.prerelease)(version) !== null || version.includes("+")) throw new Error(`${label} must be exact stable SemVer without build metadata`);
+  return version;
+}
+function parseReleaseConfig(source) {
+  if (Buffer.byteLength(source) > 256 * 1024) throw new Error("release config exceeds 256 KiB");
+  const document = (0, import_yaml2.parseDocument)(source, { uniqueKeys: true, schema: "core" });
+  if (document.errors.length) throw new Error(document.errors[0].message);
+  const root = mapping(document.toJS({ maxAliasCount: 0 }), ["schema", "branch", "tag-prefix", "initial-version", "bump", "series", "latest"], "release");
+  if (root.schema !== 1) throw new Error("release.schema must be 1");
+  const bump = root.bump ?? "auto";
+  if (typeof bump !== "string" || !["auto", "patch", "minor", "major"].includes(bump)) throw new Error("release.bump must be auto, patch, minor, or major");
+  const latest = root.latest ?? "automatic";
+  if (typeof latest !== "string" || !["automatic", "current-series", "true", "false"].includes(latest)) throw new Error("release.latest must be automatic, current-series, or a quoted true/false string");
+  let series;
+  if (root.series !== void 0) {
+    const value = mapping(root.series, ["base-tag", "start-version"], "release.series");
+    series = { baseTag: text(value["base-tag"], "release.series.base-tag"), startVersion: stable2(value["start-version"], "release.series.start-version") };
+  }
+  return {
+    schema: 1,
+    branch: text(root.branch ?? "main", "release.branch"),
+    tagPrefix: root["tag-prefix"] === "" ? "" : text(root["tag-prefix"] ?? "v", "release.tag-prefix"),
+    initialVersion: stable2(root["initial-version"] ?? "0.1.0", "release.initial-version"),
+    bump,
+    latest,
+    ...series ? { series } : {}
+  };
+}
+function readReleaseConfig(workspace, path = ".github/releaseway.yml") {
+  const root = (0, import_node_fs.realpathSync)(workspace);
+  const file = (0, import_node_fs.realpathSync)((0, import_node_path4.resolve)(root, path));
+  const diff = (0, import_node_path4.relative)(root, file);
+  if ((0, import_node_path4.isAbsolute)(diff) || diff === ".." || diff.startsWith(".." + import_node_path4.sep)) throw new Error("release config must resolve within the workspace");
+  return parseReleaseConfig((0, import_node_fs.readFileSync)(file, "utf8"));
+}
+
+// src/release-execution.ts
+var import_semver4 = __toESM(require_semver2(), 1);
+
+// src/series.ts
+var import_semver3 = __toESM(require_semver2(), 1);
+function seriesTags(config, tags, source, ancestor) {
+  const base = config.series ? tags.find((tag) => tag.tag === config.series.baseTag) : void 0;
+  if (config.series && !base) throw new Error(`Series base tag does not exist on origin: ${config.series.baseTag}`);
+  if (base && !ancestor(base.commit, source)) throw new Error("Series base tag must be an ancestor of the release source");
+  return tags.filter((tag) => {
+    const version = tag.tag.slice(config.tagPrefix.length);
+    return tag.tag.startsWith(config.tagPrefix) && (0, import_semver3.valid)(version) === version && !version.includes("+") && ancestor(tag.commit, source) && (!base || tag.commit !== base.commit && !ancestor(tag.commit, base.commit));
+  });
+}
+
+// src/release-execution.ts
+function validateRefs(git, config) {
+  git.run(["check-ref-format", `refs/heads/${config.branch}`]);
+  git.run(["check-ref-format", `refs/tags/${config.tagPrefix}0.0.0`]);
+  if (config.series) git.run(["check-ref-format", `refs/tags/${config.series.baseTag}`]);
+}
+function snapshot(git, config) {
+  validateRefs(git, config);
+  const refs = git.run(["ls-remote", "origin", `refs/heads/${config.branch}`, "refs/tags/*"]).stdout;
+  const entries = /* @__PURE__ */ new Map();
+  let branch = "";
+  for (const line of refs.trim().split("\n")) {
+    const [sha, ref] = line.split(/\s+/);
+    if (!sha || !ref || !/^[0-9a-f]{40}$/.test(sha)) continue;
+    if (ref === `refs/heads/${config.branch}`) branch = sha;
+    else if (ref.startsWith("refs/tags/")) {
+      const peeled = ref.endsWith("^{}");
+      const name = ref.slice(10, peeled ? -3 : void 0);
+      const tag = entries.get(name) ?? {};
+      if (peeled) tag.peeled = sha;
+      else tag.direct = sha;
+      entries.set(name, tag);
+    }
+  }
+  if (!branch) throw new Error(`Origin branch does not exist: ${config.branch}`);
+  git.run(["fetch", "--no-tags", "origin", `+refs/heads/${config.branch}:refs/releaseway/branch`, "+refs/tags/*:refs/releaseway/tags/*"]);
+  if (git.resolveCommit("refs/releaseway/branch") !== branch) throw new Error("Origin branch changed while reading release state; retry planning");
+  const tags = [];
+  for (const [tag, entry] of entries) {
+    const commit = entry.peeled ?? entry.direct;
+    if (git.resolveCommit(`refs/releaseway/tags/${tag}`) !== commit) throw new Error(`Origin tag changed while reading release state: ${tag}`);
+    tags.push({ tag, commit });
+  }
+  return { branch, tags };
+}
+function resolveSeriesLatest(workspace, config, tag, commit) {
+  const git = new GitRepository(workspace);
+  const remote = snapshot(git, config);
+  const eligible = seriesTags(config, remote.tags, remote.branch, (a, b) => git.isAncestor(a, b));
+  const target = eligible.find((entry) => entry.tag === tag && entry.commit === commit);
+  if (!target) throw new Error("Release tag is outside the current series");
+  const version = tag.slice(config.tagPrefix.length);
+  if ((0, import_semver4.prerelease)(version) !== null) return "false";
+  return eligible.some((entry) => {
+    const candidate = entry.tag.slice(config.tagPrefix.length);
+    return (0, import_semver4.prerelease)(candidate) === null && (0, import_semver4.compare)(candidate, version) > 0;
+  }) ? "false" : "true";
+}
+
 // src/action.ts
+var import_semver5 = __toESM(require_semver2(), 1);
 function nodeMajor(version) {
   const major = Number.parseInt(version.split(".", 1)[0] ?? "", 10);
   if (!Number.isInteger(major)) {
@@ -11846,13 +11965,13 @@ function requiredEnvironment(env, name) {
   return value;
 }
 function resolveActionPath(explicit, env, argv = process.argv) {
-  if (explicit) return (0, import_node_path4.resolve)(explicit);
-  if (env.GITHUB_ACTION_PATH) return (0, import_node_path4.resolve)(env.GITHUB_ACTION_PATH);
+  if (explicit) return (0, import_node_path5.resolve)(explicit);
+  if (env.GITHUB_ACTION_PATH) return (0, import_node_path5.resolve)(env.GITHUB_ACTION_PATH);
   const entrypoint = argv[1];
   if (!entrypoint) {
     throw new Error("unable to determine action installation path");
   }
-  return (0, import_node_path4.resolve)((0, import_node_path4.dirname)(entrypoint), "..");
+  return (0, import_node_path5.resolve)((0, import_node_path5.dirname)(entrypoint), "..");
 }
 function writeOutputs(outputPath, entries, appendOutput) {
   const data = Object.entries(entries).map(([key, value]) => `${key}=${value}
@@ -11919,13 +12038,18 @@ async function runAction(options = {}) {
     options.argv ?? process.argv
   );
   const api = options.api ?? new GhCliApi();
-  const appendOutput = options.appendOutput ?? import_node_fs.appendFileSync;
+  const appendOutput = options.appendOutput ?? import_node_fs2.appendFileSync;
   (options.provenanceCheck ?? defaultProvenanceCheck)({
     workspace,
     repository,
     tag,
     commit
   });
+  if (inputs.latest === "current-series") {
+    const releaseConfig = readReleaseConfig(workspace, env.INPUT_RELEASE_CONFIG || ".github/releaseway.yml");
+    resolveSeriesLatest(workspace, releaseConfig, tag, commit);
+    if ((0, import_semver5.prerelease)(tag.slice(releaseConfig.tagPrefix.length)) !== null !== inputs.prerelease) throw new Error("Current-series tag prerelease state does not match the requested release");
+  }
   const existing = await api.releaseByTag(repository, tag);
   if (existing && existing.prerelease !== inputs.prerelease) {
     throw new Error(
@@ -12001,12 +12125,12 @@ async function runAction(options = {}) {
     RELEASE_ACTIONS_ACCEPTED_BODY_FILE: preserveBody ? prepared.notesPath : "",
     RELEASE_ACTIONS_VERIFY_TITLE: existing && !existing.draft && (env.INPUT_TITLE ?? "") === "" ? "false" : "true",
     RELEASE_ACTIONS_NODE: process.execPath,
-    RELEASE_ACTIONS_ENGINE: (0, import_node_path4.resolve)(actionPath, "dist/engine.cjs")
+    RELEASE_ACTIONS_ENGINE: (0, import_node_path5.resolve)(actionPath, "dist/engine.cjs")
   };
   const spawnPublisher = options.spawnPublisher ?? ((command, args, spawnOptions) => (0, import_node_child_process3.spawnSync)(command, [...args], spawnOptions));
   const result = spawnPublisher(
     "bash",
-    [(0, import_node_path4.resolve)(actionPath, "scripts/release.sh")],
+    [(0, import_node_path5.resolve)(actionPath, "scripts/release.sh")],
     {
       cwd: workspace,
       env: childEnv,

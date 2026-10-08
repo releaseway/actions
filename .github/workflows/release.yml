@@ -32,23 +32,10 @@ jobs:
 
       - name: Resolve release tag
         id: release
-        env:
-          TAG: ${{ inputs.tag }}
-        run: |
-          set -euo pipefail
-          if ! [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "release tag must be stable SemVer vX.Y.Z: $TAG" >&2
-            exit 1
-          fi
-
-          git fetch --force origin main "refs/tags/$TAG:refs/tags/$TAG"
-          TARGET="$(git rev-parse "$TAG^{commit}")"
-          git merge-base --is-ancestor "$TARGET" origin/main
-
-          {
-            echo "tag=$TAG"
-            echo "target=$TARGET"
-          } >> "$GITHUB_OUTPUT"
+        uses: ./prepare
+        with:
+          mode: resolve
+          tag: ${{ inputs.tag }}
 
       - name: Checkout tagged release action
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

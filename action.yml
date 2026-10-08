@@ -45,9 +45,12 @@ inputs:
     required: false
     default: "false"
   latest:
-    description: "Latest-release policy: automatic, true, or false."
+    description: "Latest-release policy: automatic, true, false, or current-series."
     required: false
     default: automatic
+  release-config:
+    description: Repository-relative version-series policy used when latest is current-series.
+    default: .github/releaseway.yml
   token:
     description: GitHub token override. Defaults to caller github.token; use a repository-write, workflow-authorized credential when the release target changes .github/workflows.
     required: false
@@ -93,4 +96,5 @@ runs:
         INPUT_NOTES_PREVIEW: ${{ inputs.notes-preview }}
         INPUT_PRERELEASE: ${{ inputs.prerelease }}
         INPUT_LATEST: ${{ inputs.latest }}
+        INPUT_RELEASE_CONFIG: ${{ inputs.release-config }}
       run: node "$GITHUB_ACTION_PATH/dist/main.cjs"

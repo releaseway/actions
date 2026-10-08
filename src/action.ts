@@ -17,6 +17,9 @@ import {
   type PreparedNotes,
 } from "./prepare.ts";
 import { verifyRemoteTagBinding } from "./git.ts";
+import { readReleaseConfig } from "./release-config.ts";
+import { resolveSeriesLatest } from "./release-execution.ts";
+import { prerelease } from "semver";
 
 interface SpawnResult {
   status: number | null;
@@ -198,6 +201,11 @@ export async function runAction(
     tag,
     commit,
   });
+  if (inputs.latest === "current-series") {
+    const releaseConfig = readReleaseConfig(workspace, env.INPUT_RELEASE_CONFIG || ".github/releaseway.yml");
+    resolveSeriesLatest(workspace, releaseConfig, tag, commit);
+    if ((prerelease(tag.slice(releaseConfig.tagPrefix.length)) !== null) !== inputs.prerelease) throw new Error("Current-series tag prerelease state does not match the requested release");
+  }
   const existing = await api.releaseByTag(repository, tag);
 
   if (existing && existing.prerelease !== inputs.prerelease) {

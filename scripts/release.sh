@@ -375,9 +375,14 @@ create_draft_release() {
 }
 
 publish_draft_release() {
-  local make_latest
+  local make_latest latest_policy
 
-  case "${INPUT_LATEST:-automatic}" in
+  latest_policy="${INPUT_LATEST:-automatic}"
+  if [ "${INPUT_LATEST:-automatic}" = "current-series" ]; then
+    latest_policy="$("$RELEASE_ACTIONS_NODE" "$RELEASE_ACTIONS_ENGINE" resolve-series-latest)" || die "could not determine current series latest release"
+  fi
+
+  case "$latest_policy" in
     automatic)
       if [ "${INPUT_PRERELEASE:-false}" = "true" ]; then
         make_latest="false"
@@ -413,9 +418,14 @@ publish_draft_release() {
 }
 
 verify_latest_state() {
-  local latest_tag
+  local latest_tag latest_policy
 
-  case "${INPUT_LATEST:-automatic}" in
+  latest_policy="${INPUT_LATEST:-automatic}"
+  if [ "${INPUT_LATEST:-automatic}" = "current-series" ]; then
+    latest_policy="$("$RELEASE_ACTIONS_NODE" "$RELEASE_ACTIONS_ENGINE" resolve-series-latest)" || die "could not determine current series latest release"
+  fi
+
+  case "$latest_policy" in
     automatic) return 0 ;;
     true|false) ;;
   esac
@@ -426,7 +436,7 @@ verify_latest_state() {
       --jq '.latestRelease.tagName // ""'
   )" || die "could not read latest release for $GITHUB_REPOSITORY"
 
-  case "${INPUT_LATEST:-automatic}" in
+  case "$latest_policy" in
     true)
       [ "$latest_tag" = "$INPUT_TAG" ] ||
         die "release is not latest as requested: $INPUT_TAG"
@@ -529,8 +539,8 @@ preflight() {
     *) die "upload-concurrency must be an integer from 1 to 8" ;;
   esac
   case "${INPUT_LATEST:-automatic}" in
-    automatic|true|false) ;;
-    *) die "latest must be automatic, true, or false" ;;
+    automatic|true|false|current-series) ;;
+    *) die "latest must be automatic, true, false, or current-series" ;;
   esac
   if [ "${INPUT_PRERELEASE:-false}" = "true" ] && [ "${INPUT_LATEST:-automatic}" = "true" ]; then
     die "prerelease releases cannot be marked latest"
