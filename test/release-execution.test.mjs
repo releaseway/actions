@@ -91,6 +91,8 @@ test("stale plans and altered plan identities cannot overwrite concurrent work",
   git(work, "commit", "--allow-empty", "-m", "fix: concurrent writer");
   const other = git(work, "rev-parse", "HEAD");
   git(work, "push", "origin", "main");
+  assert.throws(() => executeReleasePlan(work, plan, config()), /requires checkout of its source/);
+  git(work, "reset", "--hard", plan.source);
   assert.throws(() => executeReleasePlan(work, plan, config()), /Origin branch differs/);
   assert.equal(git(origin, "rev-parse", "refs/heads/main"), other);
 }));

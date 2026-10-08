@@ -10115,12 +10115,14 @@ function readReleasePlan(path) {
 }
 function executeReleasePlan(workspace, plan, config) {
   if (plan.schema !== 1 || JSON.stringify(plan.config) !== JSON.stringify(config)) throw new Error("Release plan configuration changed; create a fresh plan");
+  const git = new GitRepository(workspace);
+  const checkout = git.resolveCommit("HEAD");
+  if (checkout !== plan.source && checkout !== plan.commit) throw new Error("Saved release plan requires checkout of its source or marker commit; unrelated source cannot be used to resume");
   const fresh = planRelease(workspace, config, plan.prereleaseId, plan.source);
   for (const key of ["source", "commit", "tag", "version", "latest"]) {
     if (fresh[key] !== plan[key]) throw new Error(`Release plan ${key} changed; create a fresh plan`);
   }
   if (fresh.state === "existing") return fresh;
-  const git = new GitRepository(workspace);
   const result = git.run(["push", "--atomic", "--no-follow-tags", `--force-with-lease=refs/heads/${config.branch}:${plan.source}`, "origin", `${plan.commit}:refs/heads/${config.branch}`, `${plan.commit}:refs/tags/${plan.tag}`], { allowFailure: true });
   const remote = snapshot(git, config);
   const bound = remote.tags.find((tag) => tag.tag === plan.tag);
