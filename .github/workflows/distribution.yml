@@ -1,0 +1,41 @@
+name: distribution
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: node --test test/distribute-local.test.mjs
+      - name: Generate local files
+        shell: bash
+        run: |
+          mkdir -p distribution-smoke
+          printf 'opaque bytes\r\n' > distribution-smoke/message.txt
+      - id: distribution
+        uses: ./distribute
+        with:
+          files: distribution-smoke/message.txt
+      - name: Check actual action outputs
+        shell: bash
+        env:
+          DISTRIBUTION_PATH: ${{ steps.distribution.outputs.path }}
+          DISTRIBUTION_REPORT: ${{ steps.distribution.outputs.report }}
+        run: |
+          cmp distribution-smoke/message.txt "$DISTRIBUTION_PATH/message.txt"
+          test -s "$DISTRIBUTION_REPORT"
