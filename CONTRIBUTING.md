@@ -4,14 +4,16 @@ Clone this repository and use Node.js 24. Run these commands from the repository
 root. Consumer workflows use the [published Actions](README.md); no repository
 clone or npm installation is needed to call them.
 
+Use Node.js 24 or newer and pnpm 12.14.0, as pinned in `package.json`.
+
 The deterministic validation suite is:
 
 ```sh
-npm ci
-npm run typecheck
-npm test
-npm run build
-npm run check:dist
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm test
+pnpm run build
+pnpm run check:dist
 python3 test/release.py
 python3 test/release-evidence.py
 git diff --check
