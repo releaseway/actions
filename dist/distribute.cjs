@@ -2,8 +2,8 @@
 "use strict";
 
 // src/distribution/action.ts
-var import_promises4 = require("node:fs/promises");
-var import_node_path4 = require("node:path");
+var import_promises6 = require("node:fs/promises");
+var import_node_path5 = require("node:path");
 
 // src/distribution/inputs.ts
 function input(env, name) {
@@ -225,40 +225,220 @@ function contentDigest(files) {
   return `sha256:${(0, import_node_crypto2.createHash)("sha256").update(bytes).digest("hex")}`;
 }
 
+// src/distribution/release.ts
+var import_promises5 = require("node:fs/promises");
+var import_node_path4 = require("node:path");
+
+// src/distribution/gh.ts
+var import_node_child_process = require("node:child_process");
+var import_node_fs = require("node:fs");
+var import_promises4 = require("node:stream/promises");
+var import_node_stream = require("node:stream");
+var GhClient = class {
+  env;
+  deadline;
+  command;
+  prefix;
+  constructor(token, cache, deadline = Date.now() + 6e5, env = process.env, command = "gh", prefix2 = []) {
+    this.deadline = deadline;
+    this.command = command;
+    this.prefix = prefix2;
+    if (!token) throw new Error("Release reads require token (defaults to github.token) with contents:read");
+    this.env = { ...env, GH_TOKEN: token, GH_HOST: "github.com", GH_PROMPT_DISABLED: "1", GH_CACHE_DIR: cache };
+  }
+  async run(args, file, maximum = 16 * 1024 ** 2) {
+    const remaining = Math.min(file ? 12e4 : 3e4, this.deadline - Date.now());
+    if (remaining <= 0) throw new Error("Distribution exceeded its deadline");
+    const child = (0, import_node_child_process.spawn)(this.command, [...this.prefix, ...args], { env: this.env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    const timer = setTimeout(() => child.kill(), remaining);
+    child.stderr.resume();
+    const closed = new Promise((resolve3, reject) => {
+      child.once("error", () => reject(new Error("GitHub CLI unavailable; install gh with Release verification support")));
+      child.once("close", (code) => code === 0 ? resolve3() : reject(new Error("GitHub CLI operation failed; check token permissions, gh capability, source and timeout")));
+    });
+    void closed.catch(() => {
+    });
+    try {
+      let size = 0;
+      const bounded = new import_node_stream.Transform({ transform(chunk, _encoding, callback) {
+        size += chunk.length;
+        callback(size > maximum ? new Error("GitHub response exceeds byte limit") : null, chunk);
+      } });
+      const chunks = [];
+      if (file) await (0, import_promises4.pipeline)(child.stdout, bounded, (0, import_node_fs.createWriteStream)(file, { flags: "wx", mode: 384 }));
+      else {
+        for await (const chunk of child.stdout.pipe(bounded)) chunks.push(Buffer.from(chunk));
+      }
+      await closed;
+      return Buffer.concat(chunks);
+    } finally {
+      clearTimeout(timer);
+      if (child.exitCode === null) child.kill();
+    }
+  }
+  async json(endpoint) {
+    const bytes = await this.run(["api", "--hostname", "github.com", "-H", "Accept: application/vnd.github+json", endpoint]);
+    try {
+      return JSON.parse(bytes.toString("utf8"));
+    } catch {
+      throw new Error("Invalid GitHub JSON response");
+    }
+  }
+  async download(endpoint, path, maximum) {
+    await this.run(["api", "--hostname", "github.com", "-H", "Accept: application/octet-stream", endpoint], path, maximum);
+  }
+  async verify(tag, path, repository) {
+    await this.run(["release", "verify-asset", "--repo", `github.com/${repository}`, "--format", "json", "--", tag, path]);
+  }
+};
+
+// src/distribution/release.ts
+function repositoryName(value) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/.test(value) || [".", ".."].includes(value.split("/")[1])) throw new Error("repository must be owner/name on github.com");
+  return value;
+}
+function validId(value) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+async function prepareRelease(o, env, deadline, client) {
+  if (o.root) throw new Error("root is only supported for local source");
+  const repository = repositoryName(input(env, "repository") || env.GITHUB_REPOSITORY || "");
+  const tag = input(env, "tag");
+  if (!tag || /[\x00-\x1f\x7f]/.test(tag)) throw new Error("tag must be an exact literal tag");
+  const expected = input(env, "commit");
+  if (expected && !/^[a-f0-9]{40}$/i.test(expected)) throw new Error("commit must be a full SHA");
+  const verification = input(env, "verification") || "digest";
+  if (!["digest", "attested"].includes(verification)) throw new Error("Unknown verification mode");
+  if (!client && !input(env, "token")) throw new Error("Release reads require token (defaults to github.token) with contents:read");
+  const scratch = await (0, import_promises5.mkdtemp)((0, import_node_path4.join)(o.temp, "releaseway-source-"));
+  const gh = client ?? new GhClient(input(env, "token"), (0, import_node_path4.join)(scratch, "cache"), deadline);
+  const base = `repos/${repository}`;
+  async function snapshot() {
+    const repo = await gh.json(base);
+    if (repo.private !== false) throw new Error("Only public github.com repositories are supported");
+    const release = await gh.json(`${base}/releases/tags/${encodeURIComponent(tag)}`);
+    if (!validId(release.id) || release.tag_name !== tag || release.draft !== false) throw new Error("Release is missing, draft or does not match the exact tag");
+    let object = (await gh.json(`${base}/git/ref/tags/${encodeURIComponent(tag)}`)).object;
+    const seen = /* @__PURE__ */ new Set();
+    for (let depth = 0; object?.type === "tag"; depth++) {
+      if (depth >= 16 || seen.has(object.sha) || !/^[a-f0-9]{40}$/i.test(object.sha)) throw new Error("Invalid annotated tag chain");
+      seen.add(object.sha);
+      object = (await gh.json(`${base}/git/tags/${object.sha}`)).object;
+    }
+    if (object?.type !== "commit" || !/^[a-f0-9]{40}$/i.test(object.sha)) throw new Error("Tag does not resolve to a commit");
+    const commit = object.sha.toLowerCase();
+    if (expected && commit !== expected.toLowerCase()) throw new Error("Tag commit does not match expected commit");
+    const assets = [];
+    for (let page = 1; page <= 20; page++) {
+      const batch = await gh.json(`${base}/releases/${release.id}/assets?per_page=100&page=${page}`);
+      if (!Array.isArray(batch) || batch.length > 100) throw new Error("Invalid Release asset page");
+      assets.push(...batch);
+      if (batch.length < 100) break;
+      if (page === 20) throw new Error("Release exceeds asset pagination budget");
+    }
+    return { release, commit, assets };
+  }
+  try {
+    const before = await snapshot();
+    const selected = /* @__PURE__ */ new Map();
+    for (const request of o.files) {
+      pattern(request);
+      if (request.includes("/")) throw new Error("Release assets have flat names");
+      const matches = before.assets.filter((a) => typeof a.name === "string" && visible(a.name, request) && import_node_path4.posix.matchesGlob(a.name, request));
+      if (!matches.length) throw new Error("A Release files pattern matched no assets");
+      for (const a of matches) {
+        publicPath(a.name);
+        if (!validId(a.id) || a.state !== "uploaded" || !Number.isSafeInteger(a.size) || a.size < 0 || a.size > o.maxFile || !/^sha256:[a-f0-9]{64}$/.test(a.digest)) throw new Error("Invalid uploaded asset ID, size or SHA-256 digest");
+        if (before.assets.filter((other) => other.name === a.name).length !== 1) throw new Error("Duplicate Release asset name");
+        const old = selected.get(a.name);
+        if (old && old.id !== a.id) throw new Error("Duplicate Release asset name");
+        selected.set(a.name, a);
+      }
+    }
+    if (selected.size > 1e4) throw new Error("Selection exceeds 10000 files");
+    assertTargets([...selected.keys()]);
+    let total = 0;
+    const selections = [];
+    for (const a of selected.values()) {
+      total += a.size;
+      if (total > o.maxTotal) throw new Error("Selected assets exceed total byte limit");
+      const source = (0, import_node_path4.join)(scratch, `asset-${a.id}`);
+      await gh.download(`${base}/releases/assets/${a.id}`, source, a.size);
+      const actual = await hashFile(source, o.maxFile, deadline);
+      if (actual.size !== a.size || `sha256:${actual.sha256}` !== a.digest) throw new Error("Release asset bytes do not match digest");
+      if (verification === "attested") await gh.verify(tag, source, repository);
+      await (0, import_promises5.chmod)(source, 420);
+      selections.push({ source, from: a.name, to: a.name });
+    }
+    const identity = (s) => JSON.stringify({
+      id: s.release.id,
+      commit: s.commit,
+      immutable: s.release.immutable === true,
+      assets: [...selected.keys()].sort().map((name) => s.assets.filter((a) => a.name === name).map((a) => [a.id, a.name, a.size, a.digest, a.state]))
+    });
+    const verifySnapshot = async () => {
+      if (identity(before) !== identity(await snapshot())) throw new Error("Release or tag changed while preparing files");
+    };
+    return { root: scratch, selections, source: {
+      kind: "github-release",
+      repository,
+      tag,
+      releaseId: before.release.id,
+      commit: before.commit,
+      immutable: before.release.immutable === true,
+      verification,
+      assets: [...selected.values()].map((a) => ({ id: a.id, name: a.name, size: a.size, digest: a.digest }))
+    }, verifySnapshot, cleanup: () => (0, import_promises5.rm)(scratch, { recursive: true, force: true }) };
+  } catch (error) {
+    await (0, import_promises5.rm)(scratch, { recursive: true, force: true });
+    throw error;
+  }
+}
+
 // src/distribution/action.ts
-async function distribute(env = process.env) {
+async function distribute(env = process.env, client) {
   const o = options(env);
   const deadline = Date.now() + 6e5;
-  const { selections, root } = await selectLocal(o, deadline);
-  const temp = await (0, import_promises4.realpath)(o.temp);
-  const stage = await (0, import_promises4.mkdtemp)((0, import_node_path4.join)(temp, "releaseway-distribute-"));
+  const remote = input(env, "tag") ? await prepareRelease(o, env, deadline, client) : void 0;
+  if (!remote && (input(env, "repository") || input(env, "commit") || input(env, "verification") && input(env, "verification") !== "digest")) throw new Error("Remote inputs require tag");
+  const { selections, root } = remote ?? await selectLocal(o, deadline);
+  let stage;
   try {
+    const temp = await (0, import_promises6.realpath)(o.temp);
+    stage = await (0, import_promises6.mkdtemp)((0, import_node_path5.join)(temp, "releaseway-distribute-"));
     if (inside(root, stage) || inside(stage, root)) throw new Error("Output must be separate from input root");
-    const path = (0, import_node_path4.join)(stage, "site");
-    await (0, import_promises4.mkdir)(path, { mode: 493 });
+    const path = (0, import_node_path5.join)(stage, "site");
+    await (0, import_promises6.mkdir)(path, { mode: 493 });
     const files = [];
     let total = 0;
     for (const s of selections) {
-      const file = await copyFile(s.source, (0, import_node_path4.join)(path, s.to), s.to, Math.min(o.maxFile, o.maxTotal - total), "selected", deadline);
+      const file = await copyFile(s.source, (0, import_node_path5.join)(path, s.to), s.to, Math.min(o.maxFile, o.maxTotal - total), "selected", deadline);
+      if (remote) {
+        const expected = remote.source.assets.find((a) => a.name === s.from);
+        if (!expected || expected.digest !== `sha256:${file.sha256}` || expected.size !== file.size) throw new Error("Final copy does not match Release asset");
+      }
       total += file.size;
       files.push({ ...file, from: s.from });
     }
+    await remote?.verifySnapshot();
     const digest = contentDigest(files);
-    const report = (0, import_node_path4.join)(stage, "report.json");
-    const bytes = JSON.stringify({ schema: 1, source: { kind: "local", verification: "digest" }, base: false, digest, files: ordered(files) }, null, 2) + "\n";
+    const report = (0, import_node_path5.join)(stage, "report.json");
+    const bytes = JSON.stringify({ schema: 1, source: remote?.source ?? { kind: "local", verification: "digest" }, base: false, digest, files: ordered(files) }, null, 2) + "\n";
     if (Buffer.byteLength(bytes) > 32 * 1024 ** 2) throw new Error("Report exceeds 32 MiB");
-    await (0, import_promises4.writeFile)(report, bytes, { mode: 384 });
+    await (0, import_promises6.writeFile)(report, bytes, { mode: 384 });
     if (env.GITHUB_OUTPUT) {
       if (/[\r\n]/.test(path + report)) throw new Error("Invalid output directory");
-      await (0, import_promises4.appendFile)(env.GITHUB_OUTPUT, `path=${path}
+      await (0, import_promises6.appendFile)(env.GITHUB_OUTPUT, `path=${path}
 report=${report}
 digest=${digest}
 `);
     }
     return { path, report, digest };
   } catch (error) {
-    await (0, import_promises4.rm)(stage, { recursive: true, force: true });
+    if (stage) await (0, import_promises6.rm)(stage, { recursive: true, force: true });
     throw error;
+  } finally {
+    await remote?.cleanup();
   }
 }
 

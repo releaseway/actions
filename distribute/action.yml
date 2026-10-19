@@ -4,6 +4,23 @@ inputs:
   files:
     description: Newline-separated relative files, directories, or glob patterns.
     required: true
+  tag:
+    description: Optional exact public GitHub Release tag; otherwise reads local files.
+    required: false
+  repository:
+    description: Public Release source owner/name; defaults to the caller repository.
+    required: false
+  commit:
+    description: Optional full expected tag commit SHA for Release source.
+    required: false
+  token:
+    description: GitHub API read token; unused for local input.
+    required: false
+    default: ${{ github.token }}
+  verification:
+    description: digest (default) or attested (Release source only).
+    required: false
+    default: digest
   root:
     description: Optional local root; retains paths relative to this directory.
     required: false
