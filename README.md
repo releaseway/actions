@@ -20,8 +20,8 @@ project; Releaseway handles the release and file-verification steps around them.
 
 ## Version
 
-[v0.5.0](https://github.com/releaseway/actions/releases/tag/v0.5.0) uses commit
-`1c0b9237f61ee66f68db880963ec03da46c8a6ed`. Pin every entry point to this full SHA;
+[v0.5.1](https://github.com/releaseway/actions/releases/tag/v0.5.1) uses commit
+`7427110b565bedef79ab0f80e6821a706d7f21ed`. Pin every entry point to this full SHA;
 the root action, `prepare`, `distribute` and Pages workflow share one version.
 
 ## Quick start
@@ -67,7 +67,7 @@ jobs:
           mkdir -p dist
           printf '%s\n' "$RELEASE_TAG" > dist/version.txt
       - id: release
-        uses: releaseway/actions@1c0b9237f61ee66f68db880963ec03da46c8a6ed # v0.5.0
+        uses: releaseway/actions@7427110b565bedef79ab0f80e6821a706d7f21ed # v0.5.1
         with:
           tag: ${{ inputs.tag }}
           commit: ${{ steps.source.outputs.commit }}
@@ -95,7 +95,7 @@ After your build creates `dist/`, add a step:
 
 ```yaml
 - id: files
-  uses: releaseway/actions/distribute@1c0b9237f61ee66f68db880963ec03da46c8a6ed # v0.5.0
+  uses: releaseway/actions/distribute@7427110b565bedef79ab0f80e6821a706d7f21ed # v0.5.1
   with:
     files: dist/*
 ```

@@ -3,7 +3,7 @@
 Use the root `releaseway/actions` step action to publish or verify an existing
 tag and caller-produced assets. Start with the [complete workflow](../README.md#quick-start),
 then use this reference for notes policy, permissions, inputs and retry behavior.
-This guide describes the published v0.5.0 contract.
+This guide describes the published v0.5.1 contract.
 
 ## Early 0.x contract break
 
@@ -226,7 +226,7 @@ For new publication, the prepared body is passed to the draft and verified again
 ```yaml
 - name: Preview release notes
   id: notes
-  uses: releaseway/actions@1c0b9237f61ee66f68db880963ec03da46c8a6ed # v0.5.0
+  uses: releaseway/actions@7427110b565bedef79ab0f80e6821a706d7f21ed # v0.5.1
   with:
     tag: v1.5.0
     commit: <full-40-character-sha>
@@ -344,7 +344,7 @@ Omit `assets` when no binaries are needed. The same provenance, notes, immutabil
 
 ```yaml
 - name: Publish automation release
-  uses: releaseway/actions@1c0b9237f61ee66f68db880963ec03da46c8a6ed # v0.5.0
+  uses: releaseway/actions@7427110b565bedef79ab0f80e6821a706d7f21ed # v0.5.1
   with:
     tag: ${{ inputs.tag }}
     commit: ${{ steps.release.outputs.commit }}
