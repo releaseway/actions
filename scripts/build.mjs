@@ -29,6 +29,7 @@ const common = {
 for (const [entry, filename] of [
   ["src/main.ts", "main.cjs"],
   ["src/engine.ts", "engine.cjs"],
+  ["src/distribute-main.ts", "distribute.cjs"],
 ]) {
   await build({
     ...common,

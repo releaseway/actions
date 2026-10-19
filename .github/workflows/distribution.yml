@@ -1,0 +1,85 @@
+name: distribution
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: node --test test/distribute-local.test.mjs test/distribute-site.test.mjs test/distribute-fixtures.test.mjs
+      - name: Generate local files
+        shell: bash
+        run: |
+          mkdir -p distribution-smoke
+          printf 'opaque bytes\r\n' > distribution-smoke/message.txt
+      - id: distribution
+        uses: ./distribute
+        with:
+          files: distribution-smoke/message.txt
+      - name: Check actual action outputs
+        shell: bash
+        env:
+          DISTRIBUTION_PATH: ${{ steps.distribution.outputs.path }}
+          DISTRIBUTION_REPORT: ${{ steps.distribution.outputs.report }}
+        run: |
+          cmp distribution-smoke/message.txt "$DISTRIBUTION_PATH/message.txt"
+          test -s "$DISTRIBUTION_REPORT"
+
+  fixture-execution:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - name: Generate fixture independently
+        run: node test/distribution-fixtures/build.mjs distribution-smoke
+      - id: payload
+        uses: ./distribute
+        with:
+          files: distribution-smoke
+      - name: Exercise authored bootstrap and generated script
+        shell: bash
+        env:
+          FIXTURE_HOME: ${{ runner.temp }}/releaseway-fixture-state
+          FIXTURE_PAYLOAD: ${{ steps.payload.outputs.path }}
+        run: |
+          sh "$FIXTURE_PAYLOAD/authored/bootstrap.sh" 2.3.4
+          test "$(cat "$FIXTURE_HOME/version")" = 2.3.4
+          test "$(node "$FIXTURE_PAYLOAD/generated/bootstrap.mjs" 2.3.4)" = generated:2.3.4
+          test "$(node "$FIXTURE_PAYLOAD/apps/a/run.mjs")" = a
+          test "$(node "$FIXTURE_PAYLOAD/apps/b/run.mjs")" = b
+          if git ls-files --error-unmatch distribution-smoke/generated/bootstrap.mjs; then exit 1; fi
+      - name: Exercise Windows diagnosis and uninstall
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          FIXTURE_HOME: ${{ runner.temp }}/releaseway-fixture-state
+          FIXTURE_PAYLOAD: ${{ steps.payload.outputs.path }}
+        run: |
+          & (Join-Path $env:FIXTURE_PAYLOAD 'authored/diagnose.ps1') -Expected 2.3.4
+          & (Join-Path $env:FIXTURE_PAYLOAD 'authored/diagnose.ps1') -Uninstall
+          if (Test-Path (Join-Path $env:FIXTURE_HOME 'version')) { throw 'uninstall failed' }

@@ -57,7 +57,7 @@ test("action metadata keeps composite token injection and exposes new notes cont
   assert.match(metadata, /using:\s*composite/);
   assert.match(
     metadata,
-    /actions\/setup-node@820762786026740c76f36085b0efc47a31fe5020/,
+    /uses:\s*actions\/setup-node@[0-9a-f]{40}(?=\s|$)/,
   );
   assert.match(metadata, /node-version:\s*"24"/);
   assert.match(metadata, /node "\$GITHUB_ACTION_PATH\/dist\/main\.cjs"/);

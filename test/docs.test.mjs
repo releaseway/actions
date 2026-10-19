@@ -9,35 +9,35 @@ import {
   NOTES_MODES,
 } from "../src/contract.ts";
 
-test("README documents every public release-note mode and lifecycle policy", async () => {
-  const readme = await readFile(resolve("README.md"), "utf8");
+test("Publishing guide documents every public release-note mode and lifecycle policy", async () => {
+  const guide = await readFile(resolve("docs/publishing.md"), "utf8");
 
   for (const mode of NOTES_MODES) {
     assert.ok(
-      readme.includes(`\`${mode}\``),
-      `README is missing notes mode ${mode}`,
+      guide.includes(`\`${mode}\``),
+      `Publishing guide is missing notes mode ${mode}`,
     );
   }
   for (const policy of NOTES_EXISTING_POLICIES) {
     assert.ok(
-      readme.includes(`\`${policy}\``),
-      `README is missing notes-existing policy ${policy}`,
+      guide.includes(`\`${policy}\``),
+      `Publishing guide is missing notes-existing policy ${policy}`,
     );
   }
 
-  assert.match(readme, /Early 0\.x contract break/);
-  assert.match(readme, /old boolean `generate-notes` input is removed/);
-  assert.match(readme, /GitHub-native preview\/generation \| `contents: write`/);
-  assert.match(readme, /PR\/hybrid preview \| `contents: read`, `pull-requests: read`/);
-  assert.match(readme, /### Preset gallery/);
-  assert.match(readme, /### Input combinations/);
-  assert.match(readme, /at most 10,000 commits/);
-  assert.match(readme, /at most 1 MiB of UTF-8 text/);
-  assert.match(readme, /when `title` is omitted, the existing published title is preserved/);
-  assert.match(readme, /Open or closed-unmerged associations are ignored for coverage/);
-  assert.match(readme, /HTTP authorization header is forwarded only to the isolated fetch subprocess/);
-  assert.match(readme, /metadata-mutability flags/);
-  assert.match(readme, /contradictory metadata fails instead of being silently reclassified/);
+  assert.match(guide, /Early 0\.x contract break/);
+  assert.match(guide, /old boolean `generate-notes` input is removed/);
+  assert.match(guide, /GitHub-native preview\/generation \| `contents: write`/);
+  assert.match(guide, /PR\/hybrid preview \| `contents: read`, `pull-requests: read`/);
+  assert.match(guide, /### Preset gallery/);
+  assert.match(guide, /### Input combinations/);
+  assert.match(guide, /at most 10,000 commits/);
+  assert.match(guide, /at most 1 MiB of UTF-8 text/);
+  assert.match(guide, /when `title` is omitted, the existing published title is preserved/);
+  assert.match(guide, /Open or closed-unmerged associations are ignored for coverage/);
+  assert.match(guide, /HTTP authorization header is forwarded only to the isolated fetch subprocess/);
+  assert.match(guide, /metadata-mutability flags/);
+  assert.match(guide, /contradictory metadata fails instead of being silently reclassified/);
   for (const layout of [
     "standard",
     "compact",
@@ -47,30 +47,30 @@ test("README documents every public release-note mode and lifecycle policy", asy
     "scoped",
   ]) {
     assert.match(
-      readme,
+      guide,
       new RegExp(`\\| \\\`${layout}\\\` \\\|`),
-      `README preset gallery is missing ${layout}`,
+      `Publishing guide preset gallery is missing ${layout}`,
     );
   }
 });
 
-test("README input and output tables cover action metadata", async () => {
-  const [metadataText, readme] = await Promise.all([
+test("Publishing guide input and output tables cover action metadata", async () => {
+  const [metadataText, guide] = await Promise.all([
     readFile(resolve("action.yml"), "utf8"),
-    readFile(resolve("README.md"), "utf8"),
+    readFile(resolve("docs/publishing.md"), "utf8"),
   ]);
   const metadata = parse(metadataText);
 
   for (const input of Object.keys(metadata.inputs ?? {})) {
     assert.ok(
-      readme.includes(`| \`${input}\` |`),
-      `README input table is missing ${input}`,
+      guide.includes(`| \`${input}\` |`),
+      `Publishing guide input table is missing ${input}`,
     );
   }
   for (const output of Object.keys(metadata.outputs ?? {})) {
     assert.ok(
-      readme.includes(`| \`${output}\` |`),
-      `README output table is missing ${output}`,
+      guide.includes(`| \`${output}\` |`),
+      `Publishing guide output table is missing ${output}`,
     );
   }
 

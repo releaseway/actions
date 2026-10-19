@@ -1,0 +1,34 @@
+name: Distribute generated files to Pages
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - name: Produce sample files
+        run: |
+          mkdir -p dist
+          printf '<!doctype html><title>Distribution ready</title>\n' > dist/index.html
+          printf '{"schema":1}\n' > dist/metadata.json
+      - id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: distribution-source
+          path: dist/
+          if-no-files-found: error
+  distribute:
+    needs: build
+    permissions:
+      contents: read
+      actions: read
+      deployments: read
+      pages: write
+      id-token: write
+    uses: releaseway/actions/.github/workflows/distribute-pages.yml@1c0b9237f61ee66f68db880963ec03da46c8a6ed # v0.5.0
+    with:
+      artifact-id: ${{ needs.build.outputs.artifact-id }}
+      files: '*'

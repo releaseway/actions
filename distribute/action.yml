@@ -1,0 +1,55 @@
+name: Prepare distribution files
+description: Select and verify files into a new directory for any static host.
+inputs:
+  files:
+    description: Newline-separated relative files, directories, or glob patterns.
+    required: false
+  config:
+    description: Optional strict YAML/JSON v1 from/to mappings; mutually exclusive with files.
+    required: false
+  destination:
+    description: Optional public path prefix.
+    required: false
+  site:
+    description: Optional existing site build to copy without modifying it.
+    required: false
+  conflict:
+    description: error (default) or replace selected baseline files.
+    required: false
+    default: error
+  tag:
+    description: Optional exact public GitHub Release tag; otherwise reads local files.
+    required: false
+  repository:
+    description: Public Release source owner/name; defaults to the caller repository.
+    required: false
+  commit:
+    description: Optional full expected tag commit SHA for Release source.
+    required: false
+  token:
+    description: GitHub API read token; unused for local input.
+    required: false
+    default: ${{ github.token }}
+  verification:
+    description: digest (default) or attested (Release source only).
+    required: false
+    default: digest
+  root:
+    description: Optional local root; retains paths relative to this directory.
+    required: false
+  max-file-bytes:
+    description: Maximum bytes per file (default 1 GiB; at most 8 GiB).
+    required: false
+  max-total-bytes:
+    description: Maximum output bytes (default 2 GiB; at most 8 GiB).
+    required: false
+outputs:
+  path:
+    description: Completed directory for a subsequent deployment step.
+  report:
+    description: Separate JSON file inventory and verification report.
+  digest:
+    description: SHA-256 identity of final paths, sizes, and file hashes.
+runs:
+  using: node24
+  main: ../dist/distribute.cjs
