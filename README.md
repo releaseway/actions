@@ -1,8 +1,10 @@
 # actions
 
-Publish or verify an immutable GitHub Release from an existing Git tag, with deterministic release-note generation.
+Publish immutable GitHub Releases, prepare release versions, or verify files for distribution to a static host.
 
-`releaseway/actions` owns the GitHub Release lifecycle and release-note preparation. The caller still owns version selection, tag creation, build commands, artifact naming, and release triggers.
+The root `releaseway/actions` Action owns the GitHub Release lifecycle and release-note preparation. The optional `prepare` subaction calculates versions and creates tags from caller policy. The caller owns build commands, artifact naming, release triggers, and the choice to use `prepare` or supply an existing tag.
+
+The published [v0.5.0](https://github.com/releaseway/actions/releases/tag/v0.5.0) commit is `1c0b9237f61ee66f68db880963ec03da46c8a6ed`. The root action, `prepare`, `distribute`, and the Pages reusable workflow share this version and SHA. Pin consumers to that full SHA; `package.json` is private build metadata and does not select the Action version.
 
 ## Quick start
 
@@ -16,7 +18,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@<full-commit-sha>
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -26,7 +28,7 @@ jobs:
 
       - name: Publish release
         id: release
-        uses: releaseway/actions@<full-commit-sha>
+        uses: releaseway/actions@1c0b9237f61ee66f68db880963ec03da46c8a6ed # v0.5.0
         with:
           tag: ${{ github.ref_name }}
           commit: ${{ github.sha }}
@@ -41,13 +43,12 @@ Always pin cross-repository actions to a full commit SHA.
 
 ## Distribute files
 
-Prepare existing files for distribution with `releaseway/actions/distribute@<full-commit-sha>`. It accepts local build output or public GitHub Release assets, preserves their bytes, validates public paths, and returns a directory plus a SHA-256 inventory. Use it for installers, other executable scripts, applications, metadata, or static files; your project owns how those files are built and executed.
+Prepare existing files for distribution with the `distribute` step action. It accepts local build output or public GitHub Release assets, preserves their bytes, validates public paths, and returns a directory plus a SHA-256 inventory. Use it for installers, other executable scripts, applications, metadata, or static files; your project owns how those files are built and executed.
 
 ```yaml
-- uses: actions/checkout@<full-commit-sha>
-- run: ./scripts/build-distribution.sh
+# After your existing build produces files in dist/:
 - id: distribution
-  uses: releaseway/actions/distribute@<full-commit-sha>
+  uses: releaseway/actions/distribute@1c0b9237f61ee66f68db880963ec03da46c8a6ed # v0.5.0
   with:
     files: dist/*
 # Feed steps.distribution.outputs.path into your chosen publisher.
@@ -278,7 +279,7 @@ For new publication, the prepared body is passed to the draft and verified again
 ```yaml
 - name: Preview release notes
   id: notes
-  uses: releaseway/actions@<full-commit-sha>
+  uses: releaseway/actions@1c0b9237f61ee66f68db880963ec03da46c8a6ed # v0.5.0
   with:
     tag: v1.5.0
     commit: <full-40-character-sha>
@@ -396,7 +397,7 @@ Omit `assets` when no binaries are needed. The same provenance, notes, immutabil
 
 ```yaml
 - name: Publish automation release
-  uses: releaseway/actions@<full-commit-sha>
+  uses: releaseway/actions@1c0b9237f61ee66f68db880963ec03da46c8a6ed # v0.5.0
   with:
     tag: ${{ inputs.tag }}
     commit: ${{ steps.release.outputs.commit }}
@@ -419,7 +420,7 @@ python3 test/release-evidence.py
 git diff --check
 ```
 
-CI runs the packaged checks on Ubuntu and macOS.
+CI runs the full packaged checks on Ubuntu and macOS. The separate `distribution.yml` workflow tests local preparation and prepared fixture scripts on Ubuntu, macOS, and Windows.
 
 Live black-box acceptance lives in `releaseway/release-fixture`. It validates the exact candidate action SHA against real GitHub range/native/PR behavior and an immutable publication + rerun campaign before release readiness.
 
@@ -427,7 +428,9 @@ The repository release workflow requires `acceptance-runs` for a successful
 `suite=all` fixture run and latest successful push CI at the tag's exact SHA. It also
 checks the tagged action's typecheck, unit, dist and lifecycle behavior. See the
 [candidate guide](https://github.com/releaseway/release-fixture#candidate-release-readiness)
-for artifact retention, read permissions and retries.
+for artifact retention, read permissions and retries. Pushing a new version tag starts another push CI run at the same SHA; wait for that run to succeed before dispatching publication. The gate checks the newest run, even if an earlier branch run already passed.
+
+Distribution acceptance is separate from this release-note gate. Its [fixture guide](https://github.com/releaseway/release-fixture/tree/main/distribution-fixtures) covers public Release reads and all three actual Pages source modes; a successful notes suite alone does not prove Pages delivery.
 
 ## Version series and release preparation
 
@@ -455,13 +458,13 @@ concurrency:
   group: release-main
   cancel-in-progress: false
 steps:
-  - uses: actions/checkout@<full-commit-sha>
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     with:
       fetch-depth: 0
   - id: release
-    uses: releaseway/actions/prepare@<full-commit-sha>
+    uses: releaseway/actions/prepare@1c0b9237f61ee66f68db880963ec03da46c8a6ed # v0.5.0
   - run: ./build-product.sh "${{ steps.release.outputs.version }}"
-  - uses: releaseway/actions@<full-commit-sha>
+  - uses: releaseway/actions@1c0b9237f61ee66f68db880963ec03da46c8a6ed # v0.5.0
     with:
       tag: ${{ steps.release.outputs.tag }}
       commit: ${{ steps.release.outputs.commit }}
