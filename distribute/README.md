@@ -65,3 +65,60 @@ Defaults: 1 GiB per file, 2 GiB final output, 10,000 selected files, 100,000 fin
 files, and a ten-minute processing deadline. Advanced `max-file-bytes` and
 `max-total-bytes` accept positive integers up to 8 GiB. Output is published only
 after every file succeeds; failed staging is removed and inputs stay unchanged.
+
+## Optional GitHub Pages workflow
+
+Call the reusable workflow at job level when these files form the entire site:
+
+```yaml
+permissions:
+  contents: read
+  actions: read
+  deployments: read
+  pages: write
+  id-token: write
+jobs:
+  distribute:
+    uses: releaseway/actions/.github/workflows/distribute-pages.yml@<full-sha>
+    with:
+      files: install.sh
+```
+
+With no `tag` or `artifact-id`, it resolves the latest stable public Release
+inside the Pages concurrency lock. `tag` selects an exact Release;
+`artifact-id` accepts the immutable ID returned by a preceding same-run
+`actions/upload-artifact` producer. These choices are mutually exclusive.
+Use `needs` to wait for a producer job and pass its artifact ID. Source artifact
+`files` paths are relative to its extracted root; a caller config is checked out
+at the caller SHA and stays separate from the payload. Name dotfiles explicitly
+and opt into `include-hidden-files: true` in the producer upload when necessary.
+
+Enable Pages with Actions as its source before calling this workflow. The
+workflow preserves your domain and `github-pages` environment restrictions;
+it never enables Pages or changes environment protections. PR and merge-group
+callers cannot publish. For existing documentation sites, use the direct Action
+with `site` and your existing deploy step instead of replacing the whole site.
+
+The workflow returns `page-url`, `content-digest`, `delivery-digest`,
+`report-artifact-id`, and `deployment-id`. The last value is the GitHub
+**environment deployment** matched by exact run/job status URL, not an
+undocumented output or internal Pages deployment identifier. The report artifact
+expires after one day. Pages delivery adds an empty `.nojekyll`, preserves
+explicit hidden files, and rejects `.github` because the official packager always
+excludes it. It checks the archive membership before deploying and verifies
+actual served bytes afterward.
+
+Do not also acquire the `pages` concurrency group in the caller: the reusable
+workflow already holds it. Running deployments are preserved; a newer pending
+run may replace an older pending run. Latest supersession requires rerunning the
+entire workflow. For other failures, a deploy-job rerun can reuse retained producer
+artifacts; expired/missing artifacts require a full rerun. A failed post-deploy
+verification may leave the new site live. The summary records the actual URL and
+environment deployment when available; there is no automatic rollback.
+
+Same-run artifacts are extracted by the official download action with digest
+mismatch set to error. The workflow checks compressed size before download,
+uses a five-minute download timeout, and checks the extracted tree afterward.
+It does not enforce an uncompressed disk bound during the official extraction.
+Hosted Ubuntu and a Node24-capable Actions runner are required. A missing
+`job.workflow_*` identity fails explicitly; GHES is outside this adapter's scope.

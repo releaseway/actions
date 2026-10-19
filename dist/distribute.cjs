@@ -7431,8 +7431,8 @@ async function checkedPath(root, rel) {
   for (const part of rel.split("/")) {
     if (part === ".") continue;
     cursor = (0, import_node_path.resolve)(cursor, part);
-    const stat3 = await (0, import_promises.lstat)(cursor);
-    if (stat3.isSymbolicLink()) throw new Error("Symbolic links are not supported");
+    const stat4 = await (0, import_promises.lstat)(cursor);
+    if (stat4.isSymbolicLink()) throw new Error("Symbolic links are not supported");
   }
   const canonical = await (0, import_promises.realpath)(cursor);
   if (!inside(root, canonical)) throw new Error("Source escapes its root");
@@ -7540,11 +7540,11 @@ var import_node_path3 = require("node:path");
 async function copyFile(source, target, path, max, origin = "selected", deadline = Date.now() + 6e5) {
   await (0, import_promises3.mkdir)((0, import_node_path3.dirname)(target), { recursive: true, mode: 493 });
   const input2 = await (0, import_promises3.open)(source, "r");
-  let output;
+  let output2;
   try {
     const before = await input2.stat();
     if (!before.isFile() || before.size > max) throw new Error("Input is not a regular file within the byte limit");
-    output = await (0, import_promises3.open)(target, "wx", 384);
+    output2 = await (0, import_promises3.open)(target, "wx", 384);
     const hash = (0, import_node_crypto.createHash)("sha256");
     let size = 0;
     for await (const chunk of input2.createReadStream({ autoClose: false })) {
@@ -7553,19 +7553,19 @@ async function copyFile(source, target, path, max, origin = "selected", deadline
       size += chunk.length;
       if (size > max) throw new Error("File exceeds byte limit");
       hash.update(chunk);
-      await output.writeFile(chunk);
+      await output2.writeFile(chunk);
     }
     const after = await input2.stat();
     if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs || size !== before.size) throw new Error("Source changed while copying");
-    await output.close();
-    output = void 0;
+    await output2.close();
+    output2 = void 0;
     const sha256 = hash.digest("hex");
     const actual = await hashFile(target, max, deadline);
     if (actual.size !== size || actual.sha256 !== sha256) throw new Error("Copied bytes do not match");
     await (0, import_promises3.chmod)(target, 420 | before.mode & 73);
     return { path, size, sha256, origin };
   } finally {
-    await output?.close();
+    await output2?.close();
     await input2.close();
   }
 }
@@ -7830,9 +7830,9 @@ async function selectSite(workspace, name, deadline) {
 }
 
 // src/distribution/action.ts
-async function distribute(env = process.env, client) {
+async function distribute(env = process.env, client, configWorkspace) {
   const o = options(env), deadline = Date.now() + 6e5;
-  const mappings = o.config ? await readConfig(o.workspace, o.config) : void 0;
+  const mappings = o.config ? await readConfig(configWorkspace ?? o.workspace, o.config) : void 0;
   const destination = input(env, "destination");
   if (destination) publicPath(destination);
   const conflict = input(env, "conflict") || "error";
@@ -7910,6 +7910,227 @@ digest=${digest}
   }
 }
 
+// src/distribution/pages.ts
+var import_promises10 = require("node:fs/promises");
+var import_node_path7 = require("node:path");
+var import_node_crypto4 = require("node:crypto");
+var import_node_child_process2 = require("node:child_process");
+var import_node_util = require("node:util");
+
+// src/distribution/verify-served.ts
+var import_node_crypto3 = require("node:crypto");
+var import_promises9 = require("node:timers/promises");
+async function verifyServed(page, files, request = fetch, deadline = Date.now() + 3e5) {
+  const base = new URL(page.endsWith("/") ? page : page + "/");
+  if (base.protocol !== "https:" || base.username || base.password || base.search || base.hash) throw new Error("Pages URL must be an HTTPS origin/base path");
+  let cursor = 0;
+  const stop = new AbortController();
+  async function one(file) {
+    publicPath(file.path);
+    const target = new URL(file.path.split("/").map(encodeURIComponent).join("/"), base);
+    while (Date.now() < deadline && !stop.signal.aborted) {
+      const signal = AbortSignal.any([stop.signal, AbortSignal.timeout(Math.max(1, Math.min(3e4, deadline - Date.now())))]);
+      let url = target, response;
+      try {
+        for (let redirects = 0; redirects <= 5; redirects++) {
+          if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) throw new Error("Redirect leaves Pages origin/base path");
+          response = await request(url, { redirect: "manual", signal, headers: { "Accept-Encoding": "identity", "Cache-Control": "no-cache" } });
+          if (![301, 302, 303, 307, 308].includes(response.status)) break;
+          const location = response.headers.get("location");
+          await response.body?.cancel();
+          if (!location || redirects === 5) throw new Error("Invalid Pages redirect");
+          url = new URL(location, url);
+        }
+        if (response?.status === 200) {
+          const hash = (0, import_node_crypto3.createHash)("sha256");
+          let size = 0;
+          if (response.body) for await (const chunk of response.body) {
+            size += chunk.length;
+            if (size > file.size) throw new Error("Served file exceeds expected size");
+            hash.update(chunk);
+          }
+          if (size === file.size && hash.digest("hex") === file.sha256) return;
+        } else await response?.body?.cancel();
+      } catch (error) {
+        if (stop.signal.aborted) throw stop.signal.reason;
+        if (error instanceof Error && /Redirect|redirect|exceeds expected size/.test(error.message)) throw error;
+      }
+      const remaining = deadline - Date.now();
+      if (remaining > 0) await (0, import_promises9.setTimeout)(Math.min(1e3, remaining));
+    }
+    throw new Error("Served bytes did not converge before the verification deadline");
+  }
+  const workers = Array.from({ length: Math.min(4, files.length) }, async () => {
+    while (cursor < files.length && !stop.signal.aborted) {
+      const file = files[cursor++];
+      await one(file);
+    }
+  });
+  try {
+    await Promise.all(workers);
+  } catch (error) {
+    stop.abort(error);
+    await Promise.allSettled(workers);
+    throw error;
+  }
+}
+
+// src/distribution/pages.ts
+var MAX_REPORT = 32 * 1024 ** 2;
+var sha = (bytes) => (0, import_node_crypto4.createHash)("sha256").update(bytes).digest("hex");
+async function output(env, values) {
+  if (Object.values(values).some((v) => /[\r\n]/.test(v))) throw new Error("Invalid multiline internal output");
+  if (env.GITHUB_OUTPUT) await (0, import_promises10.appendFile)(env.GITHUB_OUTPUT, Object.entries(values).map(([k, v]) => `${k}=${v}
+`).join(""));
+  return values;
+}
+function reportShape(value) {
+  if (value?.schema !== 1 || !Array.isArray(value.files) || !value.files.length || value.files.length > 1e5) throw new Error("Invalid distribution report schema");
+  let total = 0;
+  for (const f of value.files) {
+    if (typeof f.path !== "string" || !Number.isSafeInteger(f.size) || f.size < 0 || !/^[a-f0-9]{64}$/.test(f.sha256) || !["base", "selected"].includes(f.origin)) throw new Error("Invalid report file");
+    publicPath(f.path);
+    total += f.size;
+    if (total > 8 * 1024 ** 3) throw new Error("Report exceeds byte limit");
+  }
+  assertTargets(value.files.map((f) => f.path));
+  if (value.digest !== contentDigest(value.files)) throw new Error("Report content identity mismatch");
+  return value.files;
+}
+async function loadReport(path, expected) {
+  if ((await (0, import_promises10.stat)(path)).size > MAX_REPORT) throw new Error("Report exceeds 32 MiB");
+  const bytes = await (0, import_promises10.readFile)(path);
+  if (bytes.length > MAX_REPORT || expected && sha(bytes) !== expected) throw new Error("Report artifact hash mismatch");
+  let report;
+  try {
+    report = JSON.parse(bytes.toString("utf8"));
+  } catch {
+    throw new Error("Invalid report JSON");
+  }
+  reportShape(report);
+  return report;
+}
+function pagesEvent(env) {
+  if (!["release", "workflow_dispatch", "push"].includes(env.GITHUB_EVENT_NAME ?? "")) throw new Error("Pages publishing requires a trusted release, dispatch or push caller");
+  if (env.GITHUB_SERVER_URL !== "https://github.com") throw new Error("Pages adapter supports github.com only");
+}
+async function latest(gh, repository) {
+  const r = await gh.json(`repos/${repository}/releases/latest`);
+  if (!Number.isSafeInteger(r.id) || r.id < 1 || typeof r.tag_name !== "string" || r.draft !== false || r.prerelease !== false) throw new Error("No published latest-stable Release");
+  return r;
+}
+async function resolvePages(env, gh) {
+  pagesEvent(env);
+  const tag = input(env, "tag"), artifact = input(env, "artifact-id"), repo = repositoryName(input(env, "repository") || env.GITHUB_REPOSITORY || "");
+  if (tag && artifact) throw new Error("Choose tag or artifact-id, not both");
+  if (Boolean(input(env, "files")) === Boolean(input(env, "config"))) throw new Error("Provide exactly one of files or config");
+  let selectedTag = tag, latestId = "";
+  if (artifact) {
+    if (!/^[1-9]\d*$/.test(artifact) || !Number.isSafeInteger(Number(artifact))) throw new Error("Invalid artifact-id");
+    if (input(env, "repository")) throw new Error("repository override is only for Release source");
+    const a = await gh.json(`repos/${repo}/actions/artifacts/${artifact}`), run = await gh.json(`repos/${repo}/actions/runs/${env.GITHUB_RUN_ID}`);
+    if (a.id !== Number(artifact) || a.expired !== false || a.workflow_run?.id !== Number(env.GITHUB_RUN_ID) || a.workflow_run?.repository_id !== Number(env.GITHUB_REPOSITORY_ID) || a.workflow_run?.head_sha !== run.head_sha || !/^[a-f0-9]{40}$/i.test(run.head_sha) || !Number.isSafeInteger(a.size_in_bytes) || a.size_in_bytes < 0 || a.size_in_bytes > 2 * 1024 ** 3 || !/^sha256:[a-f0-9]{64}$/.test(a.digest)) throw new Error("Artifact is expired, oversized or not from this repository/workflow run");
+  } else if (!tag) {
+    const r = await latest(gh, repo);
+    selectedTag = r.tag_name;
+    latestId = String(r.id);
+  }
+  const invocation = `releaseway-pages-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}-${(0, import_node_crypto4.randomUUID)()}`;
+  return output(env, { tag: selectedTag, "artifact-id": artifact, "latest-id": latestId, "repository": repo, "artifact-name": invocation, "report-name": invocation + "-report" });
+}
+async function finalizePages(env) {
+  const path = input(env, "path"), core = await loadReport(input(env, "report")), files = reportShape(core);
+  if (input(env, "latest-id") && String(core.source?.releaseId) !== input(env, "latest-id")) throw new Error("Latest Release changed before file preparation");
+  const tree = await selectSite(env.GITHUB_WORKSPACE, path, Date.now() + 6e5);
+  if (JSON.stringify(tree.selections.map((s) => s.to).sort()) !== JSON.stringify(files.map((f) => f.path).sort())) throw new Error("Prepared tree/report membership mismatch");
+  let total = 0;
+  for (const f of files) {
+    if (f.path.split("/").some((p) => p.toLowerCase() === ".github")) throw new Error("Pages packaging excludes .github segments");
+    total += f.size;
+    const actual = await hashFile((0, import_node_path7.join)(path, f.path), f.size);
+    if (actual.sha256 !== f.sha256 || actual.size !== f.size) throw new Error("Prepared tree/report bytes mismatch");
+  }
+  if (total > 1e9) throw new Error("Pages site exceeds 1000000000 bytes");
+  const old = files.find((f) => f.path === ".nojekyll");
+  if (old && old.size !== 0) throw new Error("Nonempty .nojekyll conflicts with Pages delivery");
+  if (!old) {
+    assertTargets([...files.map((f) => f.path), ".nojekyll"]);
+    await (0, import_promises10.writeFile)((0, import_node_path7.join)(path, ".nojekyll"), "", { flag: "wx", mode: 420 });
+    files.push({ path: ".nojekyll", size: 0, sha256: sha(""), origin: "selected" });
+  }
+  const folder = await (0, import_promises10.mkdtemp)((0, import_node_path7.join)(env.RUNNER_TEMP, "releaseway-pages-report-")), report = (0, import_node_path7.join)(folder, "report.json");
+  const delivery = { schema: 1, source: core.source, latestId: input(env, "latest-id"), contentDigest: core.digest, digest: contentDigest(files), files: ordered(files) };
+  reportShape(delivery);
+  const bytes = JSON.stringify(delivery, null, 2) + "\n";
+  if (Buffer.byteLength(bytes) > MAX_REPORT) throw new Error("Delivery report exceeds limit");
+  await (0, import_promises10.writeFile)(report, bytes, { mode: 384 });
+  return output(env, { "report": report, "report-sha": sha(bytes), "delivery-digest": delivery.digest, "content-digest": core.digest });
+}
+async function checkArchive(env) {
+  const report = await loadReport(input(env, "report"), input(env, "report-sha"));
+  const archive = (0, import_node_path7.join)(env.RUNNER_TEMP, "artifact.tar");
+  if ((await (0, import_promises10.stat)(archive)).size > 1e9) throw new Error("Pages archive exceeds byte limit including tar overhead");
+  const run = (0, import_node_util.promisify)(import_node_child_process2.execFile), opts = { timeout: 3e4, maxBuffer: MAX_REPORT };
+  const { stdout } = await run("tar", ["--list", "--quoting-style=literal", "--file", archive], opts);
+  const detail = await run("tar", ["--list", "--verbose", "--file", archive], opts);
+  if (detail.stdout.split("\n").filter(Boolean).some((l) => !["d", "-"].includes(l[0]))) throw new Error("Pages archive contains link or special members");
+  const members = stdout.split("\n").filter((p) => p && !p.endsWith("/")).map((p) => p.startsWith("./") ? p.slice(2) : p);
+  assertTargets(members);
+  if (JSON.stringify(members.sort()) !== JSON.stringify(report.files.map((f) => f.path).sort())) throw new Error("Pages archive/report membership mismatch");
+}
+async function guardPages(env, gh) {
+  const expected = input(env, "report-sha");
+  if (!/^[a-f0-9]{64}$/.test(expected)) throw new Error("Expected report SHA is required");
+  const report = await loadReport(input(env, "report"), expected);
+  if (report.latestId && String((await latest(gh, repositoryName(report.source.repository))).id) !== report.latestId) throw new Error("superseded: latest changed; rerun the entire workflow");
+  return report;
+}
+async function environmentDeployment(env, gh) {
+  const repo = repositoryName(env.GITHUB_REPOSITORY ?? ""), run = `https://github.com/${repo}/actions/runs/${env.GITHUB_RUN_ID}/job/${input(env, "check-run-id")}`;
+  for (let page = 1; page <= 20; page++) {
+    const ds = await gh.json(`repos/${repo}/deployments?environment=github-pages&sha=${env.GITHUB_SHA}&per_page=100&page=${page}`);
+    if (!Array.isArray(ds)) throw new Error("Invalid deployment list");
+    for (const d of ds) {
+      if (d.environment !== "github-pages" || d.sha !== env.GITHUB_SHA || !Number.isSafeInteger(d.id)) continue;
+      const statuses = await gh.json(`repos/${repo}/deployments/${d.id}/statuses?per_page=100`);
+      if (Array.isArray(statuses) && statuses.some((s) => s.log_url === run)) return String(d.id);
+    }
+    if (ds.length < 100) break;
+  }
+  throw new Error("No environment deployment matches this exact run/job");
+}
+async function runPages(env = process.env) {
+  const op = input(env, "operation");
+  const gh = new GhClient(input(env, "token"), (0, import_node_path7.join)(env.RUNNER_TEMP, "releaseway-gh-cache"));
+  if (op === "resolve") return resolvePages(env, gh);
+  if (op === "prepare") {
+    const source = input(env, "source-path");
+    if (source) {
+      const tree = await selectSite(env.GITHUB_WORKSPACE, source, Date.now() + 6e5);
+      let total = 0;
+      for (const s of tree.selections) {
+        total += (await (0, import_promises10.stat)(s.source)).size;
+        if (total > 2 * 1024 ** 3) throw new Error("Extracted artifact exceeds 2 GiB");
+      }
+    }
+    return distribute({ ...env, GITHUB_WORKSPACE: source || env.GITHUB_WORKSPACE }, gh, env.GITHUB_WORKSPACE);
+  }
+  if (op === "deployment") return output(env, { "deployment-id": await environmentDeployment(env, gh) });
+  if (op === "finalize") return finalizePages(env);
+  if (op === "archive") return checkArchive(env);
+  if (op === "guard") {
+    await guardPages(env, gh);
+    return;
+  }
+  if (op === "verify") {
+    const r = await guardPages(env, gh);
+    await verifyServed(input(env, "page-url"), r.files);
+    await guardPages(env, gh);
+    return;
+  }
+  throw new Error("Unknown internal distribution operation");
+}
+
 // src/errors.ts
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -7920,7 +8141,7 @@ function githubErrorCommand(error) {
 }
 
 // src/distribute-main.ts
-void distribute().catch((error) => {
+void (process.env.INPUT_OPERATION ? runPages() : distribute()).catch((error) => {
   process.stdout.write(githubErrorCommand(error) + "\n");
   process.exitCode = 1;
 });

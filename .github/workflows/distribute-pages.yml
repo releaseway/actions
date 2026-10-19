@@ -1,0 +1,205 @@
+name: Distribute files to Pages
+on:
+  workflow_call:
+    inputs:
+      files:
+        description: Newline-separated local artifact paths or Release asset patterns.
+        type: string
+        default: ''
+      config:
+        description: Optional caller YAML/JSON file mappings, instead of files.
+        type: string
+        default: ''
+      tag:
+        description: Exact public Release tag; omit for latest-stable or artifact-id.
+        type: string
+        default: ''
+      artifact-id:
+        description: Immutable source artifact ID from the current workflow run.
+        type: string
+        default: ''
+      repository:
+        description: Optional public Release source repository override.
+        type: string
+        default: ''
+      verification:
+        description: digest or attested (Release source only).
+        type: string
+        default: digest
+    outputs:
+      page-url:
+        description: Actual deployed Pages URL, after served verification.
+        value: ${{ jobs.deploy.outputs.page-url }}
+      content-digest:
+        description: Prepared payload content identity.
+        value: ${{ jobs.prepare.outputs.content-digest }}
+      delivery-digest:
+        description: Pages payload identity including .nojekyll.
+        value: ${{ jobs.prepare.outputs.delivery-digest }}
+      deployment-id:
+        description: GitHub environment deployment ID for the exact run/job.
+        value: ${{ jobs.deploy.outputs.deployment-id }}
+      report-artifact-id:
+        description: Immutable verification report artifact ID.
+        value: ${{ jobs.prepare.outputs.report-artifact-id }}
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      artifact-name: ${{ steps.resolve.outputs.artifact-name }}
+      report-artifact-id: ${{ steps.upload-report.outputs.artifact-id }}
+      report-sha: ${{ steps.finalize.outputs.report-sha }}
+      content-digest: ${{ steps.finalize.outputs.content-digest }}
+      delivery-digest: ${{ steps.finalize.outputs.delivery-digest }}
+    steps:
+      - name: Read callee identity
+        id: identity
+        env:
+          JOB_CONTEXT: ${{ toJSON(job) }}
+        run: |
+          printf '%s' "$JOB_CONTEXT" | jq -er '.workflow_repository | select(. == "releaseway/actions") | "repository=\(.)"' >> "$GITHUB_OUTPUT"
+          printf '%s' "$JOB_CONTEXT" | jq -er '.workflow_sha | select(test("^[0-9a-f]{40}$")) | "sha=\(.)"' >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ steps.identity.outputs.repository }}
+          ref: ${{ steps.identity.outputs.sha }}
+          path: automation
+          persist-credentials: false
+      - id: resolve
+        uses: ./automation/internal/distribution
+        with:
+          operation: resolve
+          files: ${{ inputs.files }}
+          config: ${{ inputs.config }}
+          tag: ${{ inputs.tag }}
+          artifact-id: ${{ inputs.artifact-id }}
+          repository: ${{ inputs.repository }}
+      - name: Checkout caller policy
+        if: inputs.config != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: source
+          persist-credentials: false
+      - name: Download source artifact
+        if: steps.resolve.outputs.artifact-id != ''
+        timeout-minutes: 5
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ steps.resolve.outputs.artifact-id }}
+          path: ${{ runner.temp }}/releaseway-source-artifact
+          digest-mismatch: error
+      - id: prepare
+        uses: ./automation/internal/distribution
+        with:
+          operation: prepare
+          files: ${{ inputs.files }}
+          config: ${{ inputs.config != '' && format('source/{0}', inputs.config) || '' }}
+          source-path: ${{ steps.resolve.outputs.artifact-id != '' && format('{0}/releaseway-source-artifact', runner.temp) || '' }}
+          tag: ${{ steps.resolve.outputs.tag }}
+          repository: ${{ steps.resolve.outputs.tag != '' && steps.resolve.outputs.repository || '' }}
+          verification: ${{ inputs.verification }}
+      - id: finalize
+        uses: ./automation/internal/distribution
+        with:
+          operation: finalize
+          path: ${{ steps.prepare.outputs.path }}
+          report: ${{ steps.prepare.outputs.report }}
+          latest-id: ${{ steps.resolve.outputs.latest-id }}
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          name: ${{ steps.resolve.outputs.artifact-name }}
+          path: ${{ steps.prepare.outputs.path }}
+          include-hidden-files: true
+      - uses: ./automation/internal/distribution
+        with:
+          operation: archive
+          report: ${{ steps.finalize.outputs.report }}
+          report-sha: ${{ steps.finalize.outputs.report-sha }}
+      - id: upload-report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.resolve.outputs.report-name }}
+          path: ${{ steps.finalize.outputs.report }}
+          if-no-files-found: error
+          retention-days: 1
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      deployments: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    outputs:
+      page-url: ${{ steps.deploy.outputs.page_url }}
+      deployment-id: ${{ steps.deployment.outputs.deployment-id }}
+    steps:
+      - name: Read callee identity
+        id: identity
+        env:
+          JOB_CONTEXT: ${{ toJSON(job) }}
+        run: |
+          printf '%s' "$JOB_CONTEXT" | jq -er '.workflow_repository | select(. == "releaseway/actions") | "repository=\(.)"' >> "$GITHUB_OUTPUT"
+          printf '%s' "$JOB_CONTEXT" | jq -er '.workflow_sha | select(test("^[0-9a-f]{40}$")) | "sha=\(.)"' >> "$GITHUB_OUTPUT"
+          printf '%s' "$JOB_CONTEXT" | jq -er '.check_run_id | select(type == "number" and . > 0) | "check-run-id=\(.)"' >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ steps.identity.outputs.repository }}
+          ref: ${{ steps.identity.outputs.sha }}
+          path: automation
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.prepare.outputs.report-artifact-id }}
+          path: ${{ runner.temp }}/releaseway-report
+          digest-mismatch: error
+      - uses: ./automation/internal/distribution
+        with:
+          operation: guard
+          report: ${{ runner.temp }}/releaseway-report/report.json
+          report-sha: ${{ needs.prepare.outputs.report-sha }}
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        with:
+          artifact_name: ${{ needs.prepare.outputs.artifact-name }}
+      - id: deployment
+        uses: ./automation/internal/distribution
+        with:
+          operation: deployment
+          check-run-id: ${{ steps.identity.outputs.check-run-id }}
+      - id: verify
+        uses: ./automation/internal/distribution
+        with:
+          operation: verify
+          page-url: ${{ steps.deploy.outputs.page_url }}
+          report: ${{ runner.temp }}/releaseway-report/report.json
+          report-sha: ${{ needs.prepare.outputs.report-sha }}
+      - name: Report actual delivery state
+        if: always()
+        env:
+          PAGE_URL: ${{ steps.deploy.outputs.page_url }}
+          DEPLOYMENT_ID: ${{ steps.deployment.outputs.deployment-id }}
+          DEPLOY_RESULT: ${{ steps.deploy.outcome }}
+          VERIFY_RESULT: ${{ steps.verify.outcome }}
+        run: |
+          state=not-deployed
+          if [ "$DEPLOY_RESULT" = failure ]; then state=deployment-failed-or-unknown; fi
+          if [ "$DEPLOY_RESULT" = success ]; then
+            state=deployed-unverified
+            if [ "$VERIFY_RESULT" = success ]; then state=verified; fi
+          fi
+          printf 'Distribution state: %s\n\nURL: %s\n\nEnvironment deployment: %s\n\nNo automatic rollback. Superseded latest requires a full workflow rerun.\n' "$state" "$PAGE_URL" "$DEPLOYMENT_ID" >> "$GITHUB_STEP_SUMMARY"

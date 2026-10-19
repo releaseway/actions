@@ -1,0 +1,66 @@
+name: Internal distribution workflow operation
+description: Fixed internal operations for the reusable Pages workflow.
+inputs:
+  operation:
+    required: true
+    description: Internal operation name.
+  files:
+    description: File selection.
+  config:
+    description: Caller policy path.
+  tag:
+    description: Exact Release tag.
+  artifact-id:
+    description: Current-run source artifact ID.
+  repository:
+    description: Public Release repository.
+  source-path:
+    description: Isolated extracted artifact directory.
+  verification:
+    description: digest or attested.
+    default: digest
+  path:
+    description: Prepared site directory.
+  report:
+    description: Report file.
+  report-sha:
+    description: Expected report SHA-256.
+  latest-id:
+    description: Resolved latest Release ID, if any.
+  page-url:
+    description: Actual deployed Pages URL.
+  check-run-id:
+    description: Current job check-run ID.
+  token:
+    description: Workflow-scoped read token.
+    default: ${{ github.token }}
+outputs:
+  tag:
+    description: Resolved exact tag.
+  repository:
+    description: Resolved repository.
+  artifact-id:
+    description: Validated source artifact ID.
+  latest-id:
+    description: Expected latest Release ID.
+  artifact-name:
+    description: Invocation-specific Pages artifact name.
+  report-name:
+    description: Invocation-specific report artifact name.
+  path:
+    description: Prepared site directory.
+  report:
+    description: Report file path.
+  digest:
+    description: Core content identity.
+  report-sha:
+    description: Delivery report SHA-256.
+  content-digest:
+    description: Core payload identity.
+  delivery-digest:
+    description: Final Pages payload identity.
+  deployment-id:
+    description: GitHub environment deployment ID matched to this run/job.
+runs:
+  using: node24
+  main: ../../dist/distribute.cjs
