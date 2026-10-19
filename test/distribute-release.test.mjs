@@ -80,3 +80,11 @@ test("missing token and oversize subprocess output leave no action result",async
  const gh=new GhClient("x",f.dir,Date.now()+5000,{},process.execPath,[script]);
  await assert.rejects(gh.download("asset",join(f.dir,"partial"),10),/byte limit/);
 });
+
+
+test("Release config uses exact metacharacter asset names and independent public aliases",async t=>{
+ const f=await fixture(t,{INPUT_FILES:"",INPUT_CONFIG:"config.yml"});const base=api();
+ const gh=api({assets:[{id:7,name:"install [x].sh",size:base.bytes.length,state:"uploaded",digest:sha(base.bytes)}]});
+ await writeFile(join(f.env.GITHUB_WORKSPACE,"config.yml"),'schema: 1\nfiles:\n  - from: "install [x].sh"\n    to: install.sh\n  - from: "install [x].sh"\n    to: bootstrap.sh\n');
+ const r=await distribute(f.env,gh);assert.deepEqual(await readFile(join(r.path,"bootstrap.sh")),gh.bytes);assert.deepEqual(await readFile(join(r.path,"install.sh")),gh.bytes);
+});

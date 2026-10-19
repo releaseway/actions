@@ -1,13 +1,24 @@
 import { glob, lstat, readdir, realpath } from "node:fs/promises";
 import { resolve, posix, sep } from "node:path";
 import { checkedPath, commonRoot, pattern, prefix, visible, assertTargets } from "./paths.ts";
+import type { Mapping } from "./config.ts";
 import type { Options } from "./inputs.ts";
 export interface Selection { source: string; from: string; to: string; mode?: number }
-export async function selectLocal(o: Options, deadline = Date.now() + 600_000): Promise<{ root: string; selections: Selection[] }> {
+export async function selectLocal(o: Options, deadline = Date.now() + 600_000, mappings?: Mapping[]): Promise<{ root: string; selections: Selection[] }> {
   const requestedRoot = resolve(o.workspace, o.root || ".");
   if ((await lstat(requestedRoot)).isSymbolicLink()) throw new Error("Root cannot be a symbolic link");
   const root = await realpath(requestedRoot);
   if (!(await lstat(root)).isDirectory()) throw new Error("root must be a directory");
+  if (mappings) {
+    const selections: Selection[] = [];
+    for (const m of mappings) {
+      const source = await checkedPath(root,m.from);
+      if (!(await lstat(source)).isFile()) throw new Error("Config from must name an exact regular file");
+      selections.push({source,from:m.from,to:m.to});
+    }
+    assertTargets(selections.map(s=>s.to));
+    return {root,selections};
+  }
   const selected = new Map<string, string>();
   const prefixes: string[] = [];
   let visited = 0;

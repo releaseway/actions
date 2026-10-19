@@ -4,13 +4,14 @@ import { input, type Environment, type Options } from "./inputs.ts";
 import { GhClient, type ReleaseClient } from "./gh.ts";
 import { pattern, publicPath, visible, assertTargets } from "./paths.ts";
 import { hashFile } from "./copy.ts";
+import type { Mapping } from "./config.ts";
 import type { Selection } from "./local.ts";
 export function repositoryName(value: string): string {
   if (!/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/.test(value) || [".",".."].includes(value.split("/")[1])) throw new Error("repository must be owner/name on github.com");
   return value;
 }
 function validId(value: unknown): value is number { return typeof value === "number" && Number.isSafeInteger(value) && value > 0; }
-export async function prepareRelease(o: Options, env: Environment, deadline: number, client?: ReleaseClient) {
+export async function prepareRelease(o: Options, env: Environment, deadline: number, client?: ReleaseClient, mappings?: Mapping[]) {
   if (o.root) throw new Error("root is only supported for local source");
   const repository = repositoryName(input(env, "repository") || env.GITHUB_REPOSITORY || "");
   const tag = input(env, "tag");
@@ -50,13 +51,13 @@ export async function prepareRelease(o: Options, env: Environment, deadline: num
   try {
     const before = await snapshot();
     const selected = new Map<string, any>();
-    for (const request of o.files) {
-      pattern(request);
+    for (const request of mappings?.map(m=>m.from) ?? o.files) {
+      if (!mappings) pattern(request);
       if (request.includes("/")) throw new Error("Release assets have flat names");
-      const matches = before.assets.filter(a => typeof a.name === "string" && visible(a.name, request) && posix.matchesGlob(a.name, request));
+      const matches = before.assets.filter(a => typeof a.name === "string" && visible(a.name, request) && (mappings ? a.name === request : posix.matchesGlob(a.name, request)));
       if (!matches.length) throw new Error("A Release files pattern matched no assets");
       for (const a of matches) {
-        publicPath(a.name);
+        if (!mappings) publicPath(a.name);
         if (!validId(a.id) || a.state !== "uploaded" || !Number.isSafeInteger(a.size) || a.size < 0 || a.size > o.maxFile || !/^sha256:[a-f0-9]{64}$/.test(a.digest)) throw new Error("Invalid uploaded asset ID, size or SHA-256 digest");
         if (before.assets.filter(other => other.name === a.name).length !== 1) throw new Error("Duplicate Release asset name");
         const old = selected.get(a.name);
@@ -82,7 +83,9 @@ export async function prepareRelease(o: Options, env: Environment, deadline: num
     const identity = (s: Awaited<ReturnType<typeof snapshot>>) => JSON.stringify({ id:s.release.id, commit:s.commit, immutable:s.release.immutable === true,
       assets:[...selected.keys()].sort().map(name => s.assets.filter(a => a.name === name).map(a => [a.id,a.name,a.size,a.digest,a.state])) });
     const verifySnapshot = async () => { if (identity(before) !== identity(await snapshot())) throw new Error("Release or tag changed while preparing files"); };
-    return { root: scratch, selections, source: { kind:"github-release", repository, tag, releaseId:before.release.id, commit:before.commit, immutable:before.release.immutable === true, verification,
+    const layout = mappings ? mappings.map(m => { const s = selections.find(s=>s.from===m.from); if (!s) throw new Error("Missing mapped asset"); return {...s,to:m.to}; }) : selections;
+    assertTargets(layout.map(s=>s.to));
+    return { root: scratch, selections: layout, source: { kind:"github-release", repository, tag, releaseId:before.release.id, commit:before.commit, immutable:before.release.immutable === true, verification,
       assets:[...selected.values()].map(a => ({id:a.id,name:a.name,size:a.size,digest:a.digest})) }, verifySnapshot, cleanup: () => rm(scratch,{recursive:true,force:true}) };
   } catch (error) { await rm(scratch, { recursive: true, force: true }); throw error; }
 }

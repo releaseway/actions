@@ -3,7 +3,20 @@ description: Select and verify files into a new directory for any static host.
 inputs:
   files:
     description: Newline-separated relative files, directories, or glob patterns.
-    required: true
+    required: false
+  config:
+    description: Optional strict YAML/JSON v1 from/to mappings; mutually exclusive with files.
+    required: false
+  destination:
+    description: Optional public path prefix.
+    required: false
+  site:
+    description: Optional existing site build to copy without modifying it.
+    required: false
+  conflict:
+    description: error (default) or replace selected baseline files.
+    required: false
+    default: error
   tag:
     description: Optional exact public GitHub Release tag; otherwise reads local files.
     required: false

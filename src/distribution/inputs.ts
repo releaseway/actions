@@ -1,6 +1,6 @@
 export type Environment = Record<string, string | undefined>;
 export interface Options {
-  workspace: string; temp: string; files: string[]; root: string;
+  workspace: string; temp: string; files: string[]; root: string; config: string;
   maxFile: number; maxTotal: number;
 }
 export function input(env: Environment, name: string): string {
@@ -16,8 +16,9 @@ function limit(value: string, fallback: number): number {
 export function options(env: Environment): Options {
   if (!env.GITHUB_WORKSPACE || !env.RUNNER_TEMP) throw new Error("GITHUB_WORKSPACE and RUNNER_TEMP are required");
   const files = input(env, "files").split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-  if (!files.length) throw new Error("files must select at least one file");
-  return { workspace: env.GITHUB_WORKSPACE, temp: env.RUNNER_TEMP, files, root: input(env, "root"),
+  const config = input(env,"config");
+  if ((files.length > 0) === Boolean(config)) throw new Error("Provide exactly one of files or config");
+  return { workspace: env.GITHUB_WORKSPACE, temp: env.RUNNER_TEMP, files, config, root: input(env, "root"),
     maxFile: limit(input(env, "max-file-bytes"), 1024 ** 3),
     maxTotal: limit(input(env, "max-total-bytes"), 2 * 1024 ** 3) };
 }
