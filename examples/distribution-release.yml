@@ -1,0 +1,25 @@
+name: Prepare exact public Release files
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact published tag in this repository
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    steps:
+      # In consumers, pin releaseway/actions/distribute to a full commit SHA.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: distribution
+        uses: ./distribute
+        with:
+          tag: ${{ inputs.tag }}
+          files: install.sh
+      - name: Read verified file report
+        env:
+          DISTRIBUTION_REPORT: ${{ steps.distribution.outputs.report }}
+        run: test -s "$DISTRIBUTION_REPORT"

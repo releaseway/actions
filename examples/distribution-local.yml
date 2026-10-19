@@ -1,0 +1,22 @@
+name: Prepare generic files
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Replace this fixture build with your existing build step.
+      - run: node test/distribution-fixtures/build.mjs distribution-smoke
+      - id: distribution
+        uses: ./distribute
+        with:
+          files: distribution-smoke
+      - name: Consume with any existing host tool
+        env:
+          DISTRIBUTION_PATH: ${{ steps.distribution.outputs.path }}
+        run: |
+          test -f "$DISTRIBUTION_PATH/authored/bootstrap.sh"
+          # Your existing upload command consumes DISTRIBUTION_PATH.
