@@ -256,7 +256,7 @@ Recheck expected/accepted draft metadata after uploads and immediately before pu
 
 ## 9. Runtime, permissions, and bounded execution
 
-Keep the root GitHub Action composite so it can preserve the existing caller-token contract by injecting `${{ inputs.token != '' && inputs.token || github.token }}` into `GH_TOKEN`. GitHub documents that composite actions consume inputs through the `inputs` context, while JavaScript actions receive static metadata inputs as `INPUT_*` environment variables; a JavaScript root action would not provide an equivalent dynamic `github.token` default through metadata alone. [S4] The composite pins `actions/setup-node` to a full commit SHA and selects Node.js 24 before invoking the committed TypeScript bundle. It never runs `npm install`/`npm ci` or downloads application dependencies during the release; setup-node may provision the runtime when the runner does not already have it cached.
+Keep the root GitHub Action composite so it can preserve the existing caller-token contract by injecting `${{ inputs.token != '' && inputs.token || github.token }}` into `GH_TOKEN`. GitHub documents that composite actions consume inputs through the `inputs` context, while JavaScript actions receive static metadata inputs as `INPUT_*` environment variables; a JavaScript root action would not provide an equivalent dynamic `github.token` default through metadata alone. [S4] The composite pins `actions/setup-node` to a full commit SHA and selects Node.js 24 before invoking the committed TypeScript bundle. It never installs application dependencies or downloads application dependencies during the release; setup-node may provision the runtime when the runner does not already have it cached.
 
 Keep the Bash publisher's provenance/asset/state algorithms and existing `git`, `gh`, `node`, and platform utility requirements. Modify its notes boundaries rather than rewriting the entire publisher in a new language. Schema validation, collection, classification, rendering, text equality, and report emission live in the structured Node helper. Paths/data cross the boundary as explicit argument arrays, environment values, or files, never `eval` or executable snippets. Child exit codes propagate. The committed bundle targets Node 24 syntax/runtime APIs and is exercised on the supported Ubuntu/macOS runner matrix.
 
@@ -406,11 +406,11 @@ The implementation adds repo-local scripts so validation is reproducible rather 
 
 ```sh
 # releaseway/actions
-npm ci
-npm run typecheck
-npm test
-npm run build
-npm run check:dist
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm test
+pnpm run build
+pnpm run check:dist
 python3 test/release.py
 git diff --check
 ```
