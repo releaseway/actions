@@ -86,7 +86,7 @@ test("symlinks fail; hardlink input is copied independently", { skip: process.pl
 });
 
 test("portable path keys reject case, normalized Unicode, reserved paths and ancestors", () => {
-  for (const s of ["../a", "a//b", "CON.txt", "a/aux", "a\\b", "a:stream", "a/.git/config", "a/../b", "/tmp/x", "a."]) assert.throws(() => publicPath(s));
+  for (const s of ["../a", "a//b", "CON.txt", "a/aux", "COM¹.txt", "com²", "COM³.log", "LPT¹", "lpt².txt", "LPT³", "CONIN$", "conout$.txt", "a\\b", "a:stream", "a/.git/config", "a/../b", "/tmp/x", "a."]) assert.throws(() => publicPath(s));
   for (const paths of [["A.sh", "a.sh"], ["é.json", "e\u0301.json"], ["a", "a/b"]]) assert.throws(() => assertTargets(paths));
   assert.equal(publicPath("한국어/hello #%.sh"), "한국어/hello #%.sh");
 });

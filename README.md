@@ -39,6 +39,24 @@ jobs:
 
 Always pin cross-repository actions to a full commit SHA.
 
+## Distribute files
+
+Prepare existing files for distribution with `releaseway/actions/distribute@<full-commit-sha>`. It accepts local build output or public GitHub Release assets, preserves their bytes, validates public paths, and returns a directory plus a SHA-256 inventory. Use it for installers, other executable scripts, applications, metadata, or static files; your project owns how those files are built and executed.
+
+```yaml
+- uses: actions/checkout@<full-commit-sha>
+- run: ./scripts/build-distribution.sh
+- id: distribution
+  uses: releaseway/actions/distribute@<full-commit-sha>
+  with:
+    files: dist/*
+# Feed steps.distribution.outputs.path into your chosen publisher.
+```
+
+GitHub Pages is optional. Its managed deployment is a reusable workflow called through `jobs.<job>.uses: releaseway/actions/.github/workflows/distribute-pages.yml@<full-commit-sha>`; it prepares files, deploys with GitHub's official Pages actions, and checks the served bytes. The `distribute` step action can be used with other publishers.
+
+See the [distribution guide](distribute/README.md) for source selection, exact file mappings, site merging, permissions, limits, working examples, and deployment recovery.
+
 ## Early 0.x contract break
 
 The old boolean `generate-notes` input is removed rather than deprecated.

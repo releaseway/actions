@@ -7404,7 +7404,7 @@ function portableKey(path) {
 function publicPath(path) {
   if (!path || path.startsWith("/") || /[\\\x00-\x1f\x7f<>:"|?*]/u.test(path)) throw new Error("Invalid public path");
   for (const part of path.split("/")) {
-    if (!part || part === "." || part === ".." || /[. ]$/.test(part) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part) || portableKey(part) === ".git") {
+    if (!part || part === "." || part === ".." || /[. ]$/.test(part) || /^(con|prn|aux|nul|conin\$|conout\$|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(part) || portableKey(part) === ".git") {
       throw new Error("Invalid portable path segment");
     }
   }
