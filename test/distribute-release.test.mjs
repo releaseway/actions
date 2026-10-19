@@ -88,3 +88,11 @@ test("Release config uses exact metacharacter asset names and independent public
  await writeFile(join(f.env.GITHUB_WORKSPACE,"config.yml"),'schema: 1\nfiles:\n  - from: "install [x].sh"\n    to: install.sh\n  - from: "install [x].sh"\n    to: bootstrap.sh\n');
  const r=await distribute(f.env,gh);assert.deepEqual(await readFile(join(r.path,"bootstrap.sh")),gh.bytes);assert.deepEqual(await readFile(join(r.path,"install.sh")),gh.bytes);
 });
+
+
+test("explicit rename validates portable public targets rather than rejecting a reserved source asset basename",async t=>{
+ const f=await fixture(t,{INPUT_FILES:"",INPUT_CONFIG:"config.yml"});const base=api();
+ const gh=api({assets:[{id:7,name:"CON",size:base.bytes.length,state:"uploaded",digest:sha(base.bytes)}]});
+ await writeFile(join(f.env.GITHUB_WORKSPACE,"config.yml"),'schema: 1\nfiles: [{from: CON, to: install.sh}]');
+ const r=await distribute(f.env,gh);assert.deepEqual(await readFile(join(r.path,"install.sh")),gh.bytes);
+});

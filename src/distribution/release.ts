@@ -66,7 +66,7 @@ export async function prepareRelease(o: Options, env: Environment, deadline: num
       }
     }
     if (selected.size > 10_000) throw new Error("Selection exceeds 10000 files");
-    assertTargets([...selected.keys()]);
+    if (!mappings) assertTargets([...selected.keys()]);
     let total = 0;
     const selections: Selection[] = [];
     for (const a of selected.values()) {
