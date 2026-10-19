@@ -144,10 +144,11 @@ async function selectLocal(o, deadline = Date.now() + 6e5) {
     const st = exact ? await (0, import_promises2.lstat)(await checkedPath(root, request)) : void 0;
     prefixes.push(prefix(request, st?.isDirectory() ?? false));
     let matched = false;
-    for await (const rel of (0, import_promises2.glob)(request, { cwd: root, exclude: (path) => {
+    for await (const nativeRel of (0, import_promises2.glob)(request, { cwd: root, exclude: (path) => {
       budget();
-      return !visible(path, request);
+      return !visible(path.split(import_node_path2.sep).join("/"), request);
     } })) {
+      const rel = nativeRel.split(import_node_path2.sep).join("/");
       if (!visible(rel, request)) continue;
       matched = true;
       await walk(rel, request);

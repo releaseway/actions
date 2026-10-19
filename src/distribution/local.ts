@@ -1,5 +1,5 @@
 import { glob, lstat, readdir, realpath } from "node:fs/promises";
-import { resolve, posix } from "node:path";
+import { resolve, posix, sep } from "node:path";
 import { checkedPath, commonRoot, pattern, prefix, visible, assertTargets } from "./paths.ts";
 import type { Options } from "./inputs.ts";
 export interface Selection { source: string; from: string; to: string; mode?: number }
@@ -34,7 +34,8 @@ export async function selectLocal(o: Options, deadline = Date.now() + 600_000): 
     const st = exact ? await lstat(await checkedPath(root, request)) : undefined;
     prefixes.push(prefix(request, st?.isDirectory() ?? false));
     let matched = false;
-    for await (const rel of glob(request, { cwd: root, exclude: path => { budget(); return !visible(path, request); } })) {
+    for await (const nativeRel of glob(request, { cwd: root, exclude: path => { budget(); return !visible(path.split(sep).join("/"), request); } })) {
+      const rel = nativeRel.split(sep).join("/");
       if (!visible(rel, request)) continue;
       matched = true;
       await walk(rel, request);
