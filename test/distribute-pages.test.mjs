@@ -91,3 +91,10 @@ test("internal artifact preparation reads caller config outside payload and appl
  const glob=await runPages({...env,INPUT_OPERATION:"prepare",INPUT_FILES:"dist/*","INPUT_SOURCE-PATH":payload,INPUT_TOKEN:"test"});
  assert.equal(await readFile(join(glob.path,"install.sh"),"utf8"),"ok");
 });
+
+
+test("delivery report carries verified artifact identity rather than classifying it as anonymous local files",async t=>{
+ const {env}=await fixture(t);await writeFile(join(env.GITHUB_WORKSPACE,"install.sh"),"ok");const core=await distribute(env);
+ const result=await finalizePages({...env,INPUT_PATH:core.path,INPUT_REPORT:core.report,"INPUT_ARTIFACT-ID":"9","INPUT_ARTIFACT-DIGEST":"sha256:"+"b".repeat(64),"INPUT_SOURCE-HEAD-SHA":"c".repeat(40)});
+ const r=await loadReport(result.report,result["report-sha"]);assert.equal(r.source.kind,"workflow-artifact");assert.equal(r.source.artifactId,"9");assert.equal(r.source.runId,"20");assert.equal(r.source.headSha,"c".repeat(40));assert.equal(r.source.callerSha,env.GITHUB_SHA);
+});

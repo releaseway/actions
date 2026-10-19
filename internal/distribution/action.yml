@@ -14,6 +14,10 @@ inputs:
     description: Current-run source artifact ID.
   repository:
     description: Public Release repository.
+  artifact-digest:
+    description: Validated source artifact archive digest.
+  source-head-sha:
+    description: Validated source workflow run head SHA.
   source-path:
     description: Isolated extracted artifact directory.
   verification:
@@ -35,6 +39,10 @@ inputs:
     description: Workflow-scoped read token.
     default: ${{ github.token }}
 outputs:
+  artifact-digest:
+    description: Source artifact archive digest.
+  source-head-sha:
+    description: Source workflow run head SHA.
   tag:
     description: Resolved exact tag.
   repository:

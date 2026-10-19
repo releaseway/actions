@@ -8024,19 +8024,21 @@ async function resolvePages(env, gh) {
   const tag = input(env, "tag"), artifact = input(env, "artifact-id"), repo = repositoryName(input(env, "repository") || env.GITHUB_REPOSITORY || "");
   if (tag && artifact) throw new Error("Choose tag or artifact-id, not both");
   if (Boolean(input(env, "files")) === Boolean(input(env, "config"))) throw new Error("Provide exactly one of files or config");
-  let selectedTag = tag, latestId = "";
+  let selectedTag = tag, latestId = "", artifactDigest = "", headSha = "";
   if (artifact) {
     if (!/^[1-9]\d*$/.test(artifact) || !Number.isSafeInteger(Number(artifact))) throw new Error("Invalid artifact-id");
     if (input(env, "repository")) throw new Error("repository override is only for Release source");
     const a = await gh.json(`repos/${repo}/actions/artifacts/${artifact}`), run = await gh.json(`repos/${repo}/actions/runs/${env.GITHUB_RUN_ID}`);
     if (a.id !== Number(artifact) || a.expired !== false || a.workflow_run?.id !== Number(env.GITHUB_RUN_ID) || a.workflow_run?.repository_id !== Number(env.GITHUB_REPOSITORY_ID) || a.workflow_run?.head_sha !== run.head_sha || !/^[a-f0-9]{40}$/i.test(run.head_sha) || !Number.isSafeInteger(a.size_in_bytes) || a.size_in_bytes < 0 || a.size_in_bytes > 2 * 1024 ** 3 || !/^sha256:[a-f0-9]{64}$/.test(a.digest)) throw new Error("Artifact is expired, oversized or not from this repository/workflow run");
+    artifactDigest = a.digest;
+    headSha = run.head_sha;
   } else if (!tag) {
     const r = await latest(gh, repo);
     selectedTag = r.tag_name;
     latestId = String(r.id);
   }
   const invocation = `releaseway-pages-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}-${(0, import_node_crypto4.randomUUID)()}`;
-  return output(env, { tag: selectedTag, "artifact-id": artifact, "latest-id": latestId, "repository": repo, "artifact-name": invocation, "report-name": invocation + "-report" });
+  return output(env, { tag: selectedTag, "artifact-id": artifact, "latest-id": latestId, "repository": repo, "artifact-name": invocation, "report-name": invocation + "-report", "artifact-digest": artifactDigest, "source-head-sha": headSha });
 }
 async function finalizePages(env) {
   const path = input(env, "path"), core = await loadReport(input(env, "report")), files = reportShape(core);
@@ -8059,7 +8061,10 @@ async function finalizePages(env) {
     files.push({ path: ".nojekyll", size: 0, sha256: sha(""), origin: "selected" });
   }
   const folder = await (0, import_promises10.mkdtemp)((0, import_node_path7.join)(env.RUNNER_TEMP, "releaseway-pages-report-")), report = (0, import_node_path7.join)(folder, "report.json");
-  const delivery = { schema: 1, source: core.source, latestId: input(env, "latest-id"), contentDigest: core.digest, digest: contentDigest(files), files: ordered(files) };
+  const artifact = input(env, "artifact-id");
+  const source = artifact ? { kind: "workflow-artifact", repository: env.GITHUB_REPOSITORY, artifactId: artifact, artifactDigest: input(env, "artifact-digest"), runId: env.GITHUB_RUN_ID, headSha: input(env, "source-head-sha"), callerSha: env.GITHUB_SHA, verification: "artifact-digest" } : core.source;
+  if (artifact && (!/^[1-9]\d*$/.test(artifact) || !/^sha256:[a-f0-9]{64}$/.test(source.artifactDigest) || !/^[a-f0-9]{40}$/i.test(source.headSha))) throw new Error("Missing artifact provenance");
+  const delivery = { schema: 1, source, latestId: input(env, "latest-id"), contentDigest: core.digest, digest: contentDigest(files), files: ordered(files) };
   reportShape(delivery);
   const bytes = JSON.stringify(delivery, null, 2) + "\n";
   if (Buffer.byteLength(bytes) > MAX_REPORT) throw new Error("Delivery report exceeds limit");
