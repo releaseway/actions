@@ -11,9 +11,9 @@ test("larger, shorter and same-size stale responses converge without accepting w
   }
 });
 test("oversized streams stop reading and empty files remain strict",async()=>{
-  let cancelled=0;
-  await assert.rejects(verifyServed("https://example.test/",[file("x","")],async()=>new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode("oversize"));},cancel(){cancelled++;}})),Date.now()+30),/deadline/);
-  assert.equal(cancelled,1);
+  let cancelled=0,calls=0;
+  await assert.rejects(verifyServed("https://example.test/",[file("x","")],async()=>{calls++;return new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode("oversize"));},cancel(){cancelled++;}}));},Date.now()+30),/deadline/);
+  assert(calls>=1);assert.equal(cancelled,calls);
   await verifyServed("https://example.test/",[file("x","")],async()=>new Response(null));
 });
 test("fatal redirect policy aborts another worker's stalled stream",async()=>{
