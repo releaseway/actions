@@ -34,5 +34,8 @@ test("App-free template connects exact plans/builds and optional delivery throug
     }
   }
   assert.doesNotMatch(text, /create-github-app-token|secrets\.[A-Z_]*(?:APP|PAT)|actions: write|workflow_run:|repository_dispatch:|git ls-remote|jq /);
-  assert.match(text, /UNRELEASED CONTRACT/);
+  assert.doesNotMatch(text, /UNRELEASED CONTRACT|0{40}|replace before use/);
+  for (const job of Object.values(jobs)) {
+    if (job.uses) assert.match(job.uses, /@[a-f0-9]{40}$/);
+  }
 });

@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - id: distribution
-        uses: releaseway/actions/distribute@7427110b565bedef79ab0f80e6821a706d7f21ed # v0.5.1
+        uses: releaseway/actions/distribute@804562f2eb9d7662810298835f7339bd6f26fcfa # v0.6.0
         with:
           tag: ${{ inputs.tag }}
           files: install.sh

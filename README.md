@@ -20,14 +20,14 @@ project; Releaseway handles the release and file-verification steps around them.
 
 ## One workflow, no additional App
 
-See the [same-run release guide](docs/app-free-release.md) for the upcoming
+See the [same-run release guide](docs/app-free-release.md) for the
 source-tag strategy, explicit npm tag selection, least-permission jobs and recovery.
-The guide clearly marks unreleased inputs and the pins to replace before use.
+The template pins verified stable releases by full commit SHA.
 
 ## Version
 
-[v0.5.1](https://github.com/releaseway/actions/releases/tag/v0.5.1) uses commit
-`7427110b565bedef79ab0f80e6821a706d7f21ed`. Pin every entry point to this full SHA;
+[v0.6.0](https://github.com/releaseway/actions/releases/tag/v0.6.0) uses commit
+`804562f2eb9d7662810298835f7339bd6f26fcfa`. Pin every entry point to this full SHA;
 the root action, `prepare`, `distribute` and Pages workflow share one version.
 
 ## Quick start
@@ -73,7 +73,7 @@ jobs:
           mkdir -p dist
           printf '%s\n' "$RELEASE_TAG" > dist/version.txt
       - id: release
-        uses: releaseway/actions@7427110b565bedef79ab0f80e6821a706d7f21ed # v0.5.1
+        uses: releaseway/actions@804562f2eb9d7662810298835f7339bd6f26fcfa # v0.6.0
         with:
           tag: ${{ inputs.tag }}
           commit: ${{ steps.source.outputs.commit }}
@@ -101,7 +101,7 @@ After your build creates `dist/`, add a step:
 
 ```yaml
 - id: files
-  uses: releaseway/actions/distribute@7427110b565bedef79ab0f80e6821a706d7f21ed # v0.5.1
+  uses: releaseway/actions/distribute@804562f2eb9d7662810298835f7339bd6f26fcfa # v0.6.0
   with:
     files: dist/*
 ```
