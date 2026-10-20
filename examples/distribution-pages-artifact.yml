@@ -28,7 +28,7 @@ jobs:
       deployments: read
       pages: write
       id-token: write
-    uses: releaseway/actions/.github/workflows/distribute-pages.yml@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+    uses: releaseway/actions/.github/workflows/distribute-pages.yml@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
     with:
       artifact-id: ${{ needs.build.outputs.artifact-id }}
       files: '*'

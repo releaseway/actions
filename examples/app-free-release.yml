@@ -1,5 +1,5 @@
 # Copy to the PRODUCT repository as .github/workflows/release.yml.
-# Releaseway actions v0.6.1, npm-actions v0.7.0 and Homebrew v0.4.2.
+# Releaseway actions v0.6.3, npm-actions v0.7.1 and Homebrew v0.4.3.
 # Full commit pins below identify the verified immutable releases.
 name: Release without an additional GitHub App
 on:
@@ -39,7 +39,7 @@ jobs:
         with:
           fetch-depth: 0
       - id: plan
-        uses: releaseway/actions/prepare@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+        uses: releaseway/actions/prepare@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
         with:
           mode: plan
           prerelease-id: ${{ inputs.prerelease-id }}
@@ -99,12 +99,12 @@ jobs:
           path: ${{ runner.temp }}/release-assets
           digest-mismatch: error
       - id: resume
-        uses: releaseway/actions/prepare@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+        uses: releaseway/actions/prepare@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
         with:
           mode: resume
           plan-path: ${{ runner.temp }}/release-plan/release-plan.json
       - id: publish
-        uses: releaseway/actions@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+        uses: releaseway/actions@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
         with:
           tag: ${{ steps.resume.outputs.tag }}
           commit: ${{ steps.resume.outputs.commit }}
@@ -134,13 +134,13 @@ jobs:
       # Run product-owned install/build here when npm packages need it.
       # For native packages, release must publish their configured assets first.
       - id: npm
-        uses: releaseway/npm-actions@614f72ae0c6482f87a1f68f8222e42da0b2b82cb # v0.7.0
+        uses: releaseway/npm-actions@b9b00e1a5e5d4e055d34e4daa663909e4d65e21c # v0.7.1
         with:
           release-tag: ${{ needs.release.outputs.tag }}
   homebrew:
     if: inputs.publish-homebrew && needs.plan.outputs.prerelease != 'true'
     needs: [plan, release]
-    uses: releaseway/homebrew-actions/.github/workflows/publish.yml@c1be213c09e18836142bbad3561a0feda507536a # v0.4.2
+    uses: releaseway/homebrew-actions/.github/workflows/publish.yml@8fe42d36a7f93a3c399461efbe571fc695d4cdc6 # v0.4.3
     with:
       tap-repository: owner/homebrew-tap
       commit: ${{ needs.release.outputs.commit }}
@@ -156,7 +156,7 @@ jobs:
       deployments: read
       pages: write
       id-token: write
-    uses: releaseway/actions/.github/workflows/distribute-pages.yml@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+    uses: releaseway/actions/.github/workflows/distribute-pages.yml@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
     with:
       tag: ${{ needs.release.outputs.tag }}
       files: version.txt

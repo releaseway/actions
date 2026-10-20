@@ -26,13 +26,14 @@ The template pins verified stable releases by full commit SHA.
 
 ## Version
 
-[v0.6.1](https://github.com/releaseway/actions/releases/tag/v0.6.1) uses commit
-`1b1d72999b59f03d334845f5accb982c38f4afe1`. Pin every entry point to this full SHA;
+[v0.6.3](https://github.com/releaseway/actions/releases/tag/v0.6.3) uses commit
+`2abdf26c6f01c1e49da4ba5d85253847fe721fd9`. Pin every entry point to this full SHA;
 the root action, `prepare`, `distribute` and Pages workflow share one version.
 
-This patch avoids release-history output buffer failures by selecting only needed
-GitHub evidence fields before Node receives CLI output. It also preserves supported
-1 MiB note bodies when JSON escaping expands their subprocess representation.
+This release preserves conditional checkout credentials during evidence collection,
+cleans temporary evidence repositories after failures, bounds large-history traversal,
+and retries stale Pages responses until their bytes match. Official publication also
+requires complete distribution and served Pages evidence for the exact candidate.
 
 ## Quick start
 
@@ -77,7 +78,7 @@ jobs:
           mkdir -p dist
           printf '%s\n' "$RELEASE_TAG" > dist/version.txt
       - id: release
-        uses: releaseway/actions@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+        uses: releaseway/actions@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
         with:
           tag: ${{ inputs.tag }}
           commit: ${{ steps.source.outputs.commit }}
@@ -105,7 +106,7 @@ After your build creates `dist/`, add a step:
 
 ```yaml
 - id: files
-  uses: releaseway/actions/distribute@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+  uses: releaseway/actions/distribute@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
   with:
     files: dist/*
 ```

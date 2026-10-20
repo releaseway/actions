@@ -4,7 +4,7 @@ Use `releaseway/actions/prepare` in a step when your workflow should calculate
 a version and push its release marker commit and tag. For an existing tag that
 only needs publication, use the [root action](../docs/publishing.md).
 
-The subaction shares the [v0.6.1 release SHA](../README.md#version) with the root
+The subaction shares the [v0.6.3 release SHA](../README.md#version) with the root
 and distribution entry points. Your workflow owns the product build and passes
 the prepared outputs to the publisher. The example below shows a product with an
 explicit version-series boundary; replace its tags and build command with your
@@ -47,9 +47,9 @@ jobs:
         with:
           fetch-depth: 0
       - id: release
-        uses: releaseway/actions/prepare@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+        uses: releaseway/actions/prepare@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
       - run: ./build-product.sh "${{ steps.release.outputs.version }}"
-      - uses: releaseway/actions@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+      - uses: releaseway/actions@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
         with:
           tag: ${{ steps.release.outputs.tag }}
           commit: ${{ steps.release.outputs.commit }}

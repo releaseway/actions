@@ -5,8 +5,8 @@ static directory for your existing publisher. Installers, bootstrap or diagnosti
 scripts, application files, JSON and signatures use the same interface. The action
 does not generate installers, execute scripts, extract archives, or upload to a host.
 
-Available in [v0.6.1](https://github.com/releaseway/actions/releases/tag/v0.6.1).
-Use `1b1d72999b59f03d334845f5accb982c38f4afe1` for both the step action and the
+Available in [v0.6.3](https://github.com/releaseway/actions/releases/tag/v0.6.3).
+Use `2abdf26c6f01c1e49da4ba5d85253847fe721fd9` for both the step action and the
 optional Pages workflow. All entry points in `releaseway/actions` share this version.
 
 ## Prepare local files
@@ -32,7 +32,7 @@ jobs:
           printf '#!/bin/sh\nprintf "ready\\n"\n' > dist/diagnose.sh
           printf '{"schema":1}\n' > dist/metadata.json
       - id: files
-        uses: releaseway/actions/distribute@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+        uses: releaseway/actions/distribute@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
         with:
           files: dist/*
       - name: Check prepared files
@@ -62,7 +62,7 @@ For example, after publishing assets named `install.sh` and `updates.json` under
 
 ```yaml
 - id: files
-  uses: releaseway/actions/distribute@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+  uses: releaseway/actions/distribute@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
   with:
     tag: v1.2.3
     files: |
@@ -134,7 +134,7 @@ the action copies it without modifying the original. After your build has create
 
 ```yaml
 - id: files
-  uses: releaseway/actions/distribute@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+  uses: releaseway/actions/distribute@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
   with:
     files: dist/bootstrap/*
     destination: tools/tool-a/v1.2.3
@@ -213,7 +213,7 @@ permissions:
   id-token: write
 jobs:
   distribute:
-    uses: releaseway/actions/.github/workflows/distribute-pages.yml@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+    uses: releaseway/actions/.github/workflows/distribute-pages.yml@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
     with:
       files: install.sh
 ```
@@ -260,7 +260,7 @@ jobs:
       deployments: read
       pages: write
       id-token: write
-    uses: releaseway/actions/.github/workflows/distribute-pages.yml@1b1d72999b59f03d334845f5accb982c38f4afe1 # v0.6.1
+    uses: releaseway/actions/.github/workflows/distribute-pages.yml@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
     with:
       artifact-id: ${{ needs.build.outputs.artifact-id }}
       files: '*'
