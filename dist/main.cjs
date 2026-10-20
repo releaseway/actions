@@ -9489,17 +9489,16 @@ function candidateAliases(candidates) {
 function selectByAncestry(repository, targetSha, candidates, ancestry) {
   const aliases = candidateAliases(candidates);
   if (ancestry === "first-parent") {
-    const chain = repository.firstParentChain(targetSha);
-    const distance = new Map(chain.map((sha, index) => [sha, index]));
-    const onChain = aliases.filter((candidate) => distance.has(candidate.sha));
-    if (onChain.length > 0) {
-      const priority2 = Math.min(...onChain.map((candidate) => candidate.priority));
-      return onChain.filter((candidate) => candidate.priority === priority2).sort((a, b) => {
-        const delta = distance.get(a.sha) - distance.get(b.sha);
-        if (delta !== 0) return delta;
-        return a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0;
-      })[0];
+    if (!aliases.length) return null;
+    const bySha = new Map(aliases.map((candidate) => [candidate.sha, candidate]));
+    const bestPriority = Math.min(...aliases.map((candidate) => candidate.priority));
+    let winner = null;
+    for (const sha of repository.firstParentChain(targetSha)) {
+      const candidate = bySha.get(sha);
+      if (candidate && (!winner || candidate.priority < winner.priority)) winner = candidate;
+      if (winner?.priority === bestPriority) return winner;
     }
+    if (winner) return winner;
     if (aliases.length > 0) {
       throw new Error(
         "eligible prior releases exist but none is on the target first-parent ancestry; choose reachable ancestry or an explicit base"
@@ -10839,6 +10838,9 @@ var import_node_child_process2 = require("node:child_process");
 var import_promises2 = require("node:fs/promises");
 var import_node_path3 = require("node:path");
 var MAX_RELEASE_COMMITS = 1e4;
+var MAX_GIT_OUTPUT = 8 * 1024 * 1024;
+var MAX_COMMIT_PARENTS = 4096;
+var MAX_GRAPH_EDGES = 1e6;
 var GitRepository = class {
   path;
   constructor(path) {
@@ -10861,9 +10863,13 @@ var GitRepository = class {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 3e4,
+      maxBuffer: MAX_GIT_OUTPUT,
       env: { ...process.env, ...configEnv }
     });
     if (result.error) {
+      if (result.error.code === "ENOBUFS") {
+        throw new Error(`git output exceeds ${MAX_GIT_OUTPUT} byte limit for a bounded evidence batch`);
+      }
       throw new Error(`git ${args.join(" ")} failed: ${result.error.message}`);
     }
     const status = result.status ?? 1;
@@ -10898,8 +10904,14 @@ var GitRepository = class {
       `could not test ancestry between ${ancestor} and ${descendant}`
     );
   }
-  firstParentChain(target) {
-    return this.run(["rev-list", "--first-parent", target]).stdout.trim().split("\n").filter(Boolean).map((sha) => sha.toLowerCase());
+  *firstParentChain(target) {
+    let cursor = target;
+    while (cursor) {
+      const rows = this.run(["rev-list", "--first-parent", "--parents", "--max-count=1024", cursor]).stdout.trim().split("\n").filter(Boolean);
+      if (!rows.length) return;
+      for (const row of rows) yield row.split(" ")[0].toLowerCase();
+      cursor = rows.at(-1).split(" ")[1];
+    }
   }
   tags() {
     return this.run(["tag", "--list"]).stdout.split("\n").map((tag) => tag.trim()).filter(Boolean);
@@ -11069,22 +11081,27 @@ function selectedCommitGraph(repository, targetSha, baseSha) {
       `release history exceeds maximum commit count ${MAX_RELEASE_COMMITS}: ${count}`
     );
   }
-  const rows = repository.run([
-    "rev-list",
-    "--parents",
-    ...range
-  ]).stdout.trim().split("\n").filter(Boolean);
-  const selected = new Set(rows.map((row) => row.split(/\s+/)[0].toLowerCase()));
+  const shas = repository.run(["rev-list", `--max-count=${MAX_RELEASE_COMMITS + 1}`, ...range]).stdout.trim().split("\n").filter(Boolean);
+  if (shas.length > MAX_RELEASE_COMMITS) throw new Error("release history exceeds maximum commit count");
+  const selected = new Set(shas);
   const graph = /* @__PURE__ */ new Map();
-  for (const row of rows) {
-    const [shaRaw, ...parentsRaw] = row.trim().split(/\s+/);
-    const sha = shaRaw.toLowerCase();
-    graph.set(
-      sha,
-      parentsRaw.map((parent) => parent.toLowerCase()).filter((parent) => selected.has(parent))
-    );
+  const details = /* @__PURE__ */ new Map();
+  let edges = 0;
+  for (let offset = 0; offset < shas.length; offset += 16) {
+    const batch = shas.slice(offset, offset + 16);
+    const fields = repository.run(["log", "--no-walk=unsorted", "--format=%H%x00%P%x00%an%x00%B%x00", ...batch]).stdout.split("\0");
+    if (fields.pop()?.trim() || fields.length !== batch.length * 4) throw new Error("Malformed Git commit evidence");
+    for (let i = 0; i < fields.length; i += 4) {
+      const sha = fields[i].trim().toLowerCase();
+      if (!batch.includes(sha) || details.has(sha)) throw new Error("Unexpected Git commit evidence identity");
+      const parents = fields[i + 1].trim().split(/\s+/).filter(Boolean).map((p) => p.toLowerCase());
+      edges += parents.length;
+      if (parents.length > MAX_COMMIT_PARENTS || edges > MAX_GRAPH_EDGES) throw new Error("Release commit graph exceeds parent/edge limits (4096 per commit, 1000000 total)");
+      graph.set(sha, parents.filter((parent) => selected.has(parent)));
+      details.set(sha, { sha, parents, authorName: fields[i + 2].trim(), message: fields[i + 3] + "\n", ordinal: 0 });
+    }
   }
-  return graph;
+  return { graph, details };
 }
 function deterministicTopoOrder(graph) {
   const indegree = /* @__PURE__ */ new Map();
@@ -11119,20 +11136,9 @@ function deterministicTopoOrder(graph) {
   return ordered;
 }
 function collectCommitEvidence(repository, targetSha, baseSha) {
-  const graph = selectedCommitGraph(repository, targetSha, baseSha);
+  const { graph, details } = selectedCommitGraph(repository, targetSha, baseSha);
   const ordered = deterministicTopoOrder(graph);
-  return ordered.map((sha, ordinal) => {
-    const message = repository.run(["show", "-s", "--format=%B", sha]).stdout;
-    const authorName = repository.run(["show", "-s", "--format=%an", sha]).stdout.trim();
-    const parents = repository.run(["show", "-s", "--format=%P", sha]).stdout.trim().split(/\s+/).filter(Boolean).map((parent) => parent.toLowerCase());
-    return {
-      sha,
-      parents,
-      message,
-      authorName,
-      ordinal
-    };
-  });
+  return ordered.map((sha, ordinal) => ({ ...details.get(sha), ordinal }));
 }
 
 // src/conventional.ts

@@ -338,6 +338,7 @@ The current implementation deliberately bounds external evidence work:
 - one custom release range may contain at most 10,000 commits;
 - a prepared release-note body may contain at most 1 MiB of UTF-8 text;
 - `notes-config` is limited to 256 KiB and parsed depth 16.
+- First-parent selection reads bounded pages, independently of total repository history. Selected commit metadata is read in batches of 16 and reused after deterministic ordering. Each Git evidence subprocess has an explicit 8 MiB output limit; pathological records fail with a limit error. The selected graph allows up to 4,096 parents per commit and 1,000,000 parent edges in total, separately from the 10,000 selected-commit limit.
 
 Exhausted pagination, invalid evidence, missing permissions, or ambiguous range selection are errors rather than silent truncation.
 

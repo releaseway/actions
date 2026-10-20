@@ -9390,6 +9390,7 @@ var ReleaseError = class extends Error {
 
 // src/git.ts
 var import_node_child_process = require("node:child_process");
+var MAX_GIT_OUTPUT = 8 * 1024 * 1024;
 var GitRepository = class {
   path;
   constructor(path) {
@@ -9412,9 +9413,13 @@ var GitRepository = class {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 3e4,
+      maxBuffer: MAX_GIT_OUTPUT,
       env: { ...process.env, ...configEnv }
     });
     if (result.error) {
+      if (result.error.code === "ENOBUFS") {
+        throw new Error(`git output exceeds ${MAX_GIT_OUTPUT} byte limit for a bounded evidence batch`);
+      }
       throw new Error(`git ${args.join(" ")} failed: ${result.error.message}`);
     }
     const status = result.status ?? 1;
@@ -9449,8 +9454,14 @@ var GitRepository = class {
       `could not test ancestry between ${ancestor} and ${descendant}`
     );
   }
-  firstParentChain(target) {
-    return this.run(["rev-list", "--first-parent", target]).stdout.trim().split("\n").filter(Boolean).map((sha) => sha.toLowerCase());
+  *firstParentChain(target) {
+    let cursor = target;
+    while (cursor) {
+      const rows = this.run(["rev-list", "--first-parent", "--parents", "--max-count=1024", cursor]).stdout.trim().split("\n").filter(Boolean);
+      if (!rows.length) return;
+      for (const row of rows) yield row.split(" ")[0].toLowerCase();
+      cursor = rows.at(-1).split(" ")[1];
+    }
   }
   tags() {
     return this.run(["tag", "--list"]).stdout.split("\n").map((tag) => tag.trim()).filter(Boolean);

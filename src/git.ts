@@ -10,6 +10,9 @@ export interface GitCommandResult {
 }
 
 export const MAX_RELEASE_COMMITS = 10_000;
+const MAX_GIT_OUTPUT = 8 * 1024 * 1024;
+const MAX_COMMIT_PARENTS = 4096;
+const MAX_GRAPH_EDGES = 1_000_000;
 
 interface GitRunOptions {
   allowFailure?: boolean;
@@ -43,9 +46,13 @@ export class GitRepository {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 30_000,
+      maxBuffer: MAX_GIT_OUTPUT,
       env: { ...process.env, ...configEnv },
     });
     if (result.error) {
+      if ((result.error as NodeJS.ErrnoException).code === "ENOBUFS") {
+        throw new Error(`git output exceeds ${MAX_GIT_OUTPUT} byte limit for a bounded evidence batch`);
+      }
       throw new Error(`git ${args.join(" ")} failed: ${result.error.message}`);
     }
     const status = result.status ?? 1;
@@ -84,12 +91,15 @@ export class GitRepository {
     );
   }
 
-  firstParentChain(target: string): string[] {
-    return this.run(["rev-list", "--first-parent", target])
-      .stdout.trim()
-      .split("\n")
-      .filter(Boolean)
-      .map((sha) => sha.toLowerCase());
+  *firstParentChain(target: string): IterableIterator<string> {
+    let cursor: string | undefined = target;
+    while (cursor) {
+      const rows: string[] = this.run(["rev-list", "--first-parent", "--parents", "--max-count=1024", cursor])
+        .stdout.trim().split("\n").filter(Boolean);
+      if (!rows.length) return;
+      for (const row of rows) yield row.split(" ")[0]!.toLowerCase();
+      cursor = rows.at(-1)!.split(" ")[1];
+    }
   }
 
   tags(): string[] {
@@ -285,7 +295,7 @@ function selectedCommitGraph(
   repository: GitRepository,
   targetSha: string,
   baseSha: string | null,
-): Map<string, string[]> {
+): { graph: Map<string, string[]>; details: Map<string, CommitEvidence> } {
   const range = [targetSha];
   if (baseSha) range.push(`^${baseSha}`);
   const countText = repository.run([
@@ -303,24 +313,29 @@ function selectedCommitGraph(
     );
   }
 
-  const rows = repository.run([
-    "rev-list",
-    "--parents",
-    ...range,
-  ]).stdout.trim().split("\n").filter(Boolean);
-  const selected = new Set(rows.map((row) => row.split(/\s+/)[0]!.toLowerCase()));
+  const shas = repository.run(["rev-list", `--max-count=${MAX_RELEASE_COMMITS + 1}`, ...range])
+    .stdout.trim().split("\n").filter(Boolean);
+  if (shas.length > MAX_RELEASE_COMMITS) throw new Error("release history exceeds maximum commit count");
+  const selected = new Set(shas);
   const graph = new Map<string, string[]>();
-  for (const row of rows) {
-    const [shaRaw, ...parentsRaw] = row.trim().split(/\s+/);
-    const sha = shaRaw!.toLowerCase();
-    graph.set(
-      sha,
-      parentsRaw
-        .map((parent) => parent.toLowerCase())
-        .filter((parent) => selected.has(parent)),
-    );
+  const details = new Map<string, CommitEvidence>();
+  let edges = 0;
+  // Bound both argv and stdout; reuse the same metadata for notes after ordering.
+  for (let offset = 0; offset < shas.length; offset += 16) {
+    const batch = shas.slice(offset, offset + 16);
+    const fields = repository.run(["log", "--no-walk=unsorted", "--format=%H%x00%P%x00%an%x00%B%x00", ...batch]).stdout.split("\0");
+    if (fields.pop()?.trim() || fields.length !== batch.length * 4) throw new Error("Malformed Git commit evidence");
+    for (let i = 0; i < fields.length; i += 4) {
+      const sha = fields[i]!.trim().toLowerCase();
+      if (!batch.includes(sha) || details.has(sha)) throw new Error("Unexpected Git commit evidence identity");
+      const parents = fields[i + 1]!.trim().split(/\s+/).filter(Boolean).map(p => p.toLowerCase());
+      edges += parents.length;
+      if (parents.length > MAX_COMMIT_PARENTS || edges > MAX_GRAPH_EDGES) throw new Error("Release commit graph exceeds parent/edge limits (4096 per commit, 1000000 total)");
+      graph.set(sha, parents.filter(parent => selected.has(parent)));
+      details.set(sha, { sha, parents, authorName: fields[i + 2]!.trim(), message: fields[i + 3]! + "\n", ordinal: 0 });
+    }
   }
-  return graph;
+  return { graph, details };
 }
 
 function deterministicTopoOrder(graph: Map<string, string[]>): string[] {
@@ -367,22 +382,7 @@ export function collectCommitEvidence(
   targetSha: string,
   baseSha: string | null,
 ): CommitEvidence[] {
-  const graph = selectedCommitGraph(repository, targetSha, baseSha);
+  const { graph, details } = selectedCommitGraph(repository, targetSha, baseSha);
   const ordered = deterministicTopoOrder(graph);
-  return ordered.map((sha, ordinal) => {
-    const message = repository.run(["show", "-s", "--format=%B", sha]).stdout;
-    const authorName = repository.run(["show", "-s", "--format=%an", sha]).stdout.trim();
-    const parents = repository.run(["show", "-s", "--format=%P", sha])
-      .stdout.trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((parent) => parent.toLowerCase());
-    return {
-      sha,
-      parents,
-      message,
-      authorName,
-      ordinal,
-    };
-  });
+  return ordered.map((sha, ordinal) => ({ ...details.get(sha)!, ordinal }));
 }

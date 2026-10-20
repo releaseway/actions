@@ -127,19 +127,16 @@ function selectByAncestry(
 ): Candidate | null {
   const aliases = candidateAliases(candidates);
   if (ancestry === "first-parent") {
-    const chain = repository.firstParentChain(targetSha);
-    const distance = new Map(chain.map((sha, index) => [sha, index]));
-    const onChain = aliases.filter((candidate) => distance.has(candidate.sha));
-    if (onChain.length > 0) {
-      const priority = Math.min(...onChain.map((candidate) => candidate.priority));
-      return onChain
-        .filter((candidate) => candidate.priority === priority)
-        .sort((a, b) => {
-          const delta = distance.get(a.sha)! - distance.get(b.sha)!;
-          if (delta !== 0) return delta;
-          return a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0;
-        })[0]!;
+    if (!aliases.length) return null;
+    const bySha = new Map(aliases.map(candidate => [candidate.sha, candidate]));
+    const bestPriority = Math.min(...aliases.map(candidate => candidate.priority));
+    let winner: Candidate | null = null;
+    for (const sha of repository.firstParentChain(targetSha)) {
+      const candidate = bySha.get(sha);
+      if (candidate && (!winner || candidate.priority < winner.priority)) winner = candidate;
+      if (winner?.priority === bestPriority) return winner;
     }
+    if (winner) return winner;
     if (aliases.length > 0) {
       throw new Error(
         "eligible prior releases exist but none is on the target first-parent ancestry; choose reachable ancestry or an explicit base",
