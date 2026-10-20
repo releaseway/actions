@@ -6,10 +6,23 @@ die() {
   exit 1
 }
 
+die_code() {
+  RELEASE_ACTIONS_DIAG_CODE="$1"
+  shift
+  die "$@"
+}
+
 cleanup() {
   local status="$?" path
   if [ -n "${RELEASE_ACTIONS_PHASE:-}" ]; then
     record_phase "$status" || true
+  fi
+  if [ -n "${RELEASE_ACTIONS_DIAGNOSTICS_STATE:-}" ]; then
+    local remote_state="${RELEASE_ACTIONS_DIAG_REMOTE:-unchanged}"
+    if [ -n "${RELEASE_ID:-}" ]; then remote_state="present"; fi
+    printf '{"code":"%s","phase":"%s","remoteState":"%s","artifacts":"%s"}\n' \
+      "${RELEASE_ACTIONS_DIAG_CODE:-PUBLISH_FAILED}" "${RELEASE_ACTIONS_DIAG_PHASE:-input}" "$remote_state" "${RELEASE_ACTIONS_DIAG_ARTIFACTS:-not-checked}" \
+      >"$RELEASE_ACTIONS_DIAGNOSTICS_STATE" || true
   fi
   for path in \
     "${RELEASE_ACTIONS_ASSETS_FILE:-}" \
@@ -114,10 +127,10 @@ verify_remote_tag() {
     esac
   done < <(git ls-remote origin "refs/tags/$tag" "refs/tags/$tag^{}")
 
-  [ -n "$object" ] || die "release tag is missing from origin: $tag"
+  [ -n "$object" ] || die_code TAG_NOT_FOUND "release tag is missing from origin: $tag"
   [ -n "$target" ] || target="$object"
   [ "$target" = "$expected" ] ||
-    die "release tag target does not match commit: tag=$target expected=$expected"
+    die_code TAG_COMMIT_MISMATCH "release tag target does not match commit: tag=$target expected=$expected"
 }
 
 verify_repository_identity() {
@@ -184,6 +197,7 @@ expected_asset_row() {
 }
 
 verify_release_assets() {
+  RELEASE_ACTIONS_DIAG_ARTIFACTS="not-checked"
   local allow_missing="$1"
   local rows name state digest expected expected_name expected_path expected_digest
   local seen_name
@@ -205,9 +219,9 @@ verify_release_assets() {
 
     IFS=$'\t' read -r expected_name expected_path expected_digest <<<"$expected"
     [ "$state" = "uploaded" ] ||
-      die "release asset is not fully uploaded: $name (state=$state)"
+      die_code ARTIFACT_MISMATCH "release asset is not fully uploaded: $name (state=$state)"
     [ "$digest" = "sha256:$expected_digest" ] ||
-      die "release asset digest mismatch: $name"
+      die_code ARTIFACT_MISMATCH "release asset digest mismatch: $name"
 
     printf '%s\n' "$name" >>"$RELEASE_ACTIONS_SEEN_FILE"
   done <<<"$rows"
@@ -226,6 +240,7 @@ verify_release_assets() {
       fi
     fi
   done <"$RELEASE_ACTIONS_ASSETS_FILE"
+  if [ "$allow_missing" = "false" ] && [ -s "$RELEASE_ACTIONS_ASSETS_FILE" ]; then RELEASE_ACTIONS_DIAG_ARTIFACTS="matched"; fi
 }
 
 verify_uploaded_asset() {
@@ -300,6 +315,10 @@ record_phase() {
 }
 
 timed_phase() {
+  case "$1" in
+    upload|publish) RELEASE_ACTIONS_DIAG_PHASE="publish" ;;
+    *) RELEASE_ACTIONS_DIAG_PHASE="verify" ;;
+  esac
   RELEASE_ACTIONS_PHASE="$1"
   RELEASE_ACTIONS_PHASE_STARTED="$SECONDS"
   shift
@@ -486,7 +505,7 @@ verify_published_release() {
   [ "$RELEASE_PRERELEASE" = "${INPUT_PRERELEASE:-false}" ] ||
     die "release prerelease state does not match requested state: $INPUT_TAG"
   [ "$RELEASE_IMMUTABLE" = "true" ] ||
-    die "published release is not immutable: $INPUT_TAG"
+    die_code ARTIFACT_MISMATCH "published release is not immutable: $INPUT_TAG"
 
   verify_release_assets "false"
   verify_latest_state
@@ -567,13 +586,14 @@ main() {
 
   preflight
 
+  RELEASE_ACTIONS_DIAG_PHASE="verify"
   if find_release; then
     [ "$RELEASE_PRERELEASE" = "${INPUT_PRERELEASE:-false}" ] ||
       die "existing release prerelease state does not match requested state: $INPUT_TAG"
 
     if [ "$RELEASE_DRAFT" = "false" ]; then
       [ "$RELEASE_IMMUTABLE" = "true" ] ||
-        die "existing published release is not immutable: $INPUT_TAG"
+        die_code ARTIFACT_MISMATCH "existing published release is not immutable: $INPUT_TAG"
       verify_release_assets "false"
       verify_latest_state
       verify_requested_title
@@ -587,6 +607,8 @@ main() {
     verify_release_assets "true"
     state="resumed-draft"
   else
+    RELEASE_ACTIONS_DIAG_PHASE="publish"
+    RELEASE_ACTIONS_DIAG_REMOTE="unknown"
     if ! create_draft_release; then
       # A concurrent publisher may have created the same release after our lookup.
       find_release || die "failed to create draft release $INPUT_TAG"
@@ -595,7 +617,7 @@ main() {
 
       if [ "$RELEASE_DRAFT" = "false" ]; then
         [ "$RELEASE_IMMUTABLE" = "true" ] ||
-          die "concurrent published release is not immutable: $INPUT_TAG"
+          die_code ARTIFACT_MISMATCH "concurrent published release is not immutable: $INPUT_TAG"
         verify_release_assets "false"
         verify_latest_state
         verify_requested_title

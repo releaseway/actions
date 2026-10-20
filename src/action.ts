@@ -1,6 +1,10 @@
-import { appendFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { newDiagnostics, safeSha, completeDiagnostics, failDiagnostics, writeDiagnostics, type Diagnostics } from "./diagnostics.ts";
+import { ReleaseError, recoveries, type RemoteState, type ReleaseErrorCode } from "./release-error.ts";
+import { parseVersionedTag } from "./range.ts";
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve, join } from "node:path";
 
 import {
   resolveActionInputs,
@@ -162,7 +166,7 @@ function defaultProvenanceCheck(options: {
   });
 }
 
-export async function runAction(
+async function runActionCore(
   options: {
     env?: NodeJS.ProcessEnv;
     actionPath?: string;
@@ -178,6 +182,8 @@ export async function runAction(
       commit: string;
     }) => void;
   } = {},
+  diagnostic: Diagnostics,
+  observed: { remoteState: RemoteState },
 ): Promise<void> {
   const env = options.env ?? process.env;
   requireNode24(options.nodeVersion ?? process.versions.node);
@@ -201,12 +207,16 @@ export async function runAction(
     tag,
     commit,
   });
+  Object.assign(diagnostic.selection, { tag, commit, version: parseVersionedTag(tag)?.version.version ?? null });
+  diagnostic.verification.remoteTag = "matched";
+  diagnostic.phase = "verify";
   if (inputs.latest === "current-series") {
     const releaseConfig = readReleaseConfig(workspace, env.INPUT_RELEASE_CONFIG || ".github/releaseway.yml");
     resolveSeriesLatest(workspace, releaseConfig, tag, commit);
     if ((prerelease(tag.slice(releaseConfig.tagPrefix.length)) !== null) !== inputs.prerelease) throw new Error("Current-series tag prerelease state does not match the requested release");
   }
   const existing = await api.releaseByTag(repository, tag);
+  if (existing) observed.remoteState = "present";
 
   if (existing && existing.prerelease !== inputs.prerelease) {
     throw new Error(
@@ -301,22 +311,31 @@ export async function runAction(
     ((command, args, spawnOptions) =>
       spawnSync(command, [...args], spawnOptions));
 
-  const result = spawnPublisher(
-    "bash",
-    [resolve(actionPath, "scripts/release.sh")],
-    {
-      cwd: workspace,
-      env: childEnv,
-      stdio: "inherit",
-    },
-  );
-
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error(
-      `release publisher exited with status ${result.status ?? "unknown"}`,
-    );
-  }
+  const temp = resolve(runnerTemp || tmpdir());
+  mkdirSync(temp, { recursive: true });
+  const stateDir = mkdtempSync(join(temp, "releaseway-publisher-"));
+  const statePath = join(stateDir, "state.json");
+  childEnv.RELEASE_ACTIONS_DIAGNOSTICS_STATE = statePath;
+  diagnostic.phase = "publish";
+  observed.remoteState = "unknown";
+  try {
+    const result = spawnPublisher("bash", [resolve(actionPath, "scripts/release.sh")], { cwd: workspace, env: childEnv, stdio: "inherit" });
+    let code: ReleaseErrorCode = "PUBLISH_FAILED";
+    try {
+      const state: unknown = JSON.parse(readFileSync(statePath, "utf8"));
+      if (state && typeof state === "object") {
+        const item = state as Record<string, unknown>;
+        if (typeof item.code === "string" && Object.hasOwn(recoveries, item.code)) code = item.code as ReleaseErrorCode;
+        if (item.phase === "input" || item.phase === "publish" || item.phase === "verify") diagnostic.phase = item.phase;
+        if (item.remoteState === "unchanged" || item.remoteState === "present" || item.remoteState === "unknown") observed.remoteState = item.remoteState;
+        if (item.artifacts === "matched") diagnostic.verification.artifacts = "matched";
+      }
+    } catch { /* Child state is best effort; absence never proves no side effect. */ }
+    if (result.error) throw new ReleaseError("REMOTE_UNCERTAIN", result.error.message, observed.remoteState);
+    if (result.status !== 0) throw new ReleaseError(code, `release publisher exited with status ${result.status ?? "unknown"}`, observed.remoteState);
+  } finally { rmSync(stateDir, { recursive: true, force: true }); }
+  observed.remoteState = "present";
+  diagnostic.verification.publication = "public";
 
   writeOutputs(
     outputPath,
@@ -327,4 +346,27 @@ export async function runAction(
     },
     appendOutput,
   );
+}
+
+export async function runAction(options: NonNullable<Parameters<typeof runActionCore>[0]> = {}): Promise<void> {
+  const env = options.env ?? process.env;
+  const diagnostic = newDiagnostics("release", env.INPUT_NOTES_PREVIEW === "true" ? "preview" : "publish");
+  diagnostic.selection.commit = safeSha(env.INPUT_COMMIT);
+  const observed: { remoteState: RemoteState } = { remoteState: "unchanged" };
+  let failed = false;
+  try {
+    await runActionCore(options, diagnostic, observed);
+    completeDiagnostics(diagnostic);
+  } catch (error) {
+    failed = true;
+    failDiagnostics(diagnostic, error, diagnostic.phase === "input" ? "INVALID_INPUT" : "PUBLISH_FAILED");
+    if (!(error instanceof ReleaseError)) diagnostic.error!.remoteState = observed.remoteState;
+    throw error;
+  } finally {
+    try { writeDiagnostics(diagnostic, env, options.appendOutput ?? appendFileSync); }
+    catch (error) {
+      if (!failed) throw error;
+      console.warn("Diagnostics could not be saved; preserving the original failure. Inspect the Release before retrying.");
+    }
+  }
 }

@@ -1,6 +1,12 @@
 name: Prepare Releaseway release
-description: Plan a version series, atomically push its release commit and tag, resume a saved plan, or verify an existing release tag.
+description: Plan a version series, prepare its configured source tag or release commit, resume a saved plan, or verify an existing release tag.
 inputs:
+  allow-prerelease:
+    description: Allow prerelease tags in read-only resolve mode; false by default.
+    default: "false"
+  tag-prefix:
+    description: Optional exact prefix for resolve; empty accepts unambiguous SemVer suffixes.
+    default: ""
   mode:
     description: plan, prepare, resume, resolve, or tag. Resolve verifies an existing stable tag; tag creates or verifies an explicit tag binding.
     default: prepare
@@ -14,10 +20,10 @@ inputs:
     description: Saved plan path for resume; defaults to a file in RUNNER_TEMP.
     default: ""
   tag:
-    description: Existing stable SemVer tag for resolve, or explicit versioned tag for tag mode.
+    description: Existing versioned tag for resolve (stable unless allow-prerelease is true), or explicit tag for tag mode.
     default: ""
   commit:
-    description: Full commit SHA for tag mode; must belong to the configured origin branch.
+    description: Full commit SHA for tag mode, or optional expected tag commit for resolve.
     default: ""
   branch:
     description: Origin branch for resolve mode.
@@ -37,7 +43,7 @@ outputs:
     description: Existing tag commit in resolve mode.
   source:
     value: ${{ steps.prepare.outputs.source }}
-    description: Source SHA before the release marker commit.
+    description: Original source SHA; equal to commit for source-tag strategy.
   plan-path:
     value: ${{ steps.prepare.outputs.plan-path }}
     description: Saved plan for inspection or resume, including when push fails.
@@ -50,6 +56,10 @@ outputs:
   state:
     value: ${{ steps.prepare.outputs.state }}
     description: planned or existing.
+  diagnostics-path:
+    description: Runner-local versioned diagnostics JSON, separate from existing reports; available on controlled failures when writable.
+    value: ${{ steps.prepare.outputs.diagnostics-path }}
+
 runs:
   using: composite
   steps:
@@ -59,6 +69,8 @@ runs:
     - id: prepare
       shell: bash
       env:
+        INPUT_ALLOW_PRERELEASE: ${{ inputs.allow-prerelease }}
+        INPUT_TAG_PREFIX: ${{ inputs.tag-prefix }}
         INPUT_MODE: ${{ inputs.mode }}
         INPUT_RELEASE_CONFIG: ${{ inputs.release-config }}
         INPUT_PRERELEASE_ID: ${{ inputs.prerelease-id }}

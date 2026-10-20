@@ -73,6 +73,10 @@ outputs:
     description: prepared, verified, or preserved.
     value: ${{ steps.release.outputs.notes-state }}
 
+  diagnostics-path:
+    description: Runner-local versioned diagnostics JSON, separate from existing reports; available on controlled failures when writable.
+    value: ${{ steps.release.outputs.diagnostics-path }}
+
 runs:
   using: composite
   steps:

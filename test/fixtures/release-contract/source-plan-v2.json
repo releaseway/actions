@@ -1,0 +1,23 @@
+{
+  "schema": 2,
+  "strategy": "source-tag",
+  "config": {
+    "schema": 1,
+    "strategy": "source-tag",
+    "branch": "main",
+    "tagPrefix": "v",
+    "initialVersion": "0.1.0",
+    "bump": "auto",
+    "series": null,
+    "latest": "automatic"
+  },
+  "policyDigest": "55492a71eaaeac130f1d414e4669be2f948d8dc8cb2471978c4c4720cc8d8cef",
+  "source": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "tag": "v1.2.0-rc.0",
+  "version": "1.2.0-rc.0",
+  "prereleaseId": "rc",
+  "latest": "automatic",
+  "state": "planned",
+  "tagObject": "780756662652060ec65d86c631fc68caad4fdeb8"
+}

@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source-plan-v2.schema.json",
+  "title": "source-plan-v2",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": 2
+    },
+    "strategy": {
+      "const": "source-tag"
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": 1
+        },
+        "strategy": {
+          "const": "source-tag"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tagPrefix": {
+          "type": "string"
+        },
+        "initialVersion": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+        },
+        "bump": {
+          "enum": [
+            "auto",
+            "patch",
+            "minor",
+            "major"
+          ]
+        },
+        "series": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "baseTag": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "startVersion": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+                }
+              },
+              "required": [
+                "baseTag",
+                "startVersion"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latest": {
+          "enum": [
+            "automatic",
+            "current-series",
+            "true",
+            "false"
+          ]
+        }
+      },
+      "required": [
+        "schema",
+        "strategy",
+        "branch",
+        "tagPrefix",
+        "initialVersion",
+        "bump",
+        "series",
+        "latest"
+      ]
+    },
+    "policyDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "tag": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?$"
+    },
+    "prereleaseId": {
+      "type": "string",
+      "pattern": "^(|[A-Za-z][A-Za-z0-9-]*)$"
+    },
+    "latest": {
+      "enum": [
+        "automatic",
+        "true",
+        "false"
+      ]
+    },
+    "state": {
+      "enum": [
+        "planned",
+        "existing"
+      ]
+    },
+    "tagObject": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    }
+  },
+  "required": [
+    "schema",
+    "strategy",
+    "config",
+    "policyDigest",
+    "source",
+    "commit",
+    "tag",
+    "version",
+    "prereleaseId",
+    "latest",
+    "state",
+    "tagObject"
+  ]
+}

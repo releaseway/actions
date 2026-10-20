@@ -1,3 +1,4 @@
+import { ReleaseError } from "./release-error.ts";
 import { compare, inc, prerelease, valid } from "semver";
 import type { ReleaseConfig } from "./release-config.ts";
 import { parseConventionalCommit } from "./conventional.ts";
@@ -17,7 +18,7 @@ export function seriesTags(config: ReleaseConfig, tags: readonly SeriesTag[], so
 }
 
 export function nextSeriesVersion(config: ReleaseConfig, tags: readonly SeriesTag[], messages: readonly string[], prereleaseId = ""): string {
-  if (prereleaseId && !/^[A-Za-z][A-Za-z0-9-]*$/.test(prereleaseId)) throw new Error("prerelease-id must be a single nonnumeric SemVer identifier");
+  if (prereleaseId && !/^[A-Za-z][A-Za-z0-9-]*$/.test(prereleaseId)) throw new ReleaseError("INVALID_INPUT", "prerelease-id must be a single nonnumeric SemVer identifier");
   const versions = tags.map((tag) => tag.tag.slice(config.tagPrefix.length)).sort(compare);
   const previous = versions.at(-1);
   let next: string;
@@ -28,7 +29,7 @@ export function nextSeriesVersion(config: ReleaseConfig, tags: readonly SeriesTa
     const id = prerelease(previous)![0];
     next = prereleaseId ? (id === prereleaseId ? inc(previous, "prerelease", prereleaseId)! : `${core}-${prereleaseId}.0`) : core;
     if (prereleaseId) {
-      if (compare(next, previous) <= 0) throw new Error("Prerelease channel change would decrease the current series version");
+      if (compare(next, previous) <= 0) throw new ReleaseError("INVALID_INPUT", "Prerelease channel change would decrease the current series version");
       return next;
     }
   } else {

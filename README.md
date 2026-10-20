@@ -18,6 +18,12 @@ project; Releaseway handles the release and file-verification steps around them.
   [Pages reusable workflow](distribute/README.md#optional-github-pages-workflow) at
   job level, using Release assets or a same-run build artifact.
 
+## One workflow, no additional App
+
+See the [same-run release guide](docs/app-free-release.md) for the upcoming
+source-tag strategy, explicit npm tag selection, least-permission jobs and recovery.
+The guide clearly marks unreleased inputs and the pins to replace before use.
+
 ## Version
 
 [v0.5.1](https://github.com/releaseway/actions/releases/tag/v0.5.1) uses commit

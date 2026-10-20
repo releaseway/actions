@@ -1,0 +1,162 @@
+# Copy to the PRODUCT repository as .github/workflows/release.yml.
+# UNRELEASED CONTRACT: replace each all-zero Releaseway SHA with a verified
+# full SHA implementing source-tag/release-tag before enabling this workflow.
+name: Release without an additional GitHub App
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease-id:
+        description: Empty for stable; otherwise rc or beta
+        type: string
+        default: ''
+      publish-npm:
+        description: Publish existing npm packages through configured Trusted Publishing
+        type: boolean
+        default: false
+      publish-homebrew:
+        description: Update the configured tap using its existing deploy key
+        type: boolean
+        default: false
+      deploy-pages:
+        description: Deploy version.txt from the public stable Release
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      source: ${{ steps.plan.outputs.source }}
+      version: ${{ steps.plan.outputs.version }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+      plan-artifact-id: ${{ steps.archive.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: plan
+        uses: releaseway/actions/prepare@0000000000000000000000000000000000000000 # replace before use
+        with:
+          mode: plan
+          prerelease-id: ${{ inputs.prerelease-id }}
+          plan-path: ${{ runner.temp }}/release-plan.json
+      - id: archive
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.plan.outputs.plan-path }}
+          if-no-files-found: error
+  build:
+    needs: plan
+    runs-on: ubuntu-24.04
+    outputs:
+      artifact-id: ${{ steps.archive.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          persist-credentials: false
+      - name: Produce and test sample assets
+        env:
+          RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          mkdir -p dist
+          printf '%s\n' "$RELEASE_VERSION" > dist/version.txt
+          test -s dist/version.txt
+          # Replace with your product build, signing and consumer tests.
+      - id: archive
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/version.txt
+          if-no-files-found: error
+  release:
+    needs: [plan, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.resume.outputs.tag }}
+      version: ${{ steps.resume.outputs.version }}
+      commit: ${{ steps.resume.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.plan.outputs.plan-artifact-id }}
+          path: ${{ runner.temp }}/release-plan
+          digest-mismatch: error
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: ${{ runner.temp }}/release-assets
+          digest-mismatch: error
+      - id: resume
+        uses: releaseway/actions/prepare@0000000000000000000000000000000000000000 # replace before use
+        with:
+          mode: resume
+          plan-path: ${{ runner.temp }}/release-plan/release-plan.json
+      - id: publish
+        uses: releaseway/actions@0000000000000000000000000000000000000000 # replace before use
+        with:
+          tag: ${{ steps.resume.outputs.tag }}
+          commit: ${{ steps.resume.outputs.commit }}
+          prerelease: ${{ steps.resume.outputs.prerelease }}
+          latest: ${{ steps.resume.outputs.latest }}
+          assets: ${{ runner.temp }}/release-assets/*
+      - name: Preserve operation diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ steps.resume.outputs.diagnostics-path }}
+            ${{ steps.publish.outputs.diagnostics-path }}
+          if-no-files-found: ignore
+  npm:
+    if: inputs.publish-npm
+    needs: [plan, release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+      # Run product-owned install/build here when npm packages need it.
+      # For native packages, release must publish their configured assets first.
+      - id: npm
+        uses: releaseway/npm-actions@0000000000000000000000000000000000000000 # replace before use
+        with:
+          release-tag: ${{ needs.release.outputs.tag }}
+  homebrew:
+    if: inputs.publish-homebrew && needs.plan.outputs.prerelease != 'true'
+    needs: [plan, release]
+    uses: releaseway/homebrew-actions/.github/workflows/publish.yml@d3f1522212aca4702a32805159b0bd3e88561986 # v0.4.1
+    with:
+      tap-repository: owner/homebrew-tap
+      commit: ${{ needs.release.outputs.commit }}
+      version: ${{ needs.release.outputs.version }}
+    secrets:
+      tap_deploy_key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+  pages:
+    if: inputs.deploy-pages && needs.plan.outputs.prerelease != 'true'
+    needs: [plan, release]
+    permissions:
+      contents: read
+      actions: read
+      deployments: read
+      pages: write
+      id-token: write
+    uses: releaseway/actions/.github/workflows/distribute-pages.yml@7427110b565bedef79ab0f80e6821a706d7f21ed # v0.5.1
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+      files: version.txt

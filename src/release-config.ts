@@ -1,3 +1,4 @@
+import { ReleaseError } from "./release-error.ts";
 import { readFileSync, realpathSync } from "node:fs";
 import { relative, resolve, sep, isAbsolute } from "node:path";
 import { parseDocument } from "yaml";
@@ -5,6 +6,7 @@ import { valid, prerelease } from "semver";
 
 export interface ReleaseConfig {
   schema: 1;
+  strategy?: "source-tag";
   branch: string;
   tagPrefix: string;
   initialVersion: string;
@@ -14,33 +16,34 @@ export interface ReleaseConfig {
 }
 
 function mapping(value: unknown, allowed: string[], label: string): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be a mapping`);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new ReleaseError("CONFIG_INVALID", `${label} must be a mapping`);
   const object = value as Record<string, unknown>;
-  for (const key of Object.keys(object)) if (!allowed.includes(key)) throw new Error(`${label}.${key} is not supported`);
+  for (const key of Object.keys(object)) if (!allowed.includes(key)) throw new ReleaseError("CONFIG_INVALID", `${label}.${key} is not supported`);
   return object;
 }
 
 function text(value: unknown, label: string): string {
-  if (typeof value !== "string" || !value || /[\s\x00-\x1f]/.test(value)) throw new Error(`${label} must be a non-empty whitespace-free string`);
+  if (typeof value !== "string" || !value || /[\s\x00-\x1f]/.test(value)) throw new ReleaseError("CONFIG_INVALID", `${label} must be a non-empty whitespace-free string`);
   return value;
 }
 
 function stable(value: unknown, label: string): string {
   const version = text(value, label);
-  if (valid(version) !== version || prerelease(version) !== null || version.includes("+")) throw new Error(`${label} must be exact stable SemVer without build metadata`);
+  if (valid(version) !== version || prerelease(version) !== null || version.includes("+")) throw new ReleaseError("CONFIG_INVALID", `${label} must be exact stable SemVer without build metadata`);
   return version;
 }
 
 export function parseReleaseConfig(source: string): ReleaseConfig {
-  if (Buffer.byteLength(source) > 256 * 1024) throw new Error("release config exceeds 256 KiB");
+  if (Buffer.byteLength(source) > 256 * 1024) throw new ReleaseError("CONFIG_INVALID", "release config exceeds 256 KiB");
   const document = parseDocument(source, { uniqueKeys: true, schema: "core" });
-  if (document.errors.length) throw new Error(document.errors[0]!.message);
-  const root = mapping(document.toJS({ maxAliasCount: 0 }), ["schema", "branch", "tag-prefix", "initial-version", "bump", "series", "latest"], "release");
-  if (root.schema !== 1) throw new Error("release.schema must be 1");
+  if (document.errors.length) throw new ReleaseError("CONFIG_INVALID", document.errors[0]!.message);
+  const root = mapping(document.toJS({ maxAliasCount: 0 }), ["schema", "branch", "tag-prefix", "initial-version", "bump", "series", "latest", "strategy"], "release");
+  if ("schema" in root && root.schema !== 1) throw new ReleaseError("CONFIG_INVALID", "release.schema must be 1");
+  if ("strategy" in root && root.strategy !== "source-tag" && root.strategy !== "release-commit") throw new ReleaseError("CONFIG_INVALID", "release.strategy must be release-commit or source-tag");
   const bump = root.bump ?? "auto";
-  if (typeof bump !== "string" || !["auto", "patch", "minor", "major"].includes(bump)) throw new Error("release.bump must be auto, patch, minor, or major");
+  if (typeof bump !== "string" || !["auto", "patch", "minor", "major"].includes(bump)) throw new ReleaseError("CONFIG_INVALID", "release.bump must be auto, patch, minor, or major");
   const latest = root.latest ?? "automatic";
-  if (typeof latest !== "string" || !["automatic", "current-series", "true", "false"].includes(latest)) throw new Error("release.latest must be automatic, current-series, or a quoted true/false string");
+  if (typeof latest !== "string" || !["automatic", "current-series", "true", "false"].includes(latest)) throw new ReleaseError("CONFIG_INVALID", "release.latest must be automatic, current-series, or a quoted true/false string");
   let series: ReleaseConfig["series"];
   if (root.series !== undefined) {
     const value = mapping(root.series, ["base-tag", "start-version"], "release.series");
@@ -48,6 +51,7 @@ export function parseReleaseConfig(source: string): ReleaseConfig {
   }
   return {
     schema: 1,
+    ...(root.strategy === "source-tag" ? { strategy: "source-tag" as const } : {}),
     branch: text(root.branch ?? "main", "release.branch"),
     tagPrefix: root["tag-prefix"] === "" ? "" : text(root["tag-prefix"] ?? "v", "release.tag-prefix"),
     initialVersion: stable(root["initial-version"] ?? "0.1.0", "release.initial-version"),
@@ -61,6 +65,6 @@ export function readReleaseConfig(workspace: string, path = ".github/releaseway.
   const root = realpathSync(workspace);
   const file = realpathSync(resolve(root, path));
   const diff = relative(root, file);
-  if (isAbsolute(diff) || diff === ".." || diff.startsWith(".." + sep)) throw new Error("release config must resolve within the workspace");
+  if (isAbsolute(diff) || diff === ".." || diff.startsWith(".." + sep)) throw new ReleaseError("CONFIG_INVALID", "release config must resolve within the workspace");
   return parseReleaseConfig(readFileSync(file, "utf8"));
 }

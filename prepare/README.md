@@ -69,3 +69,34 @@ Preparation writes a deterministic release marker commit using the source tree u
 `latest: current-series` selects the newest stable tag in the configured series regardless of older series' numerical versions. Prereleases and superseded current-series tags are not promoted. The policy is checked before draft creation and again before publication and final verification. `latest: true` remains an unconditional stable-release policy; `automatic` retains GitHub's legacy selection.
 
 [Back to Releaseway Actions](../README.md)
+
+### Resolve prereleases and prefixed tags
+
+Use `mode: resolve` with `allow-prerelease: "true"` to inspect an existing
+prerelease. `commit` optionally checks its expected full lowercase commit SHA.
+`tag-prefix` optionally supplies the exact version prefix; otherwise bare versions,
+`v` versions and unambiguous version suffixes are recognized. Prefixes ending in a
+digit or dot require explicit selection when automatic parsing is ambiguous.
+Missing tags and incorrect bindings fail without creating or replacing refs.
+`allow-prerelease: "true"` and a nonempty `tag-prefix` are resolve-only options.
+
+### Tag the original source commit
+
+Set `strategy: source-tag` in `.github/releaseway.yml` to calculate versions and
+create an annotated tag on the original commit without updating the branch.
+Omitting `strategy` keeps the existing release-commit behavior. The user config's
+`schema` is optional: absence always means schema 1; explicit numeric `schema: 1`
+is equivalent. Null, other types and unsupported versions fail.
+
+Source-tag plans use generated schema 2; their schema field is required. Releaseway
+records source, normalized policy and channel identity in the tag. A repeated
+request reuses the version even without the saved plan file. A saved plan requires
+checkout of its source and unchanged policy. A missing tag is created only when
+fresh origin state still agrees with the plan. Conflicting tags are never replaced.
+
+Same-source rc to stable promotion keeps the core version. Once stable exists,
+automatic rc planning fails; explicitly resolving or resuming the saved existing
+rc remains supported. A branch move during tag creation fails while preserving the
+accepted tag. Inspect origin and resume the same identity; do not delete it or bump
+a version merely to retry. Annotated tag object IDs differ from commits: consume
+`outputs.commit` or peel the tag with `^{commit}`.

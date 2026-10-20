@@ -1,3 +1,4 @@
+import { ReleaseError } from "./release-error.ts";
 import { spawnSync } from "node:child_process";
 import { mkdtemp } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -132,12 +133,12 @@ export class GitRepository {
   }
 
   remoteTagTarget(tag: string): string {
-    const result = this.run([
-      "ls-remote",
-      "origin",
-      `refs/tags/${tag}`,
-      `refs/tags/${tag}^{}`,
-    ]);
+    let result: GitCommandResult;
+    try {
+      result = this.run(["ls-remote", "origin", `refs/tags/${tag}`, `refs/tags/${tag}^{}`]);
+    } catch {
+      throw new ReleaseError("REMOTE_UNAVAILABLE", "Remote release tag binding could not be read");
+    }
     let object = "";
     let target = "";
     for (const line of result.stdout.split("\n")) {
@@ -147,7 +148,7 @@ export class GitRepository {
       if (ref === `refs/tags/${tag}^{}`) target = sha.toLowerCase();
     }
     if (!object) {
-      throw new Error(`release tag is missing from origin: ${tag}`);
+      throw new ReleaseError("TAG_NOT_FOUND", `release tag is missing from origin: ${tag}`);
     }
     return target || object;
   }
@@ -160,7 +161,7 @@ export function verifyRemoteTagBinding(options: {
 }): string {
   const expected = options.expectedCommit.toLowerCase();
   if (!/^[0-9a-f]{40}$/.test(expected)) {
-    throw new Error("commit must be a full 40-character SHA");
+    throw new ReleaseError("INVALID_INPUT", "commit must be a full 40-character SHA");
   }
   const repository = new GitRepository(resolve(options.workspace));
   const validRef = repository.run(
@@ -168,12 +169,12 @@ export function verifyRemoteTagBinding(options: {
     { allowFailure: true },
   );
   if (validRef.status !== 0) {
-    throw new Error(`tag is not a valid Git tag: ${options.tag}`);
+    throw new ReleaseError("TAG_INVALID", `tag is not a valid Git tag: ${options.tag}`);
   }
   const target = repository.remoteTagTarget(options.tag);
   if (target !== expected) {
-    throw new Error(
-      `release tag target does not match commit: tag=${target} expected=${expected}`,
+    throw new ReleaseError("TAG_COMMIT_MISMATCH",
+      `release tag target does not match commit: tag=${target} expected=${expected}`, "present",
     );
   }
   return target;
@@ -189,7 +190,7 @@ export function verifyRemoteTagExists(options: {
     { allowFailure: true },
   );
   if (validRef.status !== 0) {
-    throw new Error(`tag is not a valid Git tag: ${options.tag}`);
+    throw new ReleaseError("TAG_INVALID", `tag is not a valid Git tag: ${options.tag}`);
   }
   return repository.remoteTagTarget(options.tag);
 }

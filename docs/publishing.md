@@ -305,6 +305,7 @@ A prerelease cannot use `latest: "true"`.
 | `release-url` | Published GitHub Release URL; empty in preview mode. |
 | `notes-path` | Local path to the exact prepared or preserved Markdown body. |
 | `notes-report` | Local path to the versioned JSON diagnostics report. |
+| `diagnostics-path` | Local absolute path to the separate schema 1 operation diagnostics file. |
 | `notes-state` | `prepared` in preview, `verified` when requested body equality was established, or `preserved` when an existing body was intentionally retained. |
 
 The report records its preparation status, the effective policy, configuration path/digest plus caller checkout revision when a config is used, selected range, included/excluded identities, diagnostics, metadata-mutability flags, and final body SHA-256/byte length for custom generation. `notes-state` remains the authoritative lifecycle outcome after publication verification.
@@ -351,3 +352,16 @@ Omit `assets` when no binaries are needed. The same provenance, notes, immutabil
     notes: standard
     latest: "true"
 ```
+
+## Operation diagnostics
+
+`diagnostics-path` points to a separate schema 1 JSON report. Existing notes reports
+and output states retain their formats. The sidecar records verified tag binding,
+observed publication/asset state and a stable error code with recovery metadata.
+It contains no raw subprocess errors, tokens or absolute local paths. The output
+itself is a runner-local absolute path; upload the file explicitly for another job.
+Controlled failures retain diagnostics when output and filesystem access work.
+A failed diagnostic write never replaces the original publication failure. If only
+diagnostic persistence fails after publication, inspect the existing Release before
+retrying; no remote rollback occurs. Prefer same-run steps or `needs` for subsequent
+publication: a tag pushed with `GITHUB_TOKEN` does not trigger a tag-push workflow.

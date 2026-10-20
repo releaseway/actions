@@ -1,0 +1,15 @@
+{
+  "config": {
+    "schema": 1,
+    "branch": "main",
+    "tagPrefix": "v",
+    "initialVersion": "0.1.0",
+    "bump": "auto",
+    "latest": "automatic"
+  },
+  "configDigest": "79cdc7e2c618a9adc84d01661ac35d28f6a305ab13a213f28d1892140cc363a8",
+  "sourceObject": "tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904\nauthor Fixture <fixture@example.invalid> 1700000000 +0000\ncommitter Fixture <fixture@example.invalid> 1700000000 +0000\n\nfeat: initial source\n",
+  "source": "baddb7399bcade139bf55c31811ec7d2912451f5",
+  "marker": "12bc303dc82070efc1adfc5d8e398c061149bec0",
+  "tag": "v0.1.0"
+}
