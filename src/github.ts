@@ -65,13 +65,26 @@ export interface GitHubApi {
 
 type RunGh = (args: readonly string[]) => string;
 
+// A supported 1 MiB body can expand when JSON-escaped. Leave room for that
+// expansion and response metadata, while keeping CLI output bounded.
+const MAX_GH_OUTPUT_BYTES = 8 * 1024 * 1024;
+
 function defaultRunGh(args: readonly string[]): string {
   const result = spawnSync("gh", [...args], {
     encoding: "utf8",
     env: process.env,
     timeout: 30_000,
+    maxBuffer: MAX_GH_OUTPUT_BYTES,
   });
-  if (result.error) throw result.error;
+  if (result.error) {
+    if ("code" in result.error && result.error.code === "ENOBUFS") {
+      throw new Error(
+        `GitHub CLI output exceeded maximum size ${MAX_GH_OUTPUT_BYTES} bytes`,
+        { cause: result.error },
+      );
+    }
+    throw result.error;
+  }
   if (result.status !== 0) {
     throw new Error(
       `gh api failed: ${(result.stderr || result.stdout || "").trim()}`,
@@ -167,6 +180,7 @@ export class GhCliApi implements GitHubApi {
   private paginatedArray(
     endpoint: (page: number) => string,
     context: string,
+    projection: string,
   ): unknown[] {
     const values: unknown[] = [];
     const pageSize = 100;
@@ -181,6 +195,10 @@ export class GhCliApi implements GitHubApi {
           "-H",
           "X-GitHub-Api-Version: 2026-03-10",
           endpoint(page),
+          // Project in gh before stdout reaches Node. Keep every item and the
+          // original shape so pagination and malformed-response checks survive.
+          "--jq",
+          `if type == "array" then map(if type == "object" then ${projection} else . end) else . end`,
         ]),
       ) as unknown;
       if (!Array.isArray(raw)) {
@@ -203,6 +221,7 @@ export class GhCliApi implements GitHubApi {
       (page) =>
         `repos/${repository}/commits/${commitSha}/pulls?per_page=100&page=${page}`,
       "commit-to-PR response",
+      "{number}",
     );
     const numbers = [
       ...new Set(
@@ -313,6 +332,8 @@ export class GhCliApi implements GitHubApi {
       "-H",
       "X-GitHub-Api-Version: 2026-03-10",
       `repos/${repository}/releases/${releaseIdText}`,
+      "--jq",
+      'if type == "object" then {id, tag_name, name, body, draft, prerelease, immutable, html_url} else . end',
     ]);
     const raw = object(JSON.parse(output), "release response");
     if (
@@ -342,6 +363,7 @@ export class GhCliApi implements GitHubApi {
       (page) =>
         `repos/${repository}/releases?per_page=100&page=${page}`,
       "release-list response",
+      "{tag_name, draft, prerelease}",
     );
     return values.map((item) => {
       const release = object(item, "release-list item");
@@ -373,6 +395,8 @@ export class GhCliApi implements GitHubApi {
           "-H",
           "X-GitHub-Api-Version: 2026-03-10",
           `repos/${repository}/releases/${releaseId}`,
+          "--jq",
+          'if type == "object" then {body} else . end',
         ]),
       ),
       "release response",

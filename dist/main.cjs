@@ -9859,13 +9859,23 @@ function resolveActionInputs(env = process.env) {
 
 // src/github.ts
 var import_node_child_process = require("node:child_process");
+var MAX_GH_OUTPUT_BYTES = 8 * 1024 * 1024;
 function defaultRunGh(args) {
   const result = (0, import_node_child_process.spawnSync)("gh", [...args], {
     encoding: "utf8",
     env: process.env,
-    timeout: 3e4
+    timeout: 3e4,
+    maxBuffer: MAX_GH_OUTPUT_BYTES
   });
-  if (result.error) throw result.error;
+  if (result.error) {
+    if ("code" in result.error && result.error.code === "ENOBUFS") {
+      throw new Error(
+        `GitHub CLI output exceeded maximum size ${MAX_GH_OUTPUT_BYTES} bytes`,
+        { cause: result.error }
+      );
+    }
+    throw result.error;
+  }
   if (result.status !== 0) {
     throw new Error(
       `gh api failed: ${(result.stderr || result.stdout || "").trim()}`
@@ -9925,7 +9935,7 @@ var GhCliApi = class {
   constructor(runGh = defaultRunGh) {
     this.runGh = runGh;
   }
-  paginatedArray(endpoint, context) {
+  paginatedArray(endpoint, context, projection) {
     const values = [];
     const pageSize = 100;
     const maxPages = 20;
@@ -9937,7 +9947,11 @@ var GhCliApi = class {
           "Accept: application/vnd.github+json",
           "-H",
           "X-GitHub-Api-Version: 2026-03-10",
-          endpoint(page)
+          endpoint(page),
+          // Project in gh before stdout reaches Node. Keep every item and the
+          // original shape so pagination and malformed-response checks survive.
+          "--jq",
+          `if type == "array" then map(if type == "object" then ${projection} else . end) else . end`
         ])
       );
       if (!Array.isArray(raw)) {
@@ -9953,7 +9967,8 @@ var GhCliApi = class {
   async associatedPullRequests(repository, commitSha) {
     const values = this.paginatedArray(
       (page) => `repos/${repository}/commits/${commitSha}/pulls?per_page=100&page=${page}`,
-      "commit-to-PR response"
+      "commit-to-PR response",
+      "{number}"
     );
     const numbers = [
       ...new Set(
@@ -10047,7 +10062,9 @@ var GhCliApi = class {
       "Accept: application/vnd.github+json",
       "-H",
       "X-GitHub-Api-Version: 2026-03-10",
-      `repos/${repository}/releases/${releaseIdText}`
+      `repos/${repository}/releases/${releaseIdText}`,
+      "--jq",
+      'if type == "object" then {id, tag_name, name, body, draft, prerelease, immutable, html_url} else . end'
     ]);
     const raw = object(JSON.parse(output), "release response");
     if (typeof raw.id !== "number" || typeof raw.tag_name !== "string" || typeof raw.draft !== "boolean" || typeof raw.prerelease !== "boolean") {
@@ -10067,7 +10084,8 @@ var GhCliApi = class {
   async publishedReleases(repository) {
     const values = this.paginatedArray(
       (page) => `repos/${repository}/releases?per_page=100&page=${page}`,
-      "release-list response"
+      "release-list response",
+      "{tag_name, draft, prerelease}"
     );
     return values.map((item) => {
       const release = object(item, "release-list item");
@@ -10090,7 +10108,9 @@ var GhCliApi = class {
           "Accept: application/vnd.github+json",
           "-H",
           "X-GitHub-Api-Version: 2026-03-10",
-          `repos/${repository}/releases/${releaseId}`
+          `repos/${repository}/releases/${releaseId}`,
+          "--jq",
+          'if type == "object" then {body} else . end'
         ])
       ),
       "release response"
