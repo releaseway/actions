@@ -5,6 +5,9 @@ root. Consumer workflows use the [published Actions](README.md); no repository
 clone or npm installation is needed to call them.
 
 Use Node.js 24 or newer and pnpm 12.14.0, as pinned in `package.json`.
+Install GitHub CLI (`gh`) and Bash for the adapter regression tests. They use a
+local HTTP fixture and the real CLI's JSON filtering; no GitHub token or external
+API access is required.
 
 The deterministic validation suite is:
 

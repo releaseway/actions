@@ -332,12 +332,21 @@ The current implementation deliberately bounds external evidence work:
 
 - each notes-engine Git subprocess has a 30-second timeout;
 - each notes-engine GitHub CLI/API subprocess has a 30-second timeout;
+- each notes-engine GitHub CLI subprocess has an 8 MiB output limit, allowing
+  JSON escaping around a supported 1 MiB note body;
 - GitHub list/association reads use at most 20 pages of 100 records each;
 - one custom release range may contain at most 10,000 commits;
 - a prepared release-note body may contain at most 1 MiB of UTF-8 text;
 - `notes-config` is limited to 256 KiB and parsed depth 16.
 
 Exhausted pagination, invalid evidence, missing permissions, or ambiguous range selection are errors rather than silent truncation.
+
+Release lists and commit-to-PR associations select only the fields needed for
+evidence collection before CLI output reaches Node. Release snapshots and body
+reads omit unrelated asset metadata. These projections reduce subprocess output,
+not the HTTP response downloaded by `gh`, and retain every list item for pagination
+and draft/prerelease selection. Note bodies remain JSON strings so whitespace and
+final newlines survive unchanged.
 
 ## Releases without assets
 
