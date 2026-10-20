@@ -43,7 +43,7 @@ test("served verifier encodes paths and retries cache without leaving origin/bas
  const bytes=Buffer.from("hi"),files=[{path:"한국어 #%.sh",size:2,sha256:hash(bytes),origin:"selected"}];let requests=0;
  await verifyServed("https://example.test/base/",files,async(url,options)=>{assert.ok(String(url).startsWith("https://example.test/base/%"));assert.ok(String(url).includes("%23%25"));assert.equal(options.redirect,"manual");requests++;return new Response(bytes,{status:200});});assert.equal(requests,1);
  await assert.rejects(verifyServed("https://example.test/base/",files,async()=>new Response(null,{status:302,headers:{location:"https://other.test/x"}})),/Redirect/);
- await assert.rejects(verifyServed("https://example.test/base/",files,async()=>new Response("too much")),/exceeds/);
+ await assert.rejects(verifyServed("https://example.test/base/",files,async()=>new Response("too much"),Date.now()+20),/deadline/);
  await assert.rejects(verifyServed("https://example.test/base/",files,async()=>new Response("no",{status:404}),Date.now()+10),/deadline/);
 });
 test("environment deployment ID must match exact consumer run/job status URL",async t=>{

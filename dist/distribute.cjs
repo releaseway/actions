@@ -7715,9 +7715,9 @@ async function prepareRelease(o, env, deadline, client, mappings) {
     for (const request of mappings?.map((m) => m.from) ?? o.files) {
       if (!mappings) pattern(request);
       if (request.includes("/")) throw new Error("Release assets have flat names");
-      const matches = before.assets.filter((a) => typeof a.name === "string" && visible(a.name, request) && (mappings ? a.name === request : import_node_path4.posix.matchesGlob(a.name, request)));
-      if (!matches.length) throw new Error("A Release files pattern matched no assets");
-      for (const a of matches) {
+      const matches2 = before.assets.filter((a) => typeof a.name === "string" && visible(a.name, request) && (mappings ? a.name === request : import_node_path4.posix.matchesGlob(a.name, request)));
+      if (!matches2.length) throw new Error("A Release files pattern matched no assets");
+      for (const a of matches2) {
         if (!mappings) publicPath(a.name);
         if (!validId(a.id) || a.state !== "uploaded" || !Number.isSafeInteger(a.size) || a.size < 0 || a.size > o.maxFile || !/^sha256:[a-f0-9]{64}$/.test(a.digest)) throw new Error("Invalid uploaded asset ID, size or SHA-256 digest");
         if (before.assets.filter((other) => other.name === a.name).length !== 1) throw new Error("Duplicate Release asset name");
@@ -7920,9 +7920,42 @@ var import_node_util = require("node:util");
 // src/distribution/verify-served.ts
 var import_node_crypto3 = require("node:crypto");
 var import_promises9 = require("node:timers/promises");
+var PagesPolicyError = class extends Error {
+};
+async function matches(response, file, signal) {
+  const hash = (0, import_node_crypto3.createHash)("sha256");
+  let size = 0;
+  if (response.body) {
+    const reader = response.body.getReader();
+    const abort = () => {
+      void reader.cancel(signal.reason).catch(() => {
+      });
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    try {
+      while (true) {
+        signal.throwIfAborted();
+        const { done, value } = await reader.read();
+        signal.throwIfAborted();
+        if (done) break;
+        size += value.byteLength;
+        if (size > file.size) return false;
+        hash.update(value);
+      }
+    } finally {
+      signal.removeEventListener("abort", abort);
+      await reader.cancel().catch(() => {
+      });
+      reader.releaseLock();
+    }
+  }
+  return size === file.size && hash.digest("hex") === file.sha256;
+}
 async function verifyServed(page, files, request = fetch, deadline = Date.now() + 3e5) {
   const base = new URL(page.endsWith("/") ? page : page + "/");
-  if (base.protocol !== "https:" || base.username || base.password || base.search || base.hash) throw new Error("Pages URL must be an HTTPS origin/base path");
+  if (base.protocol !== "https:" || base.username || base.password || base.search || base.hash) {
+    throw new PagesPolicyError("Pages URL must be an HTTPS origin/base path");
+  }
   let cursor = 0;
   const stop = new AbortController();
   async function one(file) {
@@ -7930,41 +7963,40 @@ async function verifyServed(page, files, request = fetch, deadline = Date.now() 
     const target = new URL(file.path.split("/").map(encodeURIComponent).join("/"), base);
     while (Date.now() < deadline && !stop.signal.aborted) {
       const signal = AbortSignal.any([stop.signal, AbortSignal.timeout(Math.max(1, Math.min(3e4, deadline - Date.now())))]);
-      let url = target, response;
+      let url = target;
+      let response;
       try {
         for (let redirects = 0; redirects <= 5; redirects++) {
-          if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) throw new Error("Redirect leaves Pages origin/base path");
+          if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname) || url.username || url.password) {
+            throw new PagesPolicyError("Redirect leaves Pages origin/base path or contains credentials");
+          }
           response = await request(url, { redirect: "manual", signal, headers: { "Accept-Encoding": "identity", "Cache-Control": "no-cache" } });
           if (![301, 302, 303, 307, 308].includes(response.status)) break;
           const location = response.headers.get("location");
           await response.body?.cancel();
-          if (!location || redirects === 5) throw new Error("Invalid Pages redirect");
-          url = new URL(location, url);
+          if (!location || redirects === 5) throw new PagesPolicyError("Invalid Pages redirect");
+          try {
+            url = new URL(location, url);
+          } catch {
+            throw new PagesPolicyError("Invalid Pages redirect URL");
+          }
         }
         if (response?.status === 200) {
-          const hash = (0, import_node_crypto3.createHash)("sha256");
-          let size = 0;
-          if (response.body) for await (const chunk of response.body) {
-            size += chunk.length;
-            if (size > file.size) throw new Error("Served file exceeds expected size");
-            hash.update(chunk);
-          }
-          if (size === file.size && hash.digest("hex") === file.sha256) return;
-        } else await response?.body?.cancel();
+          if (await matches(response, file, signal)) return;
+        } else {
+          await response?.body?.cancel();
+        }
       } catch (error) {
         if (stop.signal.aborted) throw stop.signal.reason;
-        if (error instanceof Error && /Redirect|redirect|exceeds expected size/.test(error.message)) throw error;
+        if (error instanceof PagesPolicyError) throw error;
       }
       const remaining = deadline - Date.now();
-      if (remaining > 0) await (0, import_promises9.setTimeout)(Math.min(1e3, remaining));
+      if (remaining > 0) await (0, import_promises9.setTimeout)(Math.min(1e3, remaining), void 0, { signal: stop.signal });
     }
     throw new Error("Served bytes did not converge before the verification deadline");
   }
   const workers = Array.from({ length: Math.min(4, files.length) }, async () => {
-    while (cursor < files.length && !stop.signal.aborted) {
-      const file = files[cursor++];
-      await one(file);
-    }
+    while (cursor < files.length && !stop.signal.aborted) await one(files[cursor++]);
   });
   try {
     await Promise.all(workers);
