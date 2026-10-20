@@ -10912,6 +10912,7 @@ var GitRepository = class {
       [
         "config",
         "--local",
+        "--includes",
         "--get-regexp",
         "^http\\..*\\.extraheader$"
       ],
@@ -10992,38 +10993,64 @@ async function createEvidenceRepository(options) {
   const origin = workspace.remoteUrl();
   const path = await (0, import_promises2.mkdtemp)((0, import_node_path3.join)((0, import_node_path3.resolve)(options.tempRoot), "releaseway-notes-git-"));
   const repository = new GitRepository(path);
-  repository.run(["init", "--bare"]);
-  repository.run(["remote", "add", "origin", origin]);
-  repository.run(
-    [
-      "fetch",
-      "--force",
-      "--no-recurse-submodules",
-      "origin",
-      "+refs/tags/*:refs/tags/*"
-    ],
-    {
-      config: workspace.localHttpAuthConfig()
-    }
-  );
-  const targetRef = `refs/tags/${options.targetTag}`;
-  if (!repository.hasRef(targetRef)) {
-    throw new Error(`release tag is missing from evidence origin: ${options.targetTag}`);
-  }
-  const targetSha = repository.resolveCommit(targetRef);
-  const expected = options.expectedTargetSha.toLowerCase();
-  if (targetSha !== expected) {
-    throw new Error(
-      `release tag target does not match commit in evidence repository: tag=${targetSha} expected=${expected}`
+  try {
+    repository.run(["init", "--bare"]);
+    repository.run(["remote", "add", "origin", origin]);
+    repository.run(
+      [
+        "fetch",
+        "--force",
+        "--no-recurse-submodules",
+        "origin",
+        "+refs/tags/*:refs/tags/*"
+      ],
+      {
+        config: workspace.localHttpAuthConfig()
+      }
     );
+    const targetRef = `refs/tags/${options.targetTag}`;
+    if (!repository.hasRef(targetRef)) {
+      throw new Error(`release tag is missing from evidence origin: ${options.targetTag}`);
+    }
+    const targetSha = repository.resolveCommit(targetRef);
+    const expected = options.expectedTargetSha.toLowerCase();
+    if (targetSha !== expected) {
+      throw new Error(
+        `release tag target does not match commit in evidence repository: tag=${targetSha} expected=${expected}`
+      );
+    }
+    return {
+      repository,
+      path,
+      origin,
+      targetTag: options.targetTag,
+      targetSha
+    };
+  } catch (error) {
+    try {
+      await (0, import_promises2.rm)(path, { recursive: true, force: true });
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], "Evidence preparation and cleanup failed");
+    }
+    throw error;
   }
-  return {
-    repository,
-    path,
-    origin,
-    targetTag: options.targetTag,
-    targetSha
-  };
+}
+async function withEvidenceRepository(options, consume) {
+  const evidence = await createEvidenceRepository(options);
+  let failure;
+  try {
+    return await consume(evidence);
+  } catch (error) {
+    failure = error;
+    throw error;
+  } finally {
+    try {
+      await (0, import_promises2.rm)(evidence.path, { recursive: true, force: true });
+    } catch (cleanupError) {
+      if (failure !== void 0) throw new AggregateError([failure, cleanupError], "Notes preparation and evidence cleanup failed");
+      throw cleanupError;
+    }
+  }
 }
 function selectedCommitGraph(repository, targetSha, baseSha) {
   const range = [targetSha];
@@ -11738,13 +11765,13 @@ async function prepareNotes(options) {
     const bytes = await (0, import_promises3.readFile)(
       (0, import_node_path4.resolve)(options.workspace, options.inputs.notesFile)
     );
-    const body2 = decodeUtf8(bytes, "notes-file");
+    const body = decodeUtf8(bytes, "notes-file");
     return writePrepared(
       output,
-      body2,
+      body,
       simpleReport({
         mode,
-        body: body2,
+        body,
         status: "prepared",
         details: { source: "file" }
       })
@@ -11797,16 +11824,16 @@ async function prepareNotes(options) {
       previousTag: resolved.github?.previousTag,
       configurationFile: resolved.github?.configurationFile
     });
-    const body2 = validatePreparedBody(
+    const body = validatePreparedBody(
       generated.body,
       "GitHub-generated release notes"
     );
     return writePrepared(
       output,
-      body2,
+      body,
       simpleReport({
         mode,
-        body: body2,
+        body,
         status: "prepared",
         details: {
           source: "github",
@@ -11820,101 +11847,102 @@ async function prepareNotes(options) {
   if (!policy) {
     throw new Error(`notes mode ${mode} did not resolve a custom policy`);
   }
-  const evidence = await createEvidenceRepository({
+  return withEvidenceRepository({
     workspace: options.workspace,
     tempRoot: options.runnerTemp || (0, import_node_os2.tmpdir)(),
     targetTag: options.tag,
     expectedTargetSha: options.commit
-  });
-  const published = await api.publishedReleases(options.repository);
-  const range = resolveRange({
-    repository: evidence.repository,
-    targetTag: options.tag,
-    targetSha: options.commit,
-    releases: published,
-    targetPrerelease: options.inputs.prerelease,
-    policy: policy.range
-  });
-  const commits = range.empty ? [] : collectCommitEvidence(
-    evidence.repository,
-    range.targetSha,
-    range.baseSha
-  );
-  const commitRecords = commits.map(commitRecord);
-  const transportMergeIds = new Set(
-    commits.flatMap((commit, index) => {
-      const record = commitRecords[index];
-      return commit.parents.length > 1 && record.type === null && !record.breaking ? [record.id] : [];
-    })
-  );
-  const presentationCommitRecords = commitRecords.filter(
-    (record) => !transportMergeIds.has(record.id)
-  );
-  let records = presentationCommitRecords;
-  let providerDiagnostics = policy.source === "pull-requests" ? [] : [...transportMergeIds].map(
-    (id) => `${id}: omitted ordinary merge-summary transport record`
-  );
-  const visibleNotices = [];
-  if (policy.source !== "commits") {
-    const collection = await collectPullRequestRecords({
-      repository: options.repository,
-      commits,
-      api
+  }, async (evidence) => {
+    const published = await api.publishedReleases(options.repository);
+    const range = resolveRange({
+      repository: evidence.repository,
+      targetTag: options.tag,
+      targetSha: options.commit,
+      releases: published,
+      targetPrerelease: options.inputs.prerelease,
+      policy: policy.range
     });
-    providerDiagnostics.push(...collection.diagnostics);
-    if (policy.source === "pull-requests") {
-      enforcePullRequestCoverage({
-        collection,
-        unmatched: policy.unmatched
+    const commits = range.empty ? [] : collectCommitEvidence(
+      evidence.repository,
+      range.targetSha,
+      range.baseSha
+    );
+    const commitRecords = commits.map(commitRecord);
+    const transportMergeIds = new Set(
+      commits.flatMap((commit, index) => {
+        const record = commitRecords[index];
+        return commit.parents.length > 1 && record.type === null && !record.breaking ? [record.id] : [];
+      })
+    );
+    const presentationCommitRecords = commitRecords.filter(
+      (record) => !transportMergeIds.has(record.id)
+    );
+    let records = presentationCommitRecords;
+    let providerDiagnostics = policy.source === "pull-requests" ? [] : [...transportMergeIds].map(
+      (id) => `${id}: omitted ordinary merge-summary transport record`
+    );
+    const visibleNotices = [];
+    if (policy.source !== "commits") {
+      const collection = await collectPullRequestRecords({
+        repository: options.repository,
+        commits,
+        api
       });
-      if (policy.unmatched === "omit" && collection.uncovered.length > 0) {
+      providerDiagnostics.push(...collection.diagnostics);
+      if (policy.source === "pull-requests") {
+        enforcePullRequestCoverage({
+          collection,
+          unmatched: policy.unmatched
+        });
+        if (policy.unmatched === "omit" && collection.uncovered.length > 0) {
+          visibleNotices.push(
+            `${collection.uncovered.length} released commit(s) were omitted because they were not associated with a verified pull request.`
+          );
+        }
+        records = collection.records;
+      } else {
+        records = combineHybridRecords({
+          pullRequests: collection,
+          commitRecords: presentationCommitRecords
+        });
+      }
+    }
+    let changes = classifyChanges(records, policy);
+    for (const diagnostic of changes.diagnostics) {
+      const match = diagnostic.match(
+        /^(.*): breaking change excluded by explicit filter/
+      );
+      if (match) {
         visibleNotices.push(
-          `${collection.uncovered.length} released commit(s) were omitted because they were not associated with a verified pull request.`
+          `Breaking change ${match[1]} was excluded by an explicit filter.`
         );
       }
-      records = collection.records;
-    } else {
-      records = combineHybridRecords({
-        pullRequests: collection,
-        commitRecords: presentationCommitRecords
-      });
     }
-  }
-  let changes = classifyChanges(records, policy);
-  for (const diagnostic of changes.diagnostics) {
-    const match = diagnostic.match(
-      /^(.*): breaking change excluded by explicit filter/
+    changes = appendProviderDiagnostics(
+      changes,
+      providerDiagnostics
     );
-    if (match) {
-      visibleNotices.push(
-        `Breaking change ${match[1]} was excluded by an explicit filter.`
-      );
-    }
-  }
-  changes = appendProviderDiagnostics(
-    changes,
-    providerDiagnostics
-  );
-  let body = renderReleaseNotes(changes, policy, {
-    repository: options.repository,
-    targetTag: range.targetTag,
-    targetSha: range.targetSha,
-    baseTag: range.baseTag,
-    baseSha: range.baseSha,
-    firstRelease: range.firstRelease,
-    intentionallyEmpty: range.empty && range.firstRelease
+    let body = renderReleaseNotes(changes, policy, {
+      repository: options.repository,
+      targetTag: range.targetTag,
+      targetSha: range.targetSha,
+      baseTag: range.baseTag,
+      baseSha: range.baseSha,
+      firstRelease: range.firstRelease,
+      intentionallyEmpty: range.empty && range.firstRelease
+    });
+    body = withVisibleNotices(body, visibleNotices);
+    validatePreparedBody(body);
+    const report = buildNotesReport({
+      body,
+      changes,
+      policy,
+      range
+    });
+    report.config = configOrigin;
+    report.source = policy.source;
+    return writePrepared(output, body, report);
   });
-  body = withVisibleNotices(body, visibleNotices);
-  validatePreparedBody(body);
-  const report = buildNotesReport({
-    body,
-    changes,
-    policy,
-    range
-  });
-  report.config = configOrigin;
-  report.source = policy.source;
-  return writePrepared(output, body, report);
 }
 
 // src/release-config.ts

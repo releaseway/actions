@@ -1,6 +1,6 @@
 import { ReleaseError } from "./release-error.ts";
 import { spawnSync } from "node:child_process";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 export interface GitCommandResult {
@@ -108,6 +108,7 @@ export class GitRepository {
       [
         "config",
         "--local",
+        "--includes",
         "--get-regexp",
         "^http\\..*\\.extraheader$",
       ],
@@ -213,41 +214,63 @@ export async function createEvidenceRepository(options: {
   const origin = workspace.remoteUrl();
   const path = await mkdtemp(join(resolve(options.tempRoot), "releaseway-notes-git-"));
   const repository = new GitRepository(path);
-
-  repository.run(["init", "--bare"]);
-  repository.run(["remote", "add", "origin", origin]);
-  repository.run(
-    [
-      "fetch",
-      "--force",
-      "--no-recurse-submodules",
-      "origin",
-      "+refs/tags/*:refs/tags/*",
-    ],
-    {
-      config: workspace.localHttpAuthConfig(),
-    },
-  );
-
-  const targetRef = `refs/tags/${options.targetTag}`;
-  if (!repository.hasRef(targetRef)) {
-    throw new Error(`release tag is missing from evidence origin: ${options.targetTag}`);
-  }
-  const targetSha = repository.resolveCommit(targetRef);
-  const expected = options.expectedTargetSha.toLowerCase();
-  if (targetSha !== expected) {
-    throw new Error(
-      `release tag target does not match commit in evidence repository: tag=${targetSha} expected=${expected}`,
+  try {
+    repository.run(["init", "--bare"]);
+    repository.run(["remote", "add", "origin", origin]);
+    repository.run(
+      [
+        "fetch",
+        "--force",
+        "--no-recurse-submodules",
+        "origin",
+        "+refs/tags/*:refs/tags/*",
+      ],
+      {
+        config: workspace.localHttpAuthConfig(),
+      },
     );
-  }
 
-  return {
-    repository,
-    path,
-    origin,
-    targetTag: options.targetTag,
-    targetSha,
-  };
+    const targetRef = `refs/tags/${options.targetTag}`;
+    if (!repository.hasRef(targetRef)) {
+      throw new Error(`release tag is missing from evidence origin: ${options.targetTag}`);
+    }
+    const targetSha = repository.resolveCommit(targetRef);
+    const expected = options.expectedTargetSha.toLowerCase();
+    if (targetSha !== expected) {
+      throw new Error(
+        `release tag target does not match commit in evidence repository: tag=${targetSha} expected=${expected}`,
+      );
+    }
+
+    return {
+      repository,
+      path,
+      origin,
+      targetTag: options.targetTag,
+      targetSha,
+    };
+  } catch (error) {
+    try { await rm(path, { recursive: true, force: true }); }
+    catch (cleanupError) { throw new AggregateError([error, cleanupError], "Evidence preparation and cleanup failed"); }
+    throw error;
+  }
+}
+
+export async function withEvidenceRepository<T>(
+  options: Parameters<typeof createEvidenceRepository>[0],
+  consume: (evidence: EvidenceRepository) => Promise<T>,
+): Promise<T> {
+  const evidence = await createEvidenceRepository(options);
+  let failure: unknown;
+  try { return await consume(evidence); }
+  catch (error) { failure = error; throw error; }
+  finally {
+    try { await rm(evidence.path, { recursive: true, force: true }); }
+    catch (cleanupError) {
+      if (failure !== undefined) throw new AggregateError([failure, cleanupError], "Notes preparation and evidence cleanup failed");
+      throw cleanupError;
+    }
+  }
 }
 
 export interface CommitEvidence {

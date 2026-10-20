@@ -9463,6 +9463,7 @@ var GitRepository = class {
       [
         "config",
         "--local",
+        "--includes",
         "--get-regexp",
         "^http\\..*\\.extraheader$"
       ],
