@@ -25,6 +25,8 @@ test("automatic range finds a one-commit release in a 30000-commit repository",a
     assert.equal(range.baseTag,"v1.0.0");
     assert.equal(collectCommitEvidence(repository,range.targetSha,range.baseSha).length,1);
     assert.throws(()=>collectCommitEvidence(repository,range.targetSha,null),/maximum commit count/);
+    assert.equal(collectCommitEvidence(repository,git(["rev-parse","HEAD~20000"]),null).length,10000);
+    assert.throws(()=>collectCommitEvidence(repository,git(["rev-parse","HEAD~19999"]),null),/maximum commit count/);
     // Exercise cursor continuation beyond the first bounded page.
     let visited=0;for(const sha of repository.firstParentChain(range.targetSha)){assert.match(sha,/^[a-f0-9]{40}$/);visited++;}
     assert.equal(visited,30000);
