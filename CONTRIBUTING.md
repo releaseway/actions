@@ -32,7 +32,7 @@ checks the tagged action's typecheck, unit, dist and lifecycle behavior. See the
 [candidate guide](https://github.com/releaseway/release-fixture#candidate-release-readiness)
 for artifact retention, read permissions and retries. Pushing a new version tag starts another push CI run at the same SHA; wait for that run to succeed before dispatching publication. The gate checks the newest run, even if an earlier branch run already passed.
 
-Distribution acceptance is separate from this release-note gate. Its [fixture guide](https://github.com/releaseway/release-fixture/tree/main/distribution-fixtures) covers public Release reads and all three actual Pages source modes; a successful notes suite alone does not prove Pages delivery.
+Every new official actions release also requires latest successful exact-SHA `distribution.yml` push CI and `distribution-run`: a successful `distribution-acceptance.yml` dispatch with Pages enabled. Its current-attempt artifact must contain all three native platform receipts and all three Pages source modes with matching candidate, fixture commit, run/attempt and served digest. Notes-only or public-only acceptance cannot pass this common-version gate. See the [fixture guide](https://github.com/releaseway/release-fixture/tree/main/distribution-fixtures). This adds a complete distribution/Pages campaign to every release candidate and does not retroactively change published releases.
 
 The private `package.json` version is build metadata. Published Action versions
 come from Git tags, and all entry points share the same release SHA.
