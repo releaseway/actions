@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -15,7 +15,8 @@ function git(path, ...args) {
   return r.stdout.trim();
 }
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "evidence-lifetime-"));
+  // Git matches includeIf.gitdir against the physical path (/private/var on macOS).
+  const root = await realpath(await mkdtemp(join(tmpdir(), "evidence-lifetime-")));
   git(root, "init"); git(root, "config", "user.name", "Fixture"); git(root, "config", "user.email", "fixture@example.invalid");
   await writeFile(join(root, "x"), "x"); git(root, "add", "."); git(root, "commit", "-m", "fix: fixture"); git(root, "tag", "v1.0.0");
   return { root, sha: git(root, "rev-parse", "HEAD") };
