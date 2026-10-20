@@ -1,7 +1,7 @@
 # Release in one workflow
 
 The [workflow template](../examples/app-free-release.yml) pins the immutable
-releases actions [v0.6.0](https://github.com/releaseway/actions/releases/tag/v0.6.0),
+releases actions [v0.6.1](https://github.com/releaseway/actions/releases/tag/v0.6.1),
 npm-actions [v0.7.0](https://github.com/releaseway/npm-actions/releases/tag/v0.7.0)
 and Homebrew [v0.4.2](https://github.com/releaseway/homebrew-actions/releases/tag/v0.4.2)
 by full commit SHA. Copy it into the product repository and configure the product
