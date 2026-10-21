@@ -8,6 +8,27 @@ permissions:
   contents: read
 
 jobs:
+  static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.14.0
+          run_install: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run check:dist
+      - run: python3 test/release-evidence.py
+      - run: python3 test/evidence-bundle.py
+      - run: python3 test/release-set-evidence.py
+      - run: python3 test/homebrew-feature-evidence.py
+      - run: python3 test/app-free-evidence.py
+
   test:
     strategy:
       fail-fast: false
@@ -27,20 +48,8 @@ jobs:
           node-version: "24"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run typecheck
       - run: pnpm test
-      - run: pnpm run check:dist
       - name: Release lifecycle regression
         run: python3 test/release.py
-      - name: Release evidence regression
-        run: python3 test/release-evidence.py
-      - name: Check durable evidence bundles
-        run: python3 test/evidence-bundle.py
-      - name: Release-set provider evidence and offline replay
-        run: python3 test/release-set-evidence.py
-      - name: Check Homebrew revision/platform approval
-        run: python3 test/homebrew-feature-evidence.py
-      - name: App-free evidence regression
-        run: python3 test/app-free-evidence.py
       - name: Whitespace
         run: git diff --check
