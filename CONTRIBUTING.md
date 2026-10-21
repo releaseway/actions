@@ -19,6 +19,8 @@ pnpm run build
 pnpm run check:dist
 python3 test/release.py
 python3 test/release-evidence.py
+python3 test/evidence-bundle.py
+python3 test/homebrew-feature-evidence.py
 git diff --check
 ```
 
@@ -36,5 +38,11 @@ Every new official actions release also requires latest successful exact-SHA `di
 
 The private `package.json` version is build metadata. Published Action versions
 come from Git tags, and all entry points share the same release SHA.
+
+The unreleased repository release workflow freezes approval into a required
+`releaseway-evidence.json` asset before publication and authenticates the immutable
+asset afterward. See [preservation, offline verification and retry recovery](docs/release-evidence.md).
+That guide also records the already-preserved v0.6.3, npm v0.7.1 and Homebrew v0.4.3
+sidecars. These maintainer checks do not change the stable Action's consumer inputs.
 
 [Back to Releaseway Actions](README.md)
