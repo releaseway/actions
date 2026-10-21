@@ -1,0 +1,18 @@
+{
+  "schema": 2,
+  "releases": {
+    "tag-prefix": "v",
+    "range": ">=1.0.0 <2.0.0",
+    "include-prereleases": false,
+    "on-empty": "skip"
+  },
+  "files": [
+    {"from": "bootstrap.sh", "to": "install.sh", "required": true},
+    {"from": "diagnose.ps1", "to": "install.ps1", "required": true},
+    {"from": "metadata.json", "to": "metadata.json", "required": false}
+  ],
+  "aliases": {
+    "select": "highest-stable",
+    "files": [{"from": "install.sh", "to": "install.sh"}, {"from": "install.ps1", "to": "install.ps1"}]
+  }
+}

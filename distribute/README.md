@@ -9,6 +9,10 @@ Available in [v0.6.3](https://github.com/releaseway/actions/releases/tag/v0.6.3)
 Use `2abdf26c6f01c1e49da4ba5d85253847fe721fd9` for both the step action and the
 optional Pages workflow. All entry points in `releaseway/actions` share this version.
 
+The [release-set examples](#collect-several-releases-unreleased) use the unreleased
+schema 2 candidate `6f2d04d9c825e1efaed1a9089dc02be22ddef627`. They require that
+candidate or a later compatible release; the v0.6.3 pin does not support them.
+
 ## Prepare local files
 
 Save this as `.github/workflows/distribute.yml` in your repository, then dispatch
@@ -148,15 +152,150 @@ use the preceding output `path` as the next invocation's `site`. Retention cover
 supplied baseline files only: the action does not retrieve past deployments,
 prune old files, or preserve versions absent from the baseline.
 
+## Collect several Releases (unreleased)
+
+Collect a version family into one site without a release-list job, matrix or
+artifact merge. The step action and Pages workflow both read a schema 2 policy.
+Keep the policy in your repository and pin the unreleased candidate shown above.
+
+### Choose the versions and files
+
+Publish `bootstrap.sh` and `diagnose.ps1` on the public repository's v1.x Releases.
+`metadata.json` is optional. Save the following as
+`.github/distribution/release-set.json`, or copy the
+[sample policy](../examples/distribution-release-set.json):
+
+```json
+{
+  "schema": 2,
+  "releases": {
+    "tag-prefix": "v",
+    "range": ">=1.0.0 <2.0.0",
+    "include-prereleases": false,
+    "on-empty": "skip"
+  },
+  "files": [
+    {"from": "bootstrap.sh", "to": "install.sh", "required": true},
+    {"from": "diagnose.ps1", "to": "install.ps1", "required": true},
+    {"from": "metadata.json", "to": "metadata.json", "required": false}
+  ],
+  "aliases": {
+    "select": "highest-stable",
+    "files": [{"from": "install.sh", "to": "install.sh"}, {"from": "install.ps1", "to": "install.ps1"}]
+  }
+}
+```
+
+With complete v1.0.0 and v1.1.0 Releases, the result includes
+`v1.0.0/install.sh`, `v1.1.0/install.sh` and root `install.sh`. The root alias is
+a verified copy from v1.1.0. These paths are relative to the site's base URL,
+including a repository prefix on project Pages sites. A later v1.2.0 rebuild
+retains the selected v1.0.0/v1.1.0 paths and moves the alias to v1.2.0.
+
+The range uses SemVer after removing the exact `tag-prefix`. Only canonical
+versions match; build metadata (`+...`) is excluded. Drafts never match.
+`include-prereleases` defaults to false and excludes either a GitHub prerelease
+flag or a SemVer prerelease. Set it to true to include both stable and prerelease
+versions using SemVer's `includePrerelease` range evaluation. `highest-stable`
+uses the greatest SemVer with neither prerelease marker; it does not use GitHub's
+global latest pointer or infer release-series boundaries from Git history.
+
+For exact or non-SemVer tags, replace `releases` and `aliases` with these fields,
+keeping `schema` and `files` above:
+
+```yaml
+releases:
+  tags: [v1.0.0, v1.1.0]
+  on-empty: skip
+aliases:
+  tag: v1.1.0
+  files:
+    - from: install.sh
+      to: install.sh
+```
+
+Explicit tags may include published prereleases. Missing or draft tags fail.
+Use either `tags` or `tag-prefix`/`range`. Alias `tag` must be selected;
+`select: highest-stable` requires a range. Alias `from` names a required file's
+mapped `to`, and alias `to` names its public destination. An alias whose chosen
+Release has no files fails; there is no fallback to an older complete Release.
+
+Files use exact flat asset names and exact portable relative destinations.
+`required` defaults to true, and at least one file must be required. With
+`on-empty: skip`, a Release with none of the configured asset names is reported
+as `skipped-empty`. If any configured asset is present but a required asset is
+missing, preparation fails. The default `on-empty: error` rejects empty Releases.
+No matching Releases, or all Releases skipped, also fails even with a site baseline.
+Globs, filename templates and regular expressions are not supported in schema 2.
+
+### Merge with your documentation build
+
+The [complete step workflow](../examples/distribution-release-set.yml) builds
+sample documentation, prepares the Releases with `site: website/dist`, checks
+the output and uploads the resulting site for your existing publisher. Replace
+the sample build with your own tool. One invocation creates one verified directory;
+it never executes the downloaded installers.
+
+For Pages, use the [complete documentation workflow](../examples/distribution-pages-release-set.yml).
+It uploads the documentation once and passes its immutable artifact ID as
+`site-artifact-id`, together with the checked-in config. The workflow copies the
+whole documentation tree, including uploaded hidden files, then adds the version
+files and aliases. Success returns the deployed `page-url`, report artifact and
+environment deployment ID after checking the actual served bytes.
+
+The documentation artifact must be from the caller repository and current run.
+Its ID, run head SHA, expiry and archive digest are checked separately from the
+Release source. A public `repository` override changes only the Release source.
+Policy is always checked out at the caller SHA; a config inside the documentation
+artifact is not used as policy. Do not combine schema 2 with `files`, `tag`,
+payload `artifact-id`, local `root` or single-tag `commit`. `site-artifact-id` is
+available only with schema 2. Pages keeps the existing permissions, environment
+requirements and `pages` concurrency group.
+
+### Retention, reports and recovery
+
+Retention is the set selected on each rebuild plus the supplied baseline.
+Keep old Releases, assets and selector coverage to preserve their URLs with a
+fresh documentation build. Deleting or replacing source assets, narrowing the
+range, or supplying a different baseline can change the result. No previous
+deployment is fetched and no permanent archive is promised. `conflict: replace`
+on the step action replaces only selected baseline targets; Pages uses the default
+conflict error, so keep documentation paths separate from installer paths.
+
+Schema 2 reports keep the policy and its digest, candidate tags/commits and
+Release/asset IDs, selected/skipped status, each file's source and aliases'
+`aliasOf` version paths. The baseline records `local-site` or the exact workflow
+artifact/run/SHA/digest. See [config.schema.json](config.schema.json) and
+[report.schema.json](report.schema.json); runtime checks also validate paths,
+digests and references. Schema 1 input still produces schema 1 reports. Output
+names and the content digest algorithm are unchanged; Pages reports also retain
+the pre-delivery digest and include its empty `.nojekyll` in the delivery digest.
+
+Membership, tag commits, flags and configured asset snapshots are rechecked before
+preparation succeeds and before/after Pages served verification. A source change
+or `superseded` selection requires a full rerun. Snapshot checks observe GitHub
+at separate times; they are not an atomic or permanent source guarantee. If a
+post-deploy check fails, the new site may already be live (`deployed-unverified`);
+inspect the summary and rerun the whole workflow after resolving the source change.
+Missing or expired artifacts also require a full rerun. There is no automatic rollback.
+
+The existing global byte/file limits and ten-minute core deadline cover all
+Releases, baseline files and alias copies together. Listing is bounded to twenty
+pages of 100 Releases and fails when completeness cannot be established. Temporary
+disk use includes downloaded originals, the copied site, extracted documentation
+and Pages packaging. Pages retains its 1,000,000,000-byte site/archive limit;
+link large packages directly to GitHub Releases when the site would exceed it.
+Version menus and generated download-index pages are outside this feature.
+
 ## Step action reference
 
 | Input | Default | Meaning |
 | --- | --- | --- |
 | `files` | Empty | Newline-separated relative paths or patterns; exactly one of `files` or `config` is required. |
-| `config` | Empty | Caller workspace-relative YAML/JSON v1 file with exact `from`/`to` mappings. |
-| `tag` | Empty: local source | Exact published public github.com Release tag. |
+| `config` | Empty | Caller workspace-relative YAML/JSON v1 mappings, or unreleased v2 release-set policy. |
+| `tag` | Empty: local source, or v2 Release set | Exact published public github.com Release tag; rejected with schema 2. |
 | `repository` | Caller repository | Public `owner/name`; Release source only. |
-| `commit` | Empty | Full expected tag commit SHA; Release source only. |
+| `commit` | Empty | Full expected tag commit SHA; single Release only. |
 | `token` | Caller `github.token` | Read token for Release APIs; unused for local files. |
 | `verification` | `digest` | `digest`, or `attested` for Release sources. |
 | `root` | Workspace, with common public prefix removed | Optional local root; supplied roots retain paths relative to that directory. Rejected for Release sources. |
@@ -169,7 +308,7 @@ prune old files, or preserve versions absent from the baseline.
 | Output | Meaning |
 | --- | --- |
 | `path` | New completed directory for a subsequent publisher. |
-| `report` | Separate schema-1 JSON inventory and source verification report. |
+| `report` | Separate schema-1 inventory, or schema-2 release-set inventory and provenance report. |
 | `digest` | SHA-256 of sorted final paths, sizes and file hashes, including baseline files. |
 
 The content digest omits provenance, timestamps and permissions. Reports distinguish
@@ -280,9 +419,10 @@ Artifact metadata records producer run/SHA identity, not build reproducibility.
 | Input | Default | Meaning |
 | --- | --- | --- |
 | `files` | Empty | Release asset patterns or artifact-relative paths; exactly one of `files` or `config`. |
-| `config` | Empty | Caller workspace-relative exact mapping policy. |
+| `config` | Empty | Caller workspace-relative exact mapping policy, or unreleased schema 2 release-set policy. |
 | `tag` | Empty | Exact public Release tag; omit with `artifact-id`. |
 | `artifact-id` | Empty | Same-run immutable source artifact ID; omit with `tag`. |
+| `site-artifact-id` | Empty | Unreleased: same-run documentation artifact baseline; schema 2 only. |
 | `repository` | Caller repository | Public Release override; rejected for artifact sources. |
 | `verification` | `digest` | `attested` is available only for Release sources. |
 
@@ -320,4 +460,6 @@ uncompressed disk bound enforced during the official extraction.
 [Local workflow](../examples/distribution-local.yml) ·
 [Release workflow](../examples/distribution-release.yml) ·
 [Pages Release workflow](../examples/distribution-pages.yml) ·
-[Pages artifact workflow](../examples/distribution-pages-artifact.yml)
+[Pages artifact workflow](../examples/distribution-pages-artifact.yml) ·
+[Release-set workflow (unreleased)](../examples/distribution-release-set.yml) ·
+[Pages documentation + release set (unreleased)](../examples/distribution-pages-release-set.yml)

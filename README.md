@@ -35,6 +35,12 @@ cleans temporary evidence repositories after failures, bounds large-history trav
 and retries stale Pages responses until their bytes match. Official publication also
 requires complete distribution and served Pages evidence for the exact candidate.
 
+Unreleased: [release-set distribution](distribute/README.md#collect-several-releases-unreleased)
+collects several public Releases into version paths and merges them with a
+documentation build. Its examples pin a reviewed candidate; v0.6.3 does not include
+schema 2 or `site-artifact-id`. Fresh actions publication now requires separate
+release-set acceptance and archived provider evidence as well as the legacy checks.
+
 ## Quick start
 
 Publish a Release from an **existing stable Git tag**. First enable immutable
