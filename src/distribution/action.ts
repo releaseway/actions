@@ -12,7 +12,9 @@ import { readConfig } from "./config.ts";
 import { selectSite } from "./site.ts";
 export async function distribute(env: Environment = process.env, client?: ReleaseClient, configWorkspace?: string) {
   const o = options(env), deadline = Date.now() + 600_000;
-  const mappings = o.config ? await readConfig(configWorkspace ?? o.workspace,o.config) : undefined;
+  const config = o.config ? await readConfig(configWorkspace ?? o.workspace,o.config) : undefined;
+  if (config?.schema === 2) throw new Error("Release-set file preparation is not connected yet");
+  const mappings = config?.files;
   const destination = input(env,"destination"); if (destination) publicPath(destination);
   const conflict = input(env,"conflict") || "error";
   if (!["error","replace"].includes(conflict)) throw new Error("conflict must be error or replace");

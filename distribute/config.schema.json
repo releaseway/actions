@@ -1,21 +1,46 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Releaseway distribution file mappings",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["schema", "files"],
-  "properties": {
-    "schema": { "const": 1 },
-    "files": {
-      "type": "array", "minItems": 1, "maxItems": 10000,
-      "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["from", "to"],
-        "properties": {
-          "from": { "type": "string", "minLength": 1 },
-          "to": { "type": "string", "minLength": 1 }
-        }
-      }
+  "title": "Releaseway distribution configuration",
+  "oneOf": [{"$ref":"#/$defs/v1"},{"$ref":"#/$defs/v2"}],
+  "$defs": {
+    "mapping": {
+      "type":"object", "additionalProperties":false, "required":["from","to"],
+      "properties":{"from":{"type":"string","minLength":1},"to":{"type":"string","minLength":1}}
+    },
+    "mappings": {"type":"array","minItems":1,"maxItems":10000,"items":{"$ref":"#/$defs/mapping"}},
+    "v1": {
+      "type":"object","additionalProperties":false,"required":["schema","files"],
+      "properties":{"schema":{"const":1},"files":{"$ref":"#/$defs/mappings"}}
+    },
+    "onEmpty": {"enum":["error","skip"],"default":"error"},
+    "selector": {
+      "oneOf":[
+        {"type":"object","additionalProperties":false,"required":["tags"],
+         "properties":{"tags":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","minLength":1}},"on-empty":{"$ref":"#/$defs/onEmpty"}}},
+        {"type":"object","additionalProperties":false,"required":["tag-prefix","range"],
+         "properties":{"tag-prefix":{"type":"string"},"range":{"type":"string","minLength":1},"include-prereleases":{"type":"boolean","default":false},"on-empty":{"$ref":"#/$defs/onEmpty"}}}
+      ]
+    },
+    "releaseFile": {
+      "type":"object","additionalProperties":false,"required":["from","to"],
+      "properties":{"from":{"type":"string","minLength":1},"to":{"type":"string","minLength":1},"required":{"type":"boolean","default":true}}
+    },
+    "aliases": {
+      "oneOf":[
+        {"type":"object","additionalProperties":false,"required":["tag","files"],
+         "properties":{"tag":{"type":"string","minLength":1},"files":{"$ref":"#/$defs/mappings"}}},
+        {"type":"object","additionalProperties":false,"required":["select","files"],
+         "properties":{"select":{"const":"highest-stable"},"files":{"$ref":"#/$defs/mappings"}}}
+      ]
+    },
+    "v2": {
+      "type":"object","additionalProperties":false,"required":["schema","releases","files"],
+      "properties":{
+        "schema":{"const":2},"releases":{"$ref":"#/$defs/selector"},"aliases":{"$ref":"#/$defs/aliases"},
+        "files":{"type":"array","minItems":1,"maxItems":10000,"items":{"$ref":"#/$defs/releaseFile"},
+          "contains":{"anyOf":[{"not":{"required":["required"]}},{"required":["required"],"properties":{"required":{"const":true}}}]}}
+      },
+      "description":"Portable paths, SemVer syntax, duplicate targets and alias references are additionally checked at runtime. Alias select requires a range selector."
     }
   }
 }

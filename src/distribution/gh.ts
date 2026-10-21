@@ -4,7 +4,7 @@ import { pipeline } from "node:stream/promises";
 import { Transform } from "node:stream";
 import type { Environment } from "./inputs.ts";
 export interface ReleaseClient {
-  json(endpoint: string): Promise<any>;
+  json(endpoint: string, projection?: string): Promise<any>;
   download(endpoint: string, path: string, maximum: number): Promise<void>;
   verify(tag: string, path: string, repository: string): Promise<void>;
 }
@@ -45,8 +45,9 @@ export class GhClient implements ReleaseClient {
       return Buffer.concat(chunks);
     } finally { clearTimeout(timer); if (child.exitCode === null) child.kill(); }
   }
-  async json(endpoint: string): Promise<any> {
-    const bytes = await this.run(["api", "--hostname", "github.com", "-H", "Accept: application/vnd.github+json", endpoint]);
+  async json(endpoint: string, projection?: string): Promise<any> {
+    const bytes = await this.run(["api", "--hostname", "github.com", "-H", "Accept: application/vnd.github+json", endpoint,
+      ...(projection ? ["--jq",projection] : [])]);
     try { return JSON.parse(bytes.toString("utf8")); } catch { throw new Error("Invalid GitHub JSON response"); }
   }
   async download(endpoint: string, path: string, maximum: number): Promise<void> {
