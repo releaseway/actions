@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       distribution-run:
-        description: Successful exact-candidate distribution acceptance run with all Pages modes enabled.
+        description: Successful exact-candidate distribution run with legacy modes and both release-set Pages deployments.
         required: true
         type: string
 
