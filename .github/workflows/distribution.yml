@@ -1,12 +1,40 @@
 name: distribution
 on:
   push:
+    branches: ['**']
   pull_request:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
+  inputs:
+    runs-on: ubuntu-24.04
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE_FULL: ${{ vars.RELEASEWAY_FORCE_FULL }}
+        run: python3 scripts/ci-mode.py
+
+  docs:
+    needs: inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        with:
+          ruby-version: "3.4"
+      - run: python3 scripts/check-docs.py
+
   local:
+    needs: inputs
+    if: needs.inputs.outputs.mode == 'full'
     strategy:
       fail-fast: false
       matrix:
@@ -44,6 +72,8 @@ jobs:
           test -s "$DISTRIBUTION_REPORT"
 
   fixture-execution:
+    needs: inputs
+    if: needs.inputs.outputs.mode == 'full'
     strategy:
       fail-fast: false
       matrix:
@@ -86,3 +116,14 @@ jobs:
           & (Join-Path $env:FIXTURE_PAYLOAD 'authored/diagnose.ps1') -Expected 2.3.4
           & (Join-Path $env:FIXTURE_PAYLOAD 'authored/diagnose.ps1') -Uninstall
           if (Test-Path (Join-Path $env:FIXTURE_HOME 'version')) { throw 'uninstall failed' }
+
+  distribution-validation:
+    if: always()
+    needs: [inputs, docs, local, fixture-execution]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - env:
+          CI_MODE: ${{ needs.inputs.outputs.mode }}
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 scripts/ci-gate.py

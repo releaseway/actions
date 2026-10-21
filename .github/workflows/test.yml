@@ -2,22 +2,59 @@ name: test
 
 on:
   push:
+    branches: ['**']
   pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  static:
+  inputs:
+    runs-on: ubuntu-24.04
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE_FULL: ${{ vars.RELEASEWAY_FORCE_FULL }}
+        run: python3 scripts/ci-mode.py
+
+  docs:
+    needs: inputs
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 2
-      - name: Shadow input classification (not an approval)
-        run: python3 scripts/release-inputs.py --baseline "$(git rev-parse HEAD^ 2>/dev/null || true)"
+          persist-credentials: false
+      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        with:
+          ruby-version: "3.4"
+      - run: python3 scripts/check-docs.py
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.14.0
+          run_install: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node --test test/docs.test.mjs
+
+  static:
+    needs: inputs
+    if: needs.inputs.outputs.mode == 'full'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: python3 test/release-inputs.py
       - run: python3 test/release-reuse.py
+      - run: python3 test/ci-contract.py
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 12.14.0
@@ -36,6 +73,8 @@ jobs:
       - run: python3 test/app-free-evidence.py
 
   test:
+    needs: inputs
+    if: needs.inputs.outputs.mode == 'full'
     strategy:
       fail-fast: false
       matrix:
@@ -59,3 +98,17 @@ jobs:
         run: python3 test/release.py
       - name: Whitespace
         run: git diff --check
+
+  validation:
+    name: validation
+    if: always()
+    needs: [inputs, docs, static, test]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - env:
+          CI_MODE: ${{ needs.inputs.outputs.mode }}
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 scripts/ci-gate.py
