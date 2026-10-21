@@ -23,7 +23,7 @@ python3 test/release-evidence.py
 python3 test/evidence-bundle.py
 python3 test/homebrew-feature-evidence.py
 python3 test/release-set-evidence.py
-python3 test/app-free.py
+python3 test/app-free-evidence.py
 git diff --check
 ```
 
