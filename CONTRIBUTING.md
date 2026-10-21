@@ -57,6 +57,11 @@ Documentation-only releases can reuse an authenticated full approval when the
 remaining Git inputs match. Current document checks and publication authentication
 still run. See [approval reuse and forced full checks](docs/release-evidence.md#reuse-a-full-approval-for-documentation).
 
+Read the publication summary to distinguish the reused approval from this candidate:
+`original SHA` and `original verification` identify the full campaign, while
+`current CI` identifies this candidate's checks. `verification` reports whether the
+release used a fresh full approval or an equivalent approval.
+
 The private `package.json` version is build metadata. Published Action versions
 come from Git tags, and all entry points share the same release SHA.
 
