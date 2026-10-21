@@ -26,7 +26,7 @@ jobs:
 
       - id: files
         # Reviewed schema 2 ref; see docs/action-references.md before adoption.
-        uses: releaseway/actions/distribute@6f2d04d9c825e1efaed1a9089dc02be22ddef627
+        uses: releaseway/actions/distribute@ffbe66ca35cbd7edcd6a10806228db76b6a84baf
         with:
           config: .github/distribution/release-set.json
           site: website/dist

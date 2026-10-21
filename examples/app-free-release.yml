@@ -46,7 +46,7 @@ jobs:
           fetch-depth: 0
 
       - id: plan
-        uses: releaseway/actions/prepare@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+        uses: releaseway/actions/prepare@ffbe66ca35cbd7edcd6a10806228db76b6a84baf # v0.7.0
         with:
           mode: plan
           prerelease-id: ${{ inputs.prerelease-id }}
@@ -119,13 +119,13 @@ jobs:
           digest-mismatch: error
 
       - id: resume
-        uses: releaseway/actions/prepare@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+        uses: releaseway/actions/prepare@ffbe66ca35cbd7edcd6a10806228db76b6a84baf # v0.7.0
         with:
           mode: resume
           plan-path: ${{ runner.temp }}/release-plan/release-plan.json
 
       - id: publish
-        uses: releaseway/actions@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+        uses: releaseway/actions@ffbe66ca35cbd7edcd6a10806228db76b6a84baf # v0.7.0
         with:
           tag: ${{ steps.resume.outputs.tag }}
           commit: ${{ steps.resume.outputs.commit }}
@@ -160,7 +160,7 @@ jobs:
       # Run product-owned install/build here when npm packages need it.
       # For native packages, release must publish their configured assets first.
       - id: npm
-        uses: releaseway/npm-actions@b9b00e1a5e5d4e055d34e4daa663909e4d65e21c # v0.7.1
+        uses: releaseway/npm-actions@8ebc04b638a2183c30005fdfd4484e1ba89ad1f4 # v0.7.2
         with:
           release-tag: ${{ needs.release.outputs.tag }}
 
@@ -168,7 +168,7 @@ jobs:
     if: inputs.publish-homebrew && needs.plan.outputs.prerelease != 'true'
     needs: [plan, release]
 
-    uses: releaseway/homebrew-actions/.github/workflows/publish.yml@8fe42d36a7f93a3c399461efbe571fc695d4cdc6 # v0.4.3
+    uses: releaseway/homebrew-actions/.github/workflows/publish.yml@c849a6bcf851c72cdf01d6fc50d9cf823dbc537e # v0.5.0
     with:
       tap-repository: owner/homebrew-tap
       commit: ${{ needs.release.outputs.commit }}
@@ -188,7 +188,7 @@ jobs:
       pages: write
       id-token: write
 
-    uses: releaseway/actions/.github/workflows/distribute-pages.yml@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+    uses: releaseway/actions/.github/workflows/distribute-pages.yml@ffbe66ca35cbd7edcd6a10806228db76b6a84baf # v0.7.0
     with:
       tag: ${{ needs.release.outputs.tag }}
       files: version.txt

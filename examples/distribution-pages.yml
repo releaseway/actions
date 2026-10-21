@@ -14,6 +14,6 @@ jobs:
   distribute:
     # Enable Pages in Actions mode and allow this caller ref in github-pages.
     # The caller repository's latest stable Release must contain install.sh.
-    uses: releaseway/actions/.github/workflows/distribute-pages.yml@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+    uses: releaseway/actions/.github/workflows/distribute-pages.yml@ffbe66ca35cbd7edcd6a10806228db76b6a84baf # v0.7.0
     with:
       files: install.sh
