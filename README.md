@@ -8,10 +8,12 @@ project; Releaseway handles the release and file-verification steps around them.
 
 ## Choose your workflow
 
-- **Publish a GitHub Release:** use the root step action with an existing tag and
-  built assets. Start with the [quick start](#quick-start).
-- **Calculate a version and create its tag:** use the [`prepare` step action](prepare/README.md),
-  then build and publish with its outputs.
+- **Create a versioned GitHub Release:** start with the [quick start](#quick-start).
+  `prepare` chooses the version and creates its tag; the root action publishes it.
+- **Publish an existing tag:** call the root step action with that tag and its
+  commit. See the [publishing reference](docs/publishing.md).
+- **Control version planning and retries:** use the [`prepare` guide](prepare/README.md)
+  for version series, prereleases and saved plans.
 - **Prepare files for any static host:** use the [`distribute` step action](distribute/README.md).
   It accepts local files or public Release assets and returns a verified directory.
 - **Deploy those files to GitHub Pages:** call the optional
@@ -41,28 +43,31 @@ check that your selected ref supports schema 2 and `site-artifact-id`.
 
 ## Quick start
 
-Publish a Release from an **existing stable Git tag**. First enable immutable
-releases in your repository settings and push the tag. Save the workflow below
-as `.github/workflows/release.yml`, then dispatch it with that tag.
+Publish a versioned Release with generated notes. First enable immutable releases
+in your repository settings and allow the workflow to create version tags. Commit
+this policy as `.github/releaseway.yml`:
 
-The sample creates a small text asset so it needs no project-specific build
-script. Replace that producer with your real build and change `assets` to match.
-The hosted Ubuntu runner supplies Git and `gh`; self-hosted runners also need Bash
-and support for Node24 Actions. The root action sets up Node.js 24 itself.
+```yaml
+strategy: source-tag
+```
+
+This uses branch `main` and Conventional Commits to choose the next version. It
+tags the original source without adding a release commit. For another release
+branch or version policy, see the [prepare guide](prepare/README.md).
+
+Save the workflow below as `.github/workflows/release.yml`, replace the SHA
+placeholders, commit it and dispatch it from `main`. The hosted Ubuntu runner
+supplies Git, Bash and `gh`; self-hosted runners must also support Node24 Actions.
+Releaseway sets up its own Node.js runtime.
 
 ```yaml
 name: Publish a release
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing stable Git tag to publish
-        required: true
-        type: string
 permissions:
   contents: write
 concurrency:
-  group: release
+  group: release-main
   cancel-in-progress: false
 jobs:
   release:
@@ -70,33 +75,38 @@ jobs:
     steps:
       - uses: actions/checkout@<checkout-sha>
         with:
-          ref: ${{ inputs.tag }}
           fetch-depth: 0
-          fetch-tags: true
-      - id: source
-        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - name: Produce a sample asset
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          mkdir -p dist
-          printf '%s\n' "$RELEASE_TAG" > dist/version.txt
-      - id: release
+      - id: version
+        uses: releaseway/actions/prepare@<actions-sha>
+      - id: publish
         uses: releaseway/actions@<actions-sha>
         with:
-          tag: ${{ inputs.tag }}
-          commit: ${{ steps.source.outputs.commit }}
-          assets: dist/version.txt
-      - name: Show the published release
-        env:
-          RELEASE_URL: ${{ steps.release.outputs.release-url }}
-        run: |
-          printf 'Release: %s\n' "$RELEASE_URL" >> "$GITHUB_STEP_SUMMARY"
+          tag: ${{ steps.version.outputs.tag }}
+          commit: ${{ steps.version.outputs.commit }}
+          prerelease: ${{ steps.version.outputs.prerelease }}
+          latest: ${{ steps.version.outputs.latest }}
 ```
 
-Success returns a `release-url` and a verified immutable Release containing
-`version.txt`. `notes: standard` is the default: it groups Conventional Commits,
-keeps other commits visible, and includes a comparison link when a base exists.
+Success creates a tag and a verified immutable Release; its URL is available as
+`steps.publish.outputs.release-url` and in the job summary. No asset build is
+required for this first run. `notes: standard` is the default: it groups
+Conventional Commits, keeps other commits visible, and includes a comparison link
+when a base exists. A retry at the same source reuses its release identity.
+
+### Include build assets
+
+Insert your existing build command between `prepare` and the publishing step,
+then add `assets: dist/*` to the publisher's inputs. For example, if your project
+provides `./build-product.sh` and it writes release files to `dist/`:
+
+```yaml
+- run: ./build-product.sh "${{ steps.version.outputs.version }}"
+```
+
+Product build, signing and tests stay in your workflow; version and tag handling
+stay in Releaseway. Preparation creates the tag before this build. A failed build
+can retry the same identity. To require a successful build before creating any
+tag, use the [plan/build/resume workflow](docs/app-free-release.md#order-and-authority).
 
 The default token is `github.token`. Targets that change workflow files relative
 to the default branch need an additional credential with workflow-write permission;
