@@ -7,7 +7,7 @@ on:
         type: string
         default: ''
       config:
-        description: Optional caller YAML/JSON file mappings, instead of files.
+        description: Caller YAML/JSON v1 mappings or v2 release-set policy, instead of files.
         type: string
         default: ''
       tag:
@@ -16,6 +16,10 @@ on:
         default: ''
       artifact-id:
         description: Immutable source artifact ID from the current workflow run.
+        type: string
+        default: ''
+      site-artifact-id:
+        description: Same-run documentation build artifact for a v2 release-set policy.
         type: string
         default: ''
       repository:
@@ -72,15 +76,6 @@ jobs:
           ref: ${{ steps.identity.outputs.sha }}
           path: automation
           persist-credentials: false
-      - id: resolve
-        uses: ./automation/internal/distribution
-        with:
-          operation: resolve
-          files: ${{ inputs.files }}
-          config: ${{ inputs.config }}
-          tag: ${{ inputs.tag }}
-          artifact-id: ${{ inputs.artifact-id }}
-          repository: ${{ inputs.repository }}
       - name: Checkout caller policy
         if: inputs.config != ''
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -89,6 +84,16 @@ jobs:
           ref: ${{ github.sha }}
           path: source
           persist-credentials: false
+      - id: resolve
+        uses: ./automation/internal/distribution
+        with:
+          operation: resolve
+          files: ${{ inputs.files }}
+          config: ${{ inputs.config != '' && format('source/{0}', inputs.config) || '' }}
+          tag: ${{ inputs.tag }}
+          artifact-id: ${{ inputs.artifact-id }}
+          site-artifact-id: ${{ inputs.site-artifact-id }}
+          repository: ${{ inputs.repository }}
       - name: Download source artifact
         if: steps.resolve.outputs.artifact-id != ''
         timeout-minutes: 5
@@ -97,6 +102,14 @@ jobs:
           artifact-ids: ${{ steps.resolve.outputs.artifact-id }}
           path: ${{ runner.temp }}/releaseway-source-artifact
           digest-mismatch: error
+      - name: Download documentation artifact
+        if: steps.resolve.outputs.site-artifact-id != ''
+        timeout-minutes: 5
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ steps.resolve.outputs.site-artifact-id }}
+          path: ${{ runner.temp }}/releaseway-site-artifact
+          digest-mismatch: error
       - id: prepare
         uses: ./automation/internal/distribution
         with:
@@ -104,8 +117,9 @@ jobs:
           files: ${{ inputs.files }}
           config: ${{ inputs.config != '' && format('source/{0}', inputs.config) || '' }}
           source-path: ${{ steps.resolve.outputs.artifact-id != '' && format('{0}/releaseway-source-artifact', runner.temp) || '' }}
+          site-path: ${{ steps.resolve.outputs.site-artifact-id != '' && format('{0}/releaseway-site-artifact', runner.temp) || '' }}
           tag: ${{ steps.resolve.outputs.tag }}
-          repository: ${{ steps.resolve.outputs.tag != '' && steps.resolve.outputs.repository || '' }}
+          repository: ${{ steps.resolve.outputs.mode != 'artifact' && steps.resolve.outputs.repository || '' }}
           verification: ${{ inputs.verification }}
       - id: finalize
         uses: ./automation/internal/distribution
@@ -117,6 +131,9 @@ jobs:
           artifact-id: ${{ steps.resolve.outputs.artifact-id }}
           artifact-digest: ${{ steps.resolve.outputs.artifact-digest }}
           source-head-sha: ${{ steps.resolve.outputs.source-head-sha }}
+          site-artifact-id: ${{ steps.resolve.outputs.site-artifact-id }}
+          site-artifact-digest: ${{ steps.resolve.outputs.site-artifact-digest }}
+          site-head-sha: ${{ steps.resolve.outputs.site-head-sha }}
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           name: ${{ steps.resolve.outputs.artifact-name }}
@@ -205,4 +222,4 @@ jobs:
             state=deployed-unverified
             if [ "$VERIFY_RESULT" = success ]; then state=verified; fi
           fi
-          printf 'Distribution state: %s\n\nURL: %s\n\nEnvironment deployment: %s\n\nNo automatic rollback. Superseded latest requires a full workflow rerun.\n' "$state" "$PAGE_URL" "$DEPLOYMENT_ID" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Distribution state: %s\n\nURL: %s\n\nEnvironment deployment: %s\n\nNo automatic rollback. Superseded source selection requires a full workflow rerun.\n' "$state" "$PAGE_URL" "$DEPLOYMENT_ID" >> "$GITHUB_STEP_SUMMARY"

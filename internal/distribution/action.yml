@@ -12,6 +12,14 @@ inputs:
     description: Exact Release tag.
   artifact-id:
     description: Current-run source artifact ID.
+  site-artifact-id:
+    description: Current-run baseline documentation artifact ID.
+  site-artifact-digest:
+    description: Validated baseline artifact archive digest.
+  site-head-sha:
+    description: Validated baseline workflow run head SHA.
+  site-path:
+    description: Isolated extracted documentation baseline directory.
   repository:
     description: Public Release repository.
   artifact-digest:
@@ -39,6 +47,14 @@ inputs:
     description: Workflow-scoped read token.
     default: ${{ github.token }}
 outputs:
+  mode:
+    description: Resolved source mode.
+  site-artifact-id:
+    description: Validated baseline documentation artifact ID.
+  site-artifact-digest:
+    description: Baseline artifact archive digest.
+  site-head-sha:
+    description: Baseline source workflow run head SHA.
   artifact-digest:
     description: Source artifact archive digest.
   source-head-sha:

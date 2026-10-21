@@ -7,12 +7,14 @@ import { input, type Environment } from "./inputs.ts";
 import { GhClient, type ReleaseClient } from "./gh.ts";
 import { repositoryName } from "./release.ts";
 import { assertTargets, publicPath } from "./paths.ts";
-import { contentDigest, ordered, reportShape, type FileRecord } from "./report.ts";
+import { contentDigest, ordered, reportShape, releaseSetPolicy, type FileRecord } from "./report.ts";
 export { reportShape } from "./report.ts";
 import { hashFile } from "./copy.ts";
 import { selectSite } from "./site.ts";
 import { distribute } from "./action.ts";
 import { verifyServed } from "./verify-served.ts";
+import { readConfig } from "./config.ts";
+import { verifyReleaseSet } from "./release-set.ts";
 const MAX_REPORT=32*1024**2;
 const sha=(bytes:Uint8Array|string)=>createHash("sha256").update(bytes).digest("hex");
 export async function output(env: Environment, values: Record<string,string>) {
@@ -36,21 +38,31 @@ async function latest(gh:ReleaseClient,repository:string){
  if(!Number.isSafeInteger(r.id)||r.id<1||typeof r.tag_name!=="string"||r.draft!==false||r.prerelease!==false)throw new Error("No published latest-stable Release");
  return r;
 }
+async function artifactIdentity(env:Environment,gh:ReleaseClient,id:string) {
+  if(!/^[1-9]\d*$/.test(id)||!Number.isSafeInteger(Number(id)))throw new Error("Invalid artifact-id");
+  const repo=repositoryName(env.GITHUB_REPOSITORY??"");
+  const a=await gh.json(`repos/${repo}/actions/artifacts/${id}`),run=await gh.json(`repos/${repo}/actions/runs/${env.GITHUB_RUN_ID}`);
+  if(a.id!==Number(id)||a.expired!==false||a.workflow_run?.id!==Number(env.GITHUB_RUN_ID)||a.workflow_run?.repository_id!==Number(env.GITHUB_REPOSITORY_ID)||a.workflow_run?.head_sha!==run.head_sha || !/^[a-f0-9]{40}$/i.test(run.head_sha)||!Number.isSafeInteger(a.size_in_bytes)||a.size_in_bytes<0||a.size_in_bytes>2*1024**3||!/^sha256:[a-f0-9]{64}$/.test(a.digest))throw new Error("Artifact is expired, oversized or not from this repository/workflow run");
+  return {digest:a.digest as string,headSha:run.head_sha as string};
+}
 export async function resolvePages(env:Environment,gh:ReleaseClient) {
   pagesEvent(env);
   const tag=input(env,"tag"),artifact=input(env,"artifact-id"),repo=repositoryName(input(env,"repository")||env.GITHUB_REPOSITORY||"");
   if(tag && artifact)throw new Error("Choose tag or artifact-id, not both");
   if(Boolean(input(env,"files"))===Boolean(input(env,"config")))throw new Error("Provide exactly one of files or config");
+  const policy=input(env,"config") ? await readConfig(env.GITHUB_WORKSPACE!,input(env,"config")) : undefined;
+  const set=policy?.schema===2,siteArtifact=input(env,"site-artifact-id");
+  if(set && (tag || artifact))throw new Error("Release-set config cannot be combined with tag or artifact-id");
+  if(siteArtifact && !set)throw new Error("site-artifact-id requires a release-set config");
   let selectedTag=tag,latestId="",artifactDigest="",headSha="";
   if(artifact){
-    if(!/^[1-9]\d*$/.test(artifact)||!Number.isSafeInteger(Number(artifact)))throw new Error("Invalid artifact-id");
     if(input(env,"repository"))throw new Error("repository override is only for Release source");
-    const a=await gh.json(`repos/${repo}/actions/artifacts/${artifact}`),run=await gh.json(`repos/${repo}/actions/runs/${env.GITHUB_RUN_ID}`);
-    if(a.id!==Number(artifact)||a.expired!==false||a.workflow_run?.id!==Number(env.GITHUB_RUN_ID)||a.workflow_run?.repository_id!==Number(env.GITHUB_REPOSITORY_ID)||a.workflow_run?.head_sha!==run.head_sha || !/^[a-f0-9]{40}$/i.test(run.head_sha)||!Number.isSafeInteger(a.size_in_bytes)||a.size_in_bytes<0||a.size_in_bytes>2*1024**3||!/^sha256:[a-f0-9]{64}$/.test(a.digest))throw new Error("Artifact is expired, oversized or not from this repository/workflow run");
-    artifactDigest=a.digest;headSha=run.head_sha;
-  }else if(!tag){const r=await latest(gh,repo);selectedTag=r.tag_name;latestId=String(r.id);}
+    const identity=await artifactIdentity(env,gh,artifact);artifactDigest=identity.digest;headSha=identity.headSha;
+  }else if(!tag && !set){const r=await latest(gh,repo);selectedTag=r.tag_name;latestId=String(r.id);}
+  const baseline=siteArtifact ? await artifactIdentity(env,gh,siteArtifact) : undefined;
   const invocation=`releaseway-pages-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}-${randomUUID()}`;
-  return output(env,{tag:selectedTag,"artifact-id":artifact,"latest-id":latestId,"repository":repo,"artifact-name":invocation,"report-name":invocation+"-report","artifact-digest":artifactDigest,"source-head-sha":headSha});
+  return output(env,{tag:selectedTag,"artifact-id":artifact,"latest-id":latestId,"repository":repo,"artifact-name":invocation,"report-name":invocation+"-report","artifact-digest":artifactDigest,"source-head-sha":headSha,
+    mode:set ? "release-set" : artifact ? "artifact" : "release","site-artifact-id":siteArtifact,"site-artifact-digest":baseline?.digest??"","site-head-sha":baseline?.headSha??""});
 }
 export async function finalizePages(env:Environment) {
   const path=input(env,"path"),core=await loadReport(input(env,"report")),files=reportShape(core);
@@ -62,12 +74,16 @@ export async function finalizePages(env:Environment) {
   if(total>1_000_000_000)throw new Error("Pages site exceeds 1000000000 bytes");
   const old=files.find(f=>f.path===".nojekyll");
   if(old && old.size!==0)throw new Error("Nonempty .nojekyll conflicts with Pages delivery");
-  if(!old){assertTargets([...files.map(f=>f.path),".nojekyll"]);await writeFile(join(path,".nojekyll"),"",{flag:"wx",mode:0o644});files.push({path:".nojekyll",size:0,sha256:sha(""),origin:"selected"});}
+  if(!old){assertTargets([...files.map(f=>f.path),".nojekyll"]);await writeFile(join(path,".nojekyll"),"",{flag:"wx",mode:0o644});files.push({path:".nojekyll",size:0,sha256:sha(""),origin:"selected",...(core.schema===2 ? {generatedBy:"pages" as const} : {})});}
   const folder=await mkdtemp(join(env.RUNNER_TEMP!,"releaseway-pages-report-")),report=join(folder,"report.json");
   const artifact=input(env,"artifact-id");
+  const siteArtifact=input(env,"site-artifact-id");
+  if((core.schema===2 && artifact) || (siteArtifact && (core.schema!==2 || !core.base)))throw new Error("Invalid composite artifact provenance");
   const source=artifact ? {kind:"workflow-artifact",repository:env.GITHUB_REPOSITORY,artifactId:artifact,artifactDigest:input(env,"artifact-digest"),runId:env.GITHUB_RUN_ID,headSha:input(env,"source-head-sha"),callerSha:env.GITHUB_SHA,verification:"artifact-digest"} : core.source;
   if(artifact && (!/^[1-9]\d*$/.test(artifact) || !/^sha256:[a-f0-9]{64}$/.test(source.artifactDigest) || !/^[a-f0-9]{40}$/i.test(source.headSha)))throw new Error("Missing artifact provenance");
-  const delivery={schema:1,source,latestId:input(env,"latest-id"),contentDigest:core.digest,digest:contentDigest(files),files:ordered(files)};
+  const baseline=siteArtifact ? {kind:"workflow-artifact",repository:env.GITHUB_REPOSITORY,artifactId:siteArtifact,
+    artifactDigest:input(env,"site-artifact-digest"),runId:env.GITHUB_RUN_ID,headSha:input(env,"site-head-sha"),callerSha:env.GITHUB_SHA} : core.baseline;
+  const delivery={schema:core.schema,source,...(core.schema===2 ? {base:core.base,baseline} : {}),latestId:input(env,"latest-id"),contentDigest:core.digest,digest:contentDigest(files),files:ordered(files)};
   reportShape(delivery);
   const bytes=JSON.stringify(delivery,null,2)+"\n";
   if(Buffer.byteLength(bytes)>MAX_REPORT)throw new Error("Delivery report exceeds limit");
@@ -89,7 +105,10 @@ export async function checkArchive(env:Environment) {
 export async function guardPages(env:Environment,gh:ReleaseClient) {
   const expected=input(env,"report-sha");if(!/^[a-f0-9]{64}$/.test(expected))throw new Error("Expected report SHA is required");
   const report=await loadReport(input(env,"report"),expected);
-  if(report.latestId && String((await latest(gh,repositoryName(report.source.repository))).id)!==report.latestId)throw new Error("superseded: latest changed; rerun the entire workflow");
+  if(report.schema===2) {
+    if(report.latestId)throw new Error("Release-set report cannot carry a global latest selection");
+    await verifyReleaseSet(gh,report.source,releaseSetPolicy(report.source));
+  }else if(report.latestId && String((await latest(gh,repositoryName(report.source.repository))).id)!==report.latestId)throw new Error("superseded: latest changed; rerun the entire workflow");
   return report;
 }
 export async function environmentDeployment(env:Environment,gh:ReleaseClient):Promise<string> {
@@ -105,14 +124,16 @@ export async function environmentDeployment(env:Environment,gh:ReleaseClient):Pr
   }
   throw new Error("No environment deployment matches this exact run/job");
 }
-export async function runPages(env:Environment=process.env) {
+export async function runPages(env:Environment=process.env,client?:ReleaseClient) {
   const op=input(env,"operation");
-  const gh=new GhClient(input(env,"token"),join(env.RUNNER_TEMP!,"releaseway-gh-cache"));
+  const gh=client??new GhClient(input(env,"token"),join(env.RUNNER_TEMP!,"releaseway-gh-cache"));
   if(op==="resolve")return resolvePages(env,gh);
   if(op==="prepare") {
-    const source=input(env,"source-path");
-    if(source){const tree=await selectSite(env.GITHUB_WORKSPACE!,source,Date.now()+600_000);let total=0;for(const s of tree.selections){total+=(await stat(s.source)).size;if(total>2*1024**3)throw new Error("Extracted artifact exceeds 2 GiB");}}
-    return distribute({...env,GITHUB_WORKSPACE:source||env.GITHUB_WORKSPACE},gh,env.GITHUB_WORKSPACE);
+    const source=input(env,"source-path"),site=input(env,"site-path");
+    const config=input(env,"config") ? await readConfig(env.GITHUB_WORKSPACE!,input(env,"config")) : undefined;
+    if((site && (source || config?.schema!==2)) || (source && config?.schema===2))throw new Error("Site artifact requires a release-set config and no source artifact");
+    for(const path of [source,site].filter(Boolean)){const tree=await selectSite(env.GITHUB_WORKSPACE!,path,Date.now()+600_000);let total=0;for(const s of tree.selections){total+=(await stat(s.source)).size;if(total>2*1024**3)throw new Error("Extracted artifact exceeds 2 GiB");}}
+    return distribute({...env,GITHUB_WORKSPACE:source||env.GITHUB_WORKSPACE,...(site ? {INPUT_SITE:site} : {})},gh,env.GITHUB_WORKSPACE);
   }
   if(op==="deployment") return output(env,{"deployment-id":await environmentDeployment(env,gh)});
   if(op==="finalize")return finalizePages(env);
