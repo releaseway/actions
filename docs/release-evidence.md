@@ -1,8 +1,9 @@
 # Preserve and verify release approval evidence
 
-The automation repositories' unreleased release workflows now preserve approval
-as `releaseway-evidence.json` before immutable publication. Their published stable
-consumer APIs keep their existing contracts. This guide is for maintainers running
+The automation repositories' release workflows preserve approval
+as `releaseway-evidence.json` before immutable publication. This guide describes
+the scripts in its checkout; older releases retain their own approval policy.
+It is for maintainers running
 the scripts from a current actions, npm-actions or homebrew-actions checkout.
 The Python helpers and policy files are identical in those three repositories.
 
@@ -13,7 +14,7 @@ new run started by the release tag. Complete the required public acceptance:
 
 | Candidate | Required acceptance |
 | --- | --- |
-| actions | Full notes acceptance and full distribution/Pages acceptance; exact-SHA test and distribution CI |
+| actions | Full notes acceptance, legacy distribution/Pages receipts and the separate release-set aggregate from the same Pages-enabled run under `actions-release-set-v2`; exact-SHA test and distribution CI |
 | npm-actions | Fresh staged submission and direct native publication, including tag-derived version and Node 22/24/26 consumers |
 | homebrew-actions | Legacy public source/prebuilt acceptance and 21-case revision/platform acceptance under `homebrew-platforms-v2` |
 
@@ -30,7 +31,10 @@ python3 scripts/verify-release-evidence.py \
 Actions also requires `--distribution-run`; npm requires its staged/direct run IDs.
 Missing, expired, failed, partial, other-SHA or previous-attempt evidence blocks
 fresh collection. The checker also compares original native ZIP bytes with provider
-artifacts for Homebrew feature acceptance.
+artifacts for Homebrew feature acceptance. For release sets it checks the original
+documentation/report ZIPs, provider digests and successful native/deployment jobs.
+See the [distribution campaign guide](https://github.com/releaseway/release-fixture/tree/main/distribution-fixtures)
+for its read-only candidate collector without publication.
 
 The official release dispatch still takes an existing stable tag and the approved
 run IDs. It prepares one frozen bundle, attaches it as a required draft asset,
@@ -42,14 +46,14 @@ do not need those variables. The workflow normally uses
 
 ## Verify an existing release
 
-Install Python 3 and GitHub CLI with `gh release verify-asset`, authenticate `gh`,
-and grant the required repository read access. These commands were exercised with
-gh 2.102.0. From an action repository checkout, authenticate the Homebrew v0.4.3
-approval and save it locally:
+Install Python 3 and a GitHub CLI that provides `gh release verify-asset`,
+authenticate `gh`, and grant the required repository read access. Run from an
+automation repository checkout. Set `AUTOMATION_REPOSITORY` to its `owner/repo`
+and `RELEASE_TAG` to the release whose approval you want to authenticate:
 
 ```sh
 python3 scripts/verify-archived-release.py \
-  --repository releaseway/homebrew-actions --tag v0.4.3 \
+  --repository "$AUTOMATION_REPOSITORY" --tag "$RELEASE_TAG" \
   --output /tmp/releaseway-evidence.json
 ```
 
@@ -59,15 +63,16 @@ then verifies the bundle. It uses Release/attestation services and does not call
 the Actions artifact API. If your home cache is read-only, set `XDG_CACHE_HOME` to
 a writable directory so GitHub CLI can initialize its verification cache.
 
-Copy the saved file to another machine and check its internal consistency without
+Save the returned `candidate` and `sha256` through a trusted channel. On another
+machine, set `CANDIDATE_SHA` and `EXPECTED_SHA256` to those values, and use the
+same repository and tag. Check the copied file's internal consistency without
 GitHub CLI, credentials or Actions API access:
 
 ```sh
 python3 scripts/verify-evidence-bundle.py \
   --file /tmp/releaseway-evidence.json \
-  --repository releaseway/homebrew-actions --tag v0.4.3 \
-  --candidate 8fe42d36a7f93a3c399461efbe571fc695d4cdc6 \
-  --expected-sha256 a789ee289142b2af987c2976e93e0c2c20ca0e12ca83077d7abb4a5ade9bb096
+  --repository "$AUTOMATION_REPOSITORY" --tag "$RELEASE_TAG" \
+  --candidate "$CANDIDATE_SHA" --expected-sha256 "$EXPECTED_SHA256"
 ```
 
 Success reports `consistency_verified`. Obtain the expected digest through a
@@ -83,6 +88,11 @@ run/attempt/workflow/SHA/event/status/times, job results, artifact metadata, ori
 ZIP bytes and SHA-256. It replays the installed trusted policy without executing
 embedded code. The Homebrew feature receipt uses its own schema 2 inside this
 schema-1 container and includes all 21 cases and 16 native receipts.
+The actions release-set policy preserves seven original ZIPs: notes, legacy
+distribution, release-set aggregate, two documentation artifacts and two Pages
+reports. Its provider snapshots bind receipt identities to native jobs and both
+environment deployments. Archived older policy IDs remain replayable; they cannot
+approve a fresh candidate that requires the newer policy.
 
 Limits are 8 MiB per bundle, 2 MiB for snapshots, 1 MiB per original/decompressed
 artifact and 100 KiB per receipt. Duplicate JSON keys, boolean IDs, unsupported

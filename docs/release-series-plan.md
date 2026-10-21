@@ -1,5 +1,10 @@
 # Version-series and publication-policy implementation
 
+This implementation record preserves the selected work units and behavior.
+For configuration in this checkout, use the [prepare guide](../prepare/README.md)
+and [same-run workflow guide](app-free-release.md). Release identities belong to
+their publication records.
+
 The required flow preserves previous tags, restarts version calculation after an explicit boundary, declares stable/prerelease npm channels outside package manifests, chooses the current stable series as GitHub latest, and moves Git release execution into Releaseway.
 
 ## Work units and completion evidence

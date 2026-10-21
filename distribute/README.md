@@ -5,13 +5,17 @@ static directory for your existing publisher. Installers, bootstrap or diagnosti
 scripts, application files, JSON and signatures use the same interface. The action
 does not generate installers, execute scripts, extract archives, or upload to a host.
 
-Available in [v0.6.3](https://github.com/releaseway/actions/releases/tag/v0.6.3).
-Use `2abdf26c6f01c1e49da4ba5d85253847fe721fd9` for both the step action and the
-optional Pages workflow. All entry points in `releaseway/actions` share this version.
+Replace `<actions-sha>` with the full commit SHA of your selected
+[release](https://github.com/releaseway/actions/releases), and resolve third-party
+SHA placeholders as described in the [reference guide](../docs/action-references.md).
+Use the same actions SHA for the step action and optional Pages workflow.
 
-The [release-set examples](#collect-several-releases-unreleased) use the unreleased
-schema 2 candidate `6f2d04d9c825e1efaed1a9089dc02be22ddef627`. They require that
-candidate or a later compatible release; the v0.6.3 pin does not support them.
+This guide describes its checkout. Read it at the selected ref before copying an
+example. [Collecting several Releases](#collect-several-releases) requires schema 2
+support; merging a documentation artifact through Pages also requires
+`site-artifact-id`. Confirm both in that ref's schema and workflow inputs. Use a
+reviewed source commit for candidate evaluation when no published release supports
+the required interface.
 
 ## Prepare local files
 
@@ -29,14 +33,14 @@ jobs:
   prepare:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@<checkout-sha>
       - name: Produce sample files
         run: |
           mkdir -p dist
           printf '#!/bin/sh\nprintf "ready\\n"\n' > dist/diagnose.sh
           printf '{"schema":1}\n' > dist/metadata.json
       - id: files
-        uses: releaseway/actions/distribute@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+        uses: releaseway/actions/distribute@<actions-sha>
         with:
           files: dist/*
       - name: Check prepared files
@@ -66,7 +70,7 @@ For example, after publishing assets named `install.sh` and `updates.json` under
 
 ```yaml
 - id: files
-  uses: releaseway/actions/distribute@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+  uses: releaseway/actions/distribute@<actions-sha>
   with:
     tag: v1.2.3
     files: |
@@ -138,7 +142,7 @@ the action copies it without modifying the original. After your build has create
 
 ```yaml
 - id: files
-  uses: releaseway/actions/distribute@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+  uses: releaseway/actions/distribute@<actions-sha>
   with:
     files: dist/bootstrap/*
     destination: tools/tool-a/v1.2.3
@@ -152,11 +156,13 @@ use the preceding output `path` as the next invocation's `site`. Retention cover
 supplied baseline files only: the action does not retrieve past deployments,
 prune old files, or preserve versions absent from the baseline.
 
-## Collect several Releases (unreleased)
+<a id="collect-several-releases-unreleased"></a>
+
+## Collect several Releases
 
 Collect a version family into one site without a release-list job, matrix or
 artifact merge. The step action and Pages workflow both read a schema 2 policy.
-Keep the policy in your repository and pin the unreleased candidate shown above.
+Keep the policy in your repository and pin a ref with the required schema support.
 
 ### Choose the versions and files
 
@@ -292,7 +298,7 @@ Version menus and generated download-index pages are outside this feature.
 | Input | Default | Meaning |
 | --- | --- | --- |
 | `files` | Empty | Newline-separated relative paths or patterns; exactly one of `files` or `config` is required. |
-| `config` | Empty | Caller workspace-relative YAML/JSON v1 mappings, or unreleased v2 release-set policy. |
+| `config` | Empty | Caller workspace-relative YAML/JSON schema 1 mappings or schema 2 release-set policy. |
 | `tag` | Empty: local source, or v2 Release set | Exact published public github.com Release tag; rejected with schema 2. |
 | `repository` | Caller repository | Public `owner/name`; Release source only. |
 | `commit` | Empty | Full expected tag commit SHA; single Release only. |
@@ -332,8 +338,10 @@ changes your domain, or changes environment protections. Callers must use a trus
 publish. Hosted Ubuntu and a Node24-capable Actions runner are required; GHES is
 outside this adapter's scope.
 
-For an existing documentation site, use the step action with `site` and your
-existing deploy step. This convenience workflow deploys the complete selected site.
+For an existing documentation site, pass `site-artifact-id` with a schema 2 policy
+as shown in the [documentation merge example](#merge-with-your-documentation-build),
+or use the step action with `site` and your existing publisher. This reusable
+workflow deploys the complete merged site.
 
 ### Publish assets from the latest stable Release
 
@@ -352,7 +360,7 @@ permissions:
   id-token: write
 jobs:
   distribute:
-    uses: releaseway/actions/.github/workflows/distribute-pages.yml@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+    uses: releaseway/actions/.github/workflows/distribute-pages.yml@<actions-sha>
     with:
       files: install.sh
 ```
@@ -386,7 +394,7 @@ jobs:
           printf '<!doctype html><title>Distribution ready</title>\n' > dist/index.html
           printf '{"schema":1}\n' > dist/metadata.json
       - id: upload
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        uses: actions/upload-artifact@<upload-artifact-sha>
         with:
           name: distribution-source
           path: dist/
@@ -399,7 +407,7 @@ jobs:
       deployments: read
       pages: write
       id-token: write
-    uses: releaseway/actions/.github/workflows/distribute-pages.yml@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+    uses: releaseway/actions/.github/workflows/distribute-pages.yml@<actions-sha>
     with:
       artifact-id: ${{ needs.build.outputs.artifact-id }}
       files: '*'
@@ -419,10 +427,10 @@ Artifact metadata records producer run/SHA identity, not build reproducibility.
 | Input | Default | Meaning |
 | --- | --- | --- |
 | `files` | Empty | Release asset patterns or artifact-relative paths; exactly one of `files` or `config`. |
-| `config` | Empty | Caller workspace-relative exact mapping policy, or unreleased schema 2 release-set policy. |
+| `config` | Empty | Caller workspace-relative schema 1 mappings or schema 2 release-set policy. |
 | `tag` | Empty | Exact public Release tag; omit with `artifact-id`. |
 | `artifact-id` | Empty | Same-run immutable source artifact ID; omit with `tag`. |
-| `site-artifact-id` | Empty | Unreleased: same-run documentation artifact baseline; schema 2 only. |
+| `site-artifact-id` | Empty | Same-run documentation artifact baseline; schema 2 only. |
 | `repository` | Caller repository | Public Release override; rejected for artifact sources. |
 | `verification` | `digest` | `attested` is available only for Release sources. |
 
@@ -461,5 +469,5 @@ uncompressed disk bound enforced during the official extraction.
 [Release workflow](../examples/distribution-release.yml) ·
 [Pages Release workflow](../examples/distribution-pages.yml) ·
 [Pages artifact workflow](../examples/distribution-pages-artifact.yml) ·
-[Release-set workflow (unreleased)](../examples/distribution-release-set.yml) ·
-[Pages documentation + release set (unreleased)](../examples/distribution-pages-release-set.yml)
+[Release-set workflow](../examples/distribution-release-set.yml) ·
+[Pages documentation + release set](../examples/distribution-pages-release-set.yml)

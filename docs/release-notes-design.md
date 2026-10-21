@@ -3,7 +3,11 @@
 Decision date: 2026-09-28 (Asia/Seoul).
 Repository: `releaseway/actions`.
 Reviewed code baseline: `49c543357d96884d0e5a683c45d45ebd50a8b612`.
-Status: selected design, NOT implemented or released.
+Design status at the recorded decision date: selected, not yet implemented or released.
+
+This is a historical implementation plan. Status and fixture versions below
+describe that decision's baseline; use the [publishing reference](publishing.md)
+for the public interface in this checkout.
 
 The user delegated the remaining design decisions to the assistant after explicitly authorizing removal of the old input without a compatibility period. This document is the canonical execution design. Selection here does not authorize implementation, commits, a version bump, publication, or changes to other repositories. The companion [discussion record](release-notes-design-review.md) retains the verified old baseline and decision provenance, not competing active proposals.
 

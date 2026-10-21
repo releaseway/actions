@@ -32,7 +32,7 @@ jobs:
     # Enable Pages in Actions mode and allow this ref in github-pages.
     # Check in the sample JSON policy as .github/distribution/release-set.json;
     # publish its named assets on the repository's v1.x Releases first.
-    # Unreleased schema 2 candidate; v0.6.3 does not support these inputs.
+    # Reviewed schema 2 ref; see docs/action-references.md before adoption.
     uses: releaseway/actions/.github/workflows/distribute-pages.yml@6f2d04d9c825e1efaed1a9089dc02be22ddef627
     with:
       config: .github/distribution/release-set.json

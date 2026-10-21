@@ -1,11 +1,11 @@
 # Release in one workflow
 
-The [workflow template](../examples/app-free-release.yml) pins the immutable
-releases actions [v0.6.3](https://github.com/releaseway/actions/releases/tag/v0.6.3),
-npm-actions [v0.7.1](https://github.com/releaseway/npm-actions/releases/tag/v0.7.1)
-and Homebrew [v0.4.3](https://github.com/releaseway/homebrew-actions/releases/tag/v0.4.3)
-by full commit SHA. Copy it into the product repository and configure the product
-policies and publication prerequisites below.
+The [workflow template](../examples/app-free-release.yml) connects actions,
+npm-actions and Homebrew with full commit SHA pins. Review its selected refs with
+the [reference guide](action-references.md), copy it into the product repository,
+and configure the product policies and publication prerequisites below. Each
+automation repository releases independently; use the docs at your selected refs
+to check input compatibility.
 
 The product owns its workflow, source build, signing and consumer tests. Releaseway
 plans versions, verifies and binds tags, publishes immutable Releases and connects

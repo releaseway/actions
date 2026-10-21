@@ -4,8 +4,10 @@ Use `releaseway/actions/prepare` in a step when your workflow should calculate
 a version and push its release marker commit and tag. For an existing tag that
 only needs publication, use the [root action](../docs/publishing.md).
 
-The subaction shares the [v0.6.3 release SHA](../README.md#version) with the root
-and distribution entry points. Your workflow owns the product build and passes
+The subaction shares the [selected release SHA](../README.md#choose-a-release)
+with the root and distribution entry points. Replace `<actions-sha>` and
+`<checkout-sha>` using the [reference guide](../docs/action-references.md).
+Your workflow owns the product build and passes
 the prepared outputs to the publisher. The example below shows a product with an
 explicit version-series boundary; replace its tags and build command with your
 project's values.
@@ -43,13 +45,13 @@ jobs:
   release:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@<checkout-sha>
         with:
           fetch-depth: 0
       - id: release
-        uses: releaseway/actions/prepare@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+        uses: releaseway/actions/prepare@<actions-sha>
       - run: ./build-product.sh "${{ steps.release.outputs.version }}"
-      - uses: releaseway/actions@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+      - uses: releaseway/actions@<actions-sha>
         with:
           tag: ${{ steps.release.outputs.tag }}
           commit: ${{ steps.release.outputs.commit }}
@@ -67,8 +69,6 @@ Preparation writes a deterministic release marker commit using the source tree u
 `mode: tag` creates or verifies a versioned `tag` bound to an explicit full `commit` SHA on the configured origin `branch`. It accepts custom prefixes and prereleases for companion native artifact releases, without adding a marker commit or changing the branch. A conflicting tag fails and a matching tag is accepted on retry. Neither resolve nor tag mode requires a release configuration file.
 
 `latest: current-series` selects the newest stable tag in the configured series regardless of older series' numerical versions. Prereleases and superseded current-series tags are not promoted. The policy is checked before draft creation and again before publication and final verification. `latest: true` remains an unconditional stable-release policy; `automatic` retains GitHub's legacy selection.
-
-[Back to Releaseway Actions](../README.md)
 
 ### Resolve prereleases and prefixed tags
 
@@ -100,3 +100,5 @@ rc remains supported. A branch move during tag creation fails while preserving t
 accepted tag. Inspect origin and resume the same identity; do not delete it or bump
 a version merely to retry. Annotated tag object IDs differ from commits: consume
 `outputs.commit` or peel the tag with `^{commit}`.
+
+[Back to Releaseway Actions](../README.md)

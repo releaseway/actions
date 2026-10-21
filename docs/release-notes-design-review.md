@@ -5,7 +5,7 @@ Reviewed repository: `releaseway/actions`.
 Code baseline: `49c543357d96884d0e5a683c45d45ebd50a8b612`.
 Status: historical discussion record; superseded as an execution plan.
 
-**Canonical selected design: [Release notes: selected design and implementation plan](release-notes-design.md).** The user delegated the remaining choices to the assistant after authorizing a clean break. The selected design now resolves the default, catalog, input/file/config contract, range, retry policy, runtime, and validation gates. Runtime implementation has not started.
+**Selected design at the recorded decision date: [Release notes: selected design and implementation plan](release-notes-design.md).** The user delegated the remaining choices to the assistant after authorizing a clean break. The design resolved the default, catalog, input/file/config contract, range, retry policy, runtime, and validation gates before implementation. Use the [publishing reference](publishing.md) for the public interface in this checkout.
 
 Sections 3-8 below preserve the earlier review as an explicitly historical decision record, because the user asked for the discussion to be retained. Recommendations, candidate spellings, UNRESOLVED labels, and proposed work in those historical sections describe the state before delegation. They are NOT current execution instructions or unanswered questions. Use only the canonical design for implementation. The old baseline in section 2 remains a factual observation of the inspected code, not a compatibility requirement.
 

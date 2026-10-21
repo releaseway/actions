@@ -22,24 +22,22 @@ project; Releaseway handles the release and file-verification steps around them.
 
 See the [same-run release guide](docs/app-free-release.md) for the
 source-tag strategy, explicit npm tag selection, least-permission jobs and recovery.
-The template pins verified stable releases by full commit SHA.
+The template uses full commit SHA pins; review its dependencies before adoption.
 
-## Version
+<a id="version"></a>
 
-[v0.6.3](https://github.com/releaseway/actions/releases/tag/v0.6.3) uses commit
-`2abdf26c6f01c1e49da4ba5d85253847fe721fd9`. Pin every entry point to this full SHA;
-the root action, `prepare`, `distribute` and Pages workflow share one version.
+## Choose a release
 
-This release preserves conditional checkout credentials during evidence collection,
-cleans temporary evidence repositories after failures, bounds large-history traversal,
-and retries stale Pages responses until their bytes match. Official publication also
-requires complete distribution and served Pages evidence for the exact candidate.
+Select a release from [Releases](https://github.com/releaseway/actions/releases)
+and use its full commit SHA for every entry point. Replace `<actions-sha>` and
+third-party SHA placeholders before saving the examples below. The root action,
+`prepare`, `distribute` and Pages workflow share one release and SHA.
 
-Unreleased: [release-set distribution](distribute/README.md#collect-several-releases-unreleased)
-collects several public Releases into version paths and merges them with a
-documentation build. Its examples pin a reviewed candidate; v0.6.3 does not include
-schema 2 or `site-artifact-id`. Fresh actions publication now requires separate
-release-set acceptance and archived provider evidence as well as the legacy checks.
+This README describes its checkout. For a published release, read the docs at
+that tag or commit; see [reference selection](docs/action-references.md). For
+versioned files from several Releases, see
+[release-set distribution](distribute/README.md#collect-several-releases) and
+check that your selected ref supports schema 2 and `site-artifact-id`.
 
 ## Quick start
 
@@ -70,7 +68,7 @@ jobs:
   release:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@<checkout-sha>
         with:
           ref: ${{ inputs.tag }}
           fetch-depth: 0
@@ -84,7 +82,7 @@ jobs:
           mkdir -p dist
           printf '%s\n' "$RELEASE_TAG" > dist/version.txt
       - id: release
-        uses: releaseway/actions@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+        uses: releaseway/actions@<actions-sha>
         with:
           tag: ${{ inputs.tag }}
           commit: ${{ steps.source.outputs.commit }}
@@ -112,7 +110,7 @@ After your build creates `dist/`, add a step:
 
 ```yaml
 - id: files
-  uses: releaseway/actions/distribute@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
+  uses: releaseway/actions/distribute@<actions-sha>
   with:
     files: dist/*
 ```

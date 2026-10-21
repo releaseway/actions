@@ -19,7 +19,7 @@ jobs:
           printf '<!doctype html><title>Downloads</title>\n' > website/dist/index.html
           printf '{"site":"documentation"}\n' > website/dist/.well-known/site.json
       - id: files
-        # Unreleased schema 2 candidate; v0.6.3 does not support this config.
+        # Reviewed schema 2 ref; see docs/action-references.md before adoption.
         uses: releaseway/actions/distribute@6f2d04d9c825e1efaed1a9089dc02be22ddef627
         with:
           config: .github/distribution/release-set.json

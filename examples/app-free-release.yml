@@ -1,5 +1,5 @@
 # Copy to the PRODUCT repository as .github/workflows/release.yml.
-# Releaseway actions v0.6.3, npm-actions v0.7.1 and Homebrew v0.4.3.
+# Review the pinned automation refs using docs/action-references.md before adoption.
 # Full commit pins below identify the verified immutable releases.
 name: Release without an additional GitHub App
 on:
