@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 import { parse } from "yaml";
+import { parseConfig as parseDistributionConfig } from "../src/distribution/config.ts";
 
 import {
   NOTES_EXISTING_POLICIES,
@@ -77,4 +78,13 @@ test("self-release workflow explicitly adopts standard generated notes", async (
     workflow,
     /steps\.publish\.outputs\.notes-state/,
   );
+});
+
+test("documented distribution policies are accepted by the real parser", async () => {
+  const guide = await readFile(resolve("distribute/README.md"), "utf8");
+  const examples = [...guide.matchAll(/```(?:yaml|json)\s*\n([\s\S]*?)```/g)]
+    .map((match) => parse(match[1]))
+    .filter((value) => value && [1, 2].includes(value.schema) && Array.isArray(value.files));
+  assert.ok(examples.length > 0, "At least one distribution policy example is required");
+  for (const example of examples) assert.doesNotThrow(() => parseDistributionConfig(example));
 });
