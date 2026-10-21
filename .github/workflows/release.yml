@@ -41,7 +41,25 @@ jobs:
           mode: resolve
           tag: ${{ inputs.tag }}
 
+      - name: Prepare durable release approval
+        id: evidence
+        env:
+          GH_TOKEN: ${{ secrets.RELEASEWAY_EVIDENCE_TOKEN || github.token }}
+          CANDIDATE: ${{ steps.release.outputs.target }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          ACCEPTANCE_RUNS: ${{ inputs.acceptance-runs }}
+          DISTRIBUTION_RUN: ${{ inputs.distribution-run }}
+        run: |
+          set -euo pipefail
+          extra=()
+          extra+=(--distribution-run "$DISTRIBUTION_RUN")
+          python3 scripts/prepare-release-evidence.py \
+            --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+            --candidate "$CANDIDATE" --acceptance-runs "$ACCEPTANCE_RUNS" \
+            "${extra[@]}"
+
       - name: Checkout tagged release action
+        if: steps.evidence.outputs.state == 'prepared'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.release.outputs.target }}
@@ -49,14 +67,17 @@ jobs:
           persist-credentials: false
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: steps.evidence.outputs.state == 'prepared'
         with:
           version: 12.14.0
           run_install: false
           package_json_file: release-action/package.json
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.evidence.outputs.state == 'prepared'
         with:
           node-version: "24"
       - name: Verify tagged action
+        if: steps.evidence.outputs.state == 'prepared'
         working-directory: release-action
         run: |
           pnpm install --frozen-lockfile
@@ -65,20 +86,8 @@ jobs:
           pnpm run check:dist
           python3 test/release.py
 
-      - name: Verify exact-candidate CI and acceptance evidence
-        env:
-          GH_TOKEN: ${{ secrets.RELEASEWAY_EVIDENCE_TOKEN || github.token }}
-          CANDIDATE: ${{ steps.release.outputs.target }}
-          ACCEPTANCE_RUNS: ${{ inputs.acceptance-runs }}
-          DISTRIBUTION_RUN: ${{ inputs.distribution-run }}
-        run: |
-          python3 scripts/verify-release-evidence.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --candidate "$CANDIDATE" \
-            --acceptance-runs "$ACCEPTANCE_RUNS" \
-            --distribution-run "$DISTRIBUTION_RUN"
-
       - name: Publish immutable action release
+        if: steps.evidence.outputs.state == 'prepared'
         id: publish
         uses: ./release-action
         with:
@@ -87,13 +96,21 @@ jobs:
           title: ${{ steps.release.outputs.tag }}
           notes: standard
           latest: "true"
+          assets: releaseway-evidence.json
+
+      - name: Authenticate published approval asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          CANDIDATE: ${{ steps.release.outputs.target }}
+        run: python3 scripts/verify-archived-release.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --candidate "$CANDIDATE"
 
       - name: Summary
         run: |
           {
             echo "### actions ${{ steps.release.outputs.tag }}"
             echo ""
-            echo "- state: ${{ steps.publish.outputs.state }}"
+            echo "- state: ${{ steps.publish.outputs.state || steps.evidence.outputs.state }}"
             echo "- notes: ${{ steps.publish.outputs.notes-state }}"
-            echo "- release: ${{ steps.publish.outputs.release-url }}"
+            echo "- release: ${{ steps.publish.outputs.release-url || steps.evidence.outputs.release-url }}"
           } >> "$GITHUB_STEP_SUMMARY"
