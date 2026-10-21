@@ -1,0 +1,55 @@
+name: Verify release candidate evidence
+on:
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: Full actions candidate SHA to verify without publishing a release.
+        type: string
+        required: true
+      acceptance-runs:
+        description: Successful exact-candidate notes acceptance run IDs.
+        type: string
+        required: true
+      distribution-run:
+        description: Successful exact-candidate full distribution acceptance run ID.
+        type: string
+        required: true
+      evidence-tag:
+        description: Prospective tag recorded in the evidence; no tag or Release is created.
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+  deployments: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Collect current approval and replay without external commands
+        env:
+          GH_TOKEN: ${{ secrets.RELEASEWAY_EVIDENCE_TOKEN || github.token }}
+          CANDIDATE: ${{ inputs.candidate }}
+          ACCEPTANCE_RUNS: ${{ inputs.acceptance-runs }}
+          DISTRIBUTION_RUN: ${{ inputs.distribution-run }}
+          EVIDENCE_TAG: ${{ inputs.evidence-tag }}
+        run: |
+          set -euo pipefail
+          python3 scripts/verify-release-evidence.py \
+            --repository "$GITHUB_REPOSITORY" --candidate "$CANDIDATE" \
+            --acceptance-runs "$ACCEPTANCE_RUNS" --distribution-run "$DISTRIBUTION_RUN" \
+            --release-tag "$EVIDENCE_TAG" --bundle "$RUNNER_TEMP/releaseway-evidence.json"
+          python_path="$(command -v python3)"
+          env PATH= "$python_path" scripts/verify-evidence-bundle.py \
+            --file "$RUNNER_TEMP/releaseway-evidence.json" --repository "$GITHUB_REPOSITORY" \
+            --tag "$EVIDENCE_TAG" --candidate "$CANDIDATE"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-candidate-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/releaseway-evidence.json
+          if-no-files-found: error
+          retention-days: 30
