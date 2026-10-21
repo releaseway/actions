@@ -1,15 +1,20 @@
 name: Prepare versioned Release assets alongside documentation
+
 on:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   prepare:
     runs-on: ubuntu-24.04
+
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
       # Check in examples/distribution-release-set.json from releaseway/actions as
       # .github/distribution/release-set.json. Publish the named assets on this
       # repository's v1.x Releases first; the newest stable must be complete.
@@ -18,12 +23,14 @@ jobs:
           mkdir -p website/dist/.well-known
           printf '<!doctype html><title>Downloads</title>\n' > website/dist/index.html
           printf '{"site":"documentation"}\n' > website/dist/.well-known/site.json
+
       - id: files
         # Reviewed schema 2 ref; see docs/action-references.md before adoption.
         uses: releaseway/actions/distribute@6f2d04d9c825e1efaed1a9089dc02be22ddef627
         with:
           config: .github/distribution/release-set.json
           site: website/dist
+
       - name: Check prepared documentation and aliases
         env:
           DISTRIBUTION_PATH: ${{ steps.files.outputs.path }}
@@ -33,6 +40,7 @@ jobs:
           test -s "$DISTRIBUTION_PATH/install.sh"
           test -s "$DISTRIBUTION_PATH/install.ps1"
           test -s "$DISTRIBUTION_REPORT"
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: versioned-site-${{ github.run_id }}-${{ github.run_attempt }}

@@ -1,12 +1,15 @@
 name: Publish latest public Release files to Pages
+
 on:
   workflow_dispatch:
+
 permissions:
   contents: read
   actions: read
   deployments: read
   pages: write
   id-token: write
+
 jobs:
   distribute:
     # Enable Pages in Actions mode and allow this caller ref in github-pages.

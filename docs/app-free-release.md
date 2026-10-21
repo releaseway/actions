@@ -31,6 +31,7 @@ For tag-derived npm versions, `.github/npm/packages.yml`:
 ```yaml
 version:
   source: git-tag
+
 publish:
   mode: direct
   channels:
@@ -117,7 +118,9 @@ exactly-once execution or automatic rollback is promised.
 
 The dedicated `release-fixture` app-free workflow and the optional app-free path
 in `npm-actions-fixture/direct.yml` exercise both same-source versions. The original
-notes, stage and native acceptance routes remain required. After real runs, execute
+notes, stage and native acceptance routes remain required.
+
+After real runs, execute
 `python3 scripts/verify-app-free-evidence.py` with `--actions-sha`, `--npm-sha`,
 `--git-run`, `--npm-run`, `--notes-run`, `--stage-run`, and `--legacy-native-run`.
 All SHAs and run IDs must identify the verified candidates/current attempts. Enable

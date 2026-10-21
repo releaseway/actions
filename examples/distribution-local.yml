@@ -1,23 +1,30 @@
 name: Prepare generic files
+
 on:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   prepare:
     runs-on: ubuntu-24.04
+
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       # Replace this sample producer with your existing build step.
       - name: Produce sample files
         run: |
           mkdir -p dist
           printf '#!/bin/sh\nprintf "ready\\n"\n' > dist/diagnose.sh
           printf '{"schema":1}\n' > dist/metadata.json
+
       - id: distribution
         uses: releaseway/actions/distribute@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
         with:
           files: dist/*
+
       - name: Consume with any existing host tool
         env:
           DISTRIBUTION_PATH: ${{ steps.distribution.outputs.path }}

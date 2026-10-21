@@ -10,7 +10,8 @@ import {
 } from "../src/contract.ts";
 
 test("Publishing guide documents every public release-note mode and lifecycle policy", async () => {
-  const guide = await readFile(resolve("docs/publishing.md"), "utf8");
+  const guide = (await readFile(resolve("docs/publishing.md"), "utf8"))
+    .replace(/\s+/g, " ");
 
   for (const mode of NOTES_MODES) {
     assert.ok(

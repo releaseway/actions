@@ -1,19 +1,25 @@
 name: Publish documentation and versioned Release assets to Pages
+
 on:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   documentation:
     runs-on: ubuntu-24.04
+
     outputs:
       artifact-id: ${{ steps.site.outputs.artifact-id }}
+
     steps:
       - name: Build sample documentation
         run: |
           mkdir -p website/dist/.well-known
           printf '<!doctype html><title>Downloads</title>\n' > website/dist/index.html
           printf '{"site":"documentation"}\n' > website/dist/.well-known/site.json
+
       - id: site
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -21,14 +27,17 @@ jobs:
           path: website/dist
           include-hidden-files: true
           if-no-files-found: error
+
   distribute:
     needs: documentation
+
     permissions:
       contents: read
       actions: read
       deployments: read
       pages: write
       id-token: write
+
     # Enable Pages in Actions mode and allow this ref in github-pages.
     # Check in the sample JSON policy as .github/distribution/release-set.json;
     # publish its named assets on the repository's v1.x Releases first.

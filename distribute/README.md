@@ -25,24 +25,31 @@ build tool. Replace that step with your own build once the sample works.
 
 ```yaml
 name: Prepare distribution files
+
 on:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   prepare:
     runs-on: ubuntu-24.04
+
     steps:
       - uses: actions/checkout@<checkout-sha>
+
       - name: Produce sample files
         run: |
           mkdir -p dist
           printf '#!/bin/sh\nprintf "ready\\n"\n' > dist/diagnose.sh
           printf '{"schema":1}\n' > dist/metadata.json
+
       - id: files
         uses: releaseway/actions/distribute@<actions-sha>
         with:
           files: dist/*
+
       - name: Check prepared files
         env:
           DISTRIBUTION_PATH: ${{ steps.files.outputs.path }}
@@ -55,7 +62,9 @@ jobs:
 
 Success means both comparisons pass and the report exists. Pass `outputs.path`
 to your upload command or existing deployment action; preparation does not publish
-it. The report is outside the payload directory. You do not need to check out the
+it.
+
+The report is outside the payload directory. You do not need to check out the
 Releaseway repository or use `./distribute` in a consumer repository.
 
 The runner must support Node24 JavaScript actions. Local preparation requires
@@ -89,6 +98,7 @@ The runner needs `gh`. The read token defaults to `github.token` and is passed
 explicitly to `gh` on github.com. Local `gh` login state is not a substitute for
 an empty token. `verification: attested` additionally requires signed Release
 verification supported by the installed `gh`; it fails if verification is missing.
+
 `commit` can require a full expected tag commit SHA. Remote-only preparation does
 not need a caller checkout unless a local `config` or `site` is used.
 
@@ -119,6 +129,7 @@ Use `config` instead of `files` when names must change. Save this example as
 
 ```yaml
 schema: 1
+
 files:
   - from: dist/product-installer.sh
     to: install.sh
@@ -152,7 +163,9 @@ the action copies it without modifying the original. After your build has create
 Publish the returned `path` using your existing site deployment. Equal bytes at
 the same target are accepted; differing bytes fail unless `conflict: replace` is
 explicit. Replacements affect only selected files. To combine products or sources,
-use the preceding output `path` as the next invocation's `site`. Retention covers
+use the preceding output `path` as the next invocation's `site`.
+
+Retention covers
 supplied baseline files only: the action does not retrieve past deployments,
 prune old files, or preserve versions absent from the baseline.
 
@@ -213,6 +226,7 @@ keeping `schema` and `files` above:
 releases:
   tags: [v1.0.0, v1.1.0]
   on-empty: skip
+
 aliases:
   tag: v1.1.0
   files:
@@ -350,14 +364,17 @@ contain an asset named `install.sh`; it reads no local build output.
 
 ```yaml
 name: Distribute Release files to Pages
+
 on:
   workflow_dispatch:
+
 permissions:
   contents: read
   actions: read
   deployments: read
   pages: write
   id-token: write
+
 jobs:
   distribute:
     uses: releaseway/actions/.github/workflows/distribute-pages.yml@<actions-sha>
@@ -378,35 +395,44 @@ ID to the Pages job. This complete sample publishes `index.html` and `metadata.j
 
 ```yaml
 name: Distribute generated files to Pages
+
 on:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   build:
     runs-on: ubuntu-24.04
+
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
+
     steps:
       - name: Produce sample files
         run: |
           mkdir -p dist
           printf '<!doctype html><title>Distribution ready</title>\n' > dist/index.html
           printf '{"schema":1}\n' > dist/metadata.json
+
       - id: upload
         uses: actions/upload-artifact@<upload-artifact-sha>
         with:
           name: distribution-source
           path: dist/
           if-no-files-found: error
+
   distribute:
     needs: build
+
     permissions:
       contents: read
       actions: read
       deployments: read
       pages: write
       id-token: write
+
     uses: releaseway/actions/.github/workflows/distribute-pages.yml@<actions-sha>
     with:
       artifact-id: ${{ needs.build.outputs.artifact-id }}
@@ -417,7 +443,9 @@ Source `files` paths are relative to the artifact's extracted root, so the sampl
 uses `*`, not `dist/*`. Include `include-hidden-files: true` in the producer upload
 when dotfiles are needed, and name those paths explicitly in the consumer selection.
 A caller `config` is checked out at the caller SHA and remains separate from the
-payload; its `from` paths use the extracted root. Only one artifact ID from the
+payload; its `from` paths use the extracted root.
+
+Only one artifact ID from the
 current repository/workflow run is accepted. Cross-run/repository artifacts are
 not supported; use public Release assets or the step action for those sources.
 Artifact metadata records producer run/SHA identity, not build reproducibility.

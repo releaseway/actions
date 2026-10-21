@@ -2,6 +2,7 @@
 # Review the pinned automation refs using docs/action-references.md before adoption.
 # Full commit pins below identify the verified immutable releases.
 name: Release without an additional GitHub App
+
 on:
   workflow_dispatch:
     inputs:
@@ -21,45 +22,56 @@ on:
         description: Deploy version.txt from the public stable Release
         type: boolean
         default: false
+
 permissions:
   contents: read
+
 concurrency:
   group: release-main
   cancel-in-progress: false
+
 jobs:
   plan:
     runs-on: ubuntu-24.04
+
     outputs:
       source: ${{ steps.plan.outputs.source }}
       version: ${{ steps.plan.outputs.version }}
       prerelease: ${{ steps.plan.outputs.prerelease }}
       plan-artifact-id: ${{ steps.archive.outputs.artifact-id }}
+
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+
       - id: plan
         uses: releaseway/actions/prepare@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
         with:
           mode: plan
           prerelease-id: ${{ inputs.prerelease-id }}
           plan-path: ${{ runner.temp }}/release-plan.json
+
       - id: archive
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-plan-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ steps.plan.outputs.plan-path }}
           if-no-files-found: error
+
   build:
     needs: plan
     runs-on: ubuntu-24.04
+
     outputs:
       artifact-id: ${{ steps.archive.outputs.artifact-id }}
+
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.plan.outputs.source }}
           persist-credentials: false
+
       - name: Produce and test sample assets
         env:
           RELEASE_VERSION: ${{ needs.plan.outputs.version }}
@@ -68,41 +80,50 @@ jobs:
           printf '%s\n' "$RELEASE_VERSION" > dist/version.txt
           test -s dist/version.txt
           # Replace with your product build, signing and consumer tests.
+
       - id: archive
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist/version.txt
           if-no-files-found: error
+
   release:
     needs: [plan, build]
     runs-on: ubuntu-24.04
+
     permissions:
       contents: write
+
     outputs:
       tag: ${{ steps.resume.outputs.tag }}
       version: ${{ steps.resume.outputs.version }}
       commit: ${{ steps.resume.outputs.commit }}
+
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.plan.outputs.source }}
           fetch-depth: 0
+
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.plan.outputs.plan-artifact-id }}
           path: ${{ runner.temp }}/release-plan
           digest-mismatch: error
+
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.build.outputs.artifact-id }}
           path: ${{ runner.temp }}/release-assets
           digest-mismatch: error
+
       - id: resume
         uses: releaseway/actions/prepare@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
         with:
           mode: resume
           plan-path: ${{ runner.temp }}/release-plan/release-plan.json
+
       - id: publish
         uses: releaseway/actions@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
         with:
@@ -111,6 +132,7 @@ jobs:
           prerelease: ${{ steps.resume.outputs.prerelease }}
           latest: ${{ steps.resume.outputs.latest }}
           assets: ${{ runner.temp }}/release-assets/*
+
       - name: Preserve operation diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -120,42 +142,52 @@ jobs:
             ${{ steps.resume.outputs.diagnostics-path }}
             ${{ steps.publish.outputs.diagnostics-path }}
           if-no-files-found: ignore
+
   npm:
     if: inputs.publish-npm
     needs: [plan, release]
     runs-on: ubuntu-24.04
+
     permissions:
       contents: read
       id-token: write
+
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.plan.outputs.source }}
+
       # Run product-owned install/build here when npm packages need it.
       # For native packages, release must publish their configured assets first.
       - id: npm
         uses: releaseway/npm-actions@b9b00e1a5e5d4e055d34e4daa663909e4d65e21c # v0.7.1
         with:
           release-tag: ${{ needs.release.outputs.tag }}
+
   homebrew:
     if: inputs.publish-homebrew && needs.plan.outputs.prerelease != 'true'
     needs: [plan, release]
+
     uses: releaseway/homebrew-actions/.github/workflows/publish.yml@8fe42d36a7f93a3c399461efbe571fc695d4cdc6 # v0.4.3
     with:
       tap-repository: owner/homebrew-tap
       commit: ${{ needs.release.outputs.commit }}
       version: ${{ needs.release.outputs.version }}
+
     secrets:
       tap_deploy_key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+
   pages:
     if: inputs.deploy-pages && needs.plan.outputs.prerelease != 'true'
     needs: [plan, release]
+
     permissions:
       contents: read
       actions: read
       deployments: read
       pages: write
       id-token: write
+
     uses: releaseway/actions/.github/workflows/distribute-pages.yml@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
     with:
       tag: ${{ needs.release.outputs.tag }}

@@ -88,6 +88,7 @@ run/attempt/workflow/SHA/event/status/times, job results, artifact metadata, ori
 ZIP bytes and SHA-256. It replays the installed trusted policy without executing
 embedded code. The Homebrew feature receipt uses its own schema 2 inside this
 schema-1 container and includes all 21 cases and 16 native receipts.
+
 The actions release-set policy preserves seven original ZIPs: notes, legacy
 distribution, release-set aggregate, two documentation artifacts and two Pages
 reports. Its provider snapshots bind receipt identities to native jobs and both

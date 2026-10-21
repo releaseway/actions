@@ -62,22 +62,29 @@ Releaseway sets up its own Node.js runtime.
 
 ```yaml
 name: Publish a release
+
 on:
   workflow_dispatch:
+
 permissions:
   contents: write
+
 concurrency:
   group: release-main
   cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-24.04
+
     steps:
       - uses: actions/checkout@<checkout-sha>
         with:
           fetch-depth: 0
+
       - id: version
         uses: releaseway/actions/prepare@<actions-sha>
+
       - id: publish
         uses: releaseway/actions@<actions-sha>
         with:
@@ -88,8 +95,12 @@ jobs:
 ```
 
 Success creates a tag and a verified immutable Release; its URL is available as
-`steps.publish.outputs.release-url` and in the job summary. No asset build is
-required for this first run. `notes: standard` is the default: it groups
+`steps.publish.outputs.release-url` and in the job summary.
+
+No asset build is
+required for this first run.
+
+`notes: standard` is the default: it groups
 Conventional Commits, keeps other commits visible, and includes a comparison link
 when a base exists. A retry at the same source reuses its release identity.
 
@@ -104,7 +115,9 @@ provides `./build-product.sh` and it writes release files to `dist/`:
 ```
 
 Product build, signing and tests stay in your workflow; version and tag handling
-stay in Releaseway. Preparation creates the tag before this build. A failed build
+stay in Releaseway.
+
+Preparation creates the tag before this build. A failed build
 can retry the same identity. To require a successful build before creating any
 tag, use the [plan/build/resume workflow](docs/app-free-release.md#order-and-authority).
 

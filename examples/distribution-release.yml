@@ -1,4 +1,5 @@
 name: Prepare exact public Release files
+
 on:
   workflow_dispatch:
     inputs:
@@ -6,17 +7,21 @@ on:
         description: Published tag in this repository with an install.sh asset
         required: true
         type: string
+
 permissions:
   contents: read
+
 jobs:
   prepare:
     runs-on: ubuntu-24.04
+
     steps:
       - id: distribution
         uses: releaseway/actions/distribute@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
         with:
           tag: ${{ inputs.tag }}
           files: install.sh
+
       - name: Read verified file report
         env:
           DISTRIBUTION_REPORT: ${{ steps.distribution.outputs.report }}

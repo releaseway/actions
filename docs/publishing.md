@@ -3,6 +3,7 @@
 Use the root `releaseway/actions` step action to publish or verify an existing
 tag and caller-produced assets. Start with the [complete workflow](../README.md#quick-start),
 then use this reference for notes policy, permissions, inputs and retry behavior.
+
 This guide describes its checkout. Select a supporting release and replace
 `<actions-sha>` using the [reference guide](action-references.md); read the docs
 at that ref when configuring a published version.
@@ -36,7 +37,8 @@ There is no compatibility alias for the old input.
 | `file` | Use the exact UTF-8 contents of `notes-file`. |
 | `none` | Publish an empty release body. |
 
-The custom presets share one evidence and classification model. Changing only the render layout does not silently change the selected Git range.
+The custom presets share one evidence and classification model. Changing only the render
+layout does not silently change the selected Git range.
 
 
 ### Preset gallery
@@ -59,7 +61,8 @@ docs: clarify setup
 | `detailed` | Standard grouping plus available source body text and author attribution |
 | `scoped` | Scope headings such as `config`, `cli`, `upload`, and `Unscoped`, with categories nested below |
 
-Breaking entries are shown once in the dedicated breaking section rather than duplicated in their ordinary category.
+Breaking entries are shown once in the dedicated breaking section rather than duplicated
+in their ordinary category.
 
 ### Input combinations
 
@@ -90,11 +93,15 @@ The standard categories recognize these Conventional Commit types:
 - `build`, `ci`, `chore`, `refactor`, `style`, `test` → Maintenance
 - anything else → Other Changes
 
-A `!`, `BREAKING CHANGE:`, or `BREAKING-CHANGE:` marker is tracked separately from the main category. PR mode also recognizes the configured breaking labels. A category choice never erases a breaking flag derived from covered commits.
+A `!`, `BREAKING CHANGE:`, or `BREAKING-CHANGE:` marker is tracked separately from the
+main category. PR mode also recognizes the configured breaking labels. A category choice
+never erases a breaking flag derived from covered commits.
 
 ## Configuration
 
-Custom modes accept a versioned YAML or JSON file through `notes-config`. The file must resolve within `GITHUB_WORKSPACE` or `RUNNER_TEMP`, use `.yml`, `.yaml`, or `.json`, be at most 256 KiB, and have a maximum parsed depth of 16.
+Custom modes accept a versioned YAML or JSON file through `notes-config`. The file must
+resolve within `GITHUB_WORKSPACE` or `RUNNER_TEMP`, use `.yml`, `.yaml`, or `.json`,
+be at most 256 KiB, and have a maximum parsed depth of 16.
 
 Example:
 
@@ -113,10 +120,12 @@ notes:
     unknown: other
     breaking-labels: [breaking, breaking-change]
     categories:
+
       - id: features
         title: Features
         types: [feat]
         labels: [feature, enhancement]
+
       - id: fixes
         title: Fixes
         types: [fix]
@@ -136,7 +145,8 @@ notes:
     comparison: true
 ```
 
-Arrays replace preset arrays; they are not concatenated. Unknown keys, duplicate category IDs, invalid types, and unsupported combinations fail before publication.
+Arrays replace preset arrays; they are not concatenated. Unknown keys, duplicate
+category IDs, invalid types, and unsupported combinations fail before publication.
 
 The configurable axes are:
 
@@ -153,7 +163,8 @@ The configurable axes are:
 - `render.authors` and `render.comparison`
 - `unmatched`: `error` or `omit`, only for `source: pull-requests`
 
-Commit-only sources cannot request label classification, label filtering, or bot filtering because those facts do not exist in commit evidence.
+Commit-only sources cannot request label classification, label filtering, or bot
+filtering because those facts do not exist in commit evidence.
 
 For `notes: github`, the configuration schema is intentionally narrower:
 
@@ -165,11 +176,16 @@ notes:
     configuration-file: .github/release.yml
 ```
 
-`configuration-file` is a repository path understood by GitHub's native generator, not a Releaseway local template.
+`configuration-file` is a repository path understood by GitHub's native generator, not a
+Releaseway local template.
 
 ## Range selection
 
-Custom generation resolves the target tag in an isolated evidence repository fetched from the caller's `origin`; it does not mutate caller refs or assume the checkout is positioned at the target commit. For private HTTPS checkouts, the checkout's HTTP authorization header is forwarded only to the isolated fetch subprocess and is not persisted in the evidence repository.
+Custom generation resolves the target tag in an isolated evidence repository fetched
+from the caller's `origin`; it does not mutate caller refs or assume the checkout is
+positioned at the target commit. For private HTTPS checkouts, the checkout's HTTP
+authorization header is forwarded only to the isolated fetch subprocess and is not
+persisted in the evidence repository.
 
 The default policy is:
 
@@ -180,11 +196,23 @@ range:
   first-release: all
 ```
 
-Published GitHub Releases and ordinary Git tags are deliberately different inputs. `auto`, `previous-release`, and `previous-stable` select from published releases. `previous-tag` may select an unpublished tag.
+Published GitHub Releases and ordinary Git tags are deliberately different inputs.
+`auto`, `previous-release`, and `previous-stable` select from published releases.
+`previous-tag` may select an unpublished tag.
 
-Automatic selection is ancestry-aware. For `auto`, SemVer prerelease syntax, the requested `prerelease` state, and the prerelease flags of relevant published SemVer releases must agree; contradictory metadata fails instead of being silently reclassified. If eligible published releases exist but none lies on the requested target's first-parent ancestry, the action fails rather than silently treating the target as a first release. Choose `ancestry: reachable` or an explicit base when that is intentional. An unrelated explicit base is rejected.
+Automatic selection is ancestry-aware. For `auto`, SemVer prerelease syntax, the
+requested `prerelease` state, and the prerelease flags of relevant published SemVer
+releases must agree; contradictory metadata fails instead of being silently
+reclassified.
 
-For a first release with no eligible base, `first-release: all` includes all target-reachable history, `empty` intentionally produces no changes, and `error` requires the caller to specify a base.
+If eligible published releases exist but none lies on the requested target's
+first-parent ancestry, the action fails rather than silently treating the target as a
+first release. Choose `ancestry: reachable` or an explicit base when that is
+intentional. An unrelated explicit base is rejected.
+
+For a first release with no eligible base, `first-release: all` includes all
+target-reachable history, `empty` intentionally produces no changes, and `error`
+requires the caller to specify a base.
 
 Typical `auto` examples:
 
@@ -193,17 +221,27 @@ Typical `auto` examples:
 - maintenance `v1.0.2` on the `v1.0.x` first-parent line → nearest published ancestor such as `v1.0.1`, not a newer release on another branch;
 - first stable release with only earlier prereleases in its family → first-release policy applies rather than silently using the last prerelease.
 
-Commit-based presets infer display meaning from commit messages and Git history. They do not inspect code semantics, changed paths, issue text, or runtime behavior, and they do not invent migration guidance or impact claims.
+Commit-based presets infer display meaning from commit messages and Git history. They do
+not inspect code semantics, changed paths, issue text, or runtime behavior, and they do
+not invent migration guidance or impact claims.
 
 ## Pull-request and hybrid evidence
 
-PR modes start from the exact released commit set. For each selected commit the action asks GitHub which PR numbers are associated with it, then hydrates each PR's merged landing identity and metadata before assigning coverage.
+PR modes start from the exact released commit set. For each selected commit the action
+asks GitHub which PR numbers are associated with it, then hydrates each PR's merged
+landing identity and metadata before assigning coverage.
 
-A PR is used only when it is actually merged and its verified landing commit is inside the released range. Open or closed-unmerged associations are ignored for coverage. Ambiguous merged associations stay uncovered; title similarity is never used as identity.
+A PR is used only when it is actually merged and its verified landing commit is inside
+the released range. Open or closed-unmerged associations are ignored for coverage.
+Ambiguous merged associations stay uncovered; title similarity is never used as
+identity.
 
-`pull-requests` defaults to `unmatched: error`. With `unmatched: omit`, the body includes an explicit notice and the diagnostics report records the omitted commit identities. `hybrid` keeps uncovered commits as commit records instead.
+`pull-requests` defaults to `unmatched: error`. With `unmatched: omit`, the body
+includes an explicit notice and the diagnostics report records the omitted commit
+identities. `hybrid` keeps uncovered commits as commit records instead.
 
-PR labels can choose the primary category, while breaking/security/deprecation/removal facts from covered commits remain preserved independently.
+PR labels can choose the primary category, while breaking/security/deprecation/removal
+facts from covered commits remain preserved independently.
 
 ## Existing release bodies
 
@@ -217,13 +255,18 @@ PR labels can choose the primary category, while breaking/security/deprecation/r
 
 No policy automatically overwrites an existing release body.
 
-Release title handling is separate from the body policy. New releases and existing drafts use the explicit `title` or the tag when it is omitted. For an already published release, an explicit `title` must match; when `title` is omitted, the existing published title is preserved.
+Release title handling is separate from the body policy. New releases and existing
+drafts use the explicit `title` or the tag when it is omitted. For an already published
+release, an explicit `title` must match; when `title` is omitted, the existing published
+title is preserved.
 
-For new publication, the prepared body is passed to the draft and verified again after publication. Exact comparisons preserve trailing-newline semantics.
+For new publication, the prepared body is passed to the draft and verified again after
+publication. Exact comparisons preserve trailing-newline semantics.
 
 ## Preview
 
-`notes-preview: "true"` prepares release notes and the diagnostics report without creating/updating a release or uploading/validating assets.
+`notes-preview: "true"` prepares release notes and the diagnostics report without
+creating/updating a release or uploading/validating assets.
 
 ```yaml
 - name: Preview release notes
@@ -236,7 +279,8 @@ For new publication, the prepared body is passed to the draft and verified again
     notes-preview: "true"
 ```
 
-`tag` and `commit` are still required, and the remote tag must already exist. Preview returns `state: preview` and an empty `release-url`.
+`tag` and `commit` are still required, and the remote tag must already exist. Preview
+returns `state: preview` and an empty `release-url`.
 
 ## File notes
 
@@ -250,7 +294,8 @@ with:
   notes-file: dist/release-notes.md
 ```
 
-The file must contain valid UTF-8. Its byte-level newline choice is preserved. `notes-file` with any other mode is rejected.
+The file must contain valid UTF-8. Its byte-level newline choice is preserved.
+`notes-file` with any other mode is rejected.
 
 ## Permissions
 
@@ -272,9 +317,14 @@ The action uses the caller's `github.token` by default.
 | Publication | `contents: write` |
 | Publication using PR/hybrid notes | `contents: write`, `pull-requests: read` |
 
-GitHub's Generate Release Notes API requires Contents write permission even though generation itself does not save a release.
+GitHub's Generate Release Notes API requires Contents write permission even though
+generation itself does not save a release.
 
-If the release target adds or modifies files under `.github/workflows/` relative to the repository's default branch, GitHub's release APIs additionally require workflow-write authorization. The Actions `GITHUB_TOKEN` cannot be granted that permission. Pass `token` backed by a credential authorized for both repository contents and workflows when needed.
+If the release target adds or modifies files under `.github/workflows/` relative to the
+repository's default branch, GitHub's release APIs additionally require workflow-write
+authorization. The Actions `GITHUB_TOKEN` cannot be granted that permission. Pass
+`token` backed by a credential authorized for both repository contents and workflows
+when needed.
 
 The checked-out repository must resolve to the same `owner/name` as `GITHUB_REPOSITORY`.
 
@@ -310,21 +360,46 @@ A prerelease cannot use `latest: "true"`.
 | `diagnostics-path` | Local absolute path to the separate schema 1 operation diagnostics file. |
 | `notes-state` | `prepared` in preview, `verified` when requested body equality was established, or `preserved` when an existing body was intentionally retained. |
 
-The report records its preparation status, the effective policy, configuration path/digest plus caller checkout revision when a config is used, selected range, included/excluded identities, diagnostics, metadata-mutability flags, and final body SHA-256/byte length for custom generation. `notes-state` remains the authoritative lifecycle outcome after publication verification.
+The report records its preparation status, the effective policy, configuration
+path/digest plus caller checkout revision when a config is used, selected range,
+included/excluded identities, diagnostics, metadata-mutability flags, and final body
+SHA-256/byte length for custom generation. `notes-state` remains the authoritative
+lifecycle outcome after publication verification.
 
 ## Release lifecycle guarantees
 
-Every publishing invocation verifies that the remote tag resolves to the requested commit and that the checked-out repository identity matches `GITHUB_REPOSITORY`.
+Every publishing invocation verifies that the remote tag resolves to the requested
+commit and that the checked-out repository identity matches `GITHUB_REPOSITORY`.
 
-For a new release, the action creates a draft with the prepared body, uploads requested assets, verifies the exact asset set and SHA-256 digests, re-verifies the remote tag, publishes the draft, verifies immutability, verifies the final body, and checks the final asset set again.
+For a new release, the action creates a draft with the prepared body, uploads requested
+assets, verifies the exact asset set and SHA-256 digests, re-verifies the remote tag,
+publishes the draft, verifies immutability, verifies the final body, and checks the
+final asset set again.
 
-Uploads run in bounded batches when `upload-concurrency` exceeds `1`. Each batch waits for its slowest upload before the next batch starts. A failed batch stops publication after every started upload finishes and leaves completed files in the draft; a retry verifies their digests and uploads only missing files. A GitHub upstream failure can leave an empty asset in `starter` state. The action rejects incomplete assets; inspect and remove that incomplete draft asset before retrying. Upload, asset verification, publication and final verification durations and exit statuses appear in ordinary logs and the Actions job summary, including failed phases. Successful publication and verification produce no notice annotations; errors remain error annotations.
+Uploads run in bounded batches when `upload-concurrency` exceeds `1`. Each batch waits
+for its slowest upload before the next batch starts. A failed batch stops publication
+after every started upload finishes and leaves completed files in the draft; a retry
+verifies their digests and uploads only missing files.
 
-An existing draft is resumed only when prerelease state, requested title, notes policy, and assets are compatible. An existing published release is accepted only when its tag target, prerelease state, immutability, requested asset set, and requested existing-body policy all pass.
+A GitHub upstream failure can leave an empty asset in `starter` state. The action
+rejects incomplete assets; inspect and remove that incomplete draft asset before
+retrying.
 
-If another invocation creates, uploads, or publishes concurrently, the action rereads state and accepts the result only when it satisfies the same requested invariants.
+Upload, asset verification, publication and final verification durations and exit
+statuses appear in ordinary logs and the Actions job summary, including failed phases.
+Successful publication and verification produce no notice annotations; errors remain
+error annotations.
 
-The action never retargets a tag, deletes or replaces an existing asset, uses `--clobber`, or automatically rewrites editorial release content.
+An existing draft is resumed only when prerelease state, requested title, notes policy,
+and assets are compatible. An existing published release is accepted only when its tag
+target, prerelease state, immutability, requested asset set, and requested existing-body
+policy all pass.
+
+If another invocation creates, uploads, or publishes concurrently, the action rereads
+state and accepts the result only when it satisfies the same requested invariants.
+
+The action never retargets a tag, deletes or replaces an existing asset, uses
+`--clobber`, or automatically rewrites editorial release content.
 
 Immutable releases are a repository prerequisite; this action does not enable the repository setting.
 
@@ -342,7 +417,8 @@ The current implementation deliberately bounds external evidence work:
 - `notes-config` is limited to 256 KiB and parsed depth 16.
 - First-parent selection reads bounded pages, independently of total repository history. Selected commit metadata is read in batches of 16 and reused after deterministic ordering. Each Git evidence subprocess has an explicit 8 MiB output limit; pathological records fail with a limit error. The selected graph allows up to 4,096 parents per commit and 1,000,000 parent edges in total, separately from the 10,000 selected-commit limit.
 
-Exhausted pagination, invalid evidence, missing permissions, or ambiguous range selection are errors rather than silent truncation.
+Exhausted pagination, invalid evidence, missing permissions, or ambiguous range
+selection are errors rather than silent truncation.
 
 Release lists and commit-to-PR associations select only the fields needed for
 evidence collection before CLI output reaches Node. Release snapshots and body
@@ -353,7 +429,8 @@ final newlines survive unchanged.
 
 ## Releases without assets
 
-Omit `assets` when no binaries are needed. The same provenance, notes, immutability, and idempotency checks still apply.
+Omit `assets` when no binaries are needed. The same provenance, notes, immutability, and
+idempotency checks still apply.
 
 ```yaml
 - name: Publish automation release
@@ -368,11 +445,14 @@ Omit `assets` when no binaries are needed. The same provenance, notes, immutabil
 ## Operation diagnostics
 
 `diagnostics-path` points to a separate schema 1 JSON report. Existing notes reports
-and output states retain their formats. The sidecar records verified tag binding,
+and output states retain their formats.
+
+The sidecar records verified tag binding,
 observed publication/asset state and a stable error code with recovery metadata.
 It contains no raw subprocess errors, tokens or absolute local paths. The output
 itself is a runner-local absolute path; upload the file explicitly for another job.
 Controlled failures retain diagnostics when output and filesystem access work.
+
 A failed diagnostic write never replaces the original publication failure. If only
 diagnostic persistence fails after publication, inspect the existing Release before
 retrying; no remote rollback occurs. Prefer same-run steps or `needs` for subsequent
