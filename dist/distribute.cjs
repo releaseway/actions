@@ -7543,13 +7543,13 @@ var require_semver = __commonJS({
     var { safeRe: re, t } = require_re();
     var parseOptions = require_parse_options();
     var { compareIdentifiers } = require_identifiers();
-    var isPrereleaseIdentifier = (prerelease, identifier) => {
+    var isPrereleaseIdentifier = (prerelease2, identifier) => {
       const identifiers = identifier.split(".");
-      if (identifiers.length > prerelease.length) {
+      if (identifiers.length > prerelease2.length) {
         return false;
       }
       for (let i = 0; i < identifiers.length; i++) {
-        if (compareIdentifiers(prerelease[i], identifiers[i]) !== 0) {
+        if (compareIdentifiers(prerelease2[i], identifiers[i]) !== 0) {
           return false;
         }
       }
@@ -7797,17 +7797,17 @@ var require_semver = __commonJS({
               }
             }
             if (identifier) {
-              let prerelease = [identifier, base];
+              let prerelease2 = [identifier, base];
               if (identifierBase === false) {
-                prerelease = [identifier];
+                prerelease2 = [identifier];
               }
               if (isPrereleaseIdentifier(this.prerelease, identifier)) {
                 const prereleaseBase = this.prerelease[identifier.split(".").length];
                 if (isNaN(prereleaseBase)) {
-                  this.prerelease = prerelease;
+                  this.prerelease = prerelease2;
                 }
               } else {
-                this.prerelease = prerelease;
+                this.prerelease = prerelease2;
               }
             }
             break;
@@ -7853,11 +7853,11 @@ var require_valid = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/valid.js"(exports2, module2) {
     "use strict";
     var parse = require_parse();
-    var valid = (version, options2) => {
+    var valid2 = (version, options2) => {
       const v = parse(version, options2);
       return v ? v.version : null;
     };
-    module2.exports = valid;
+    module2.exports = valid2;
   }
 });
 
@@ -7977,11 +7977,11 @@ var require_prerelease = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/prerelease.js"(exports2, module2) {
     "use strict";
     var parse = require_parse();
-    var prerelease = (version, options2) => {
+    var prerelease2 = (version, options2) => {
       const parsed = parse(version, options2);
       return parsed && parsed.prerelease.length ? parsed.prerelease : null;
     };
-    module2.exports = prerelease;
+    module2.exports = prerelease2;
   }
 });
 
@@ -7990,8 +7990,8 @@ var require_compare = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/compare.js"(exports2, module2) {
     "use strict";
     var SemVer = require_semver();
-    var compare = (a, b, loose) => new SemVer(a, loose).compare(new SemVer(b, loose));
-    module2.exports = compare;
+    var compare2 = (a, b, loose) => new SemVer(a, loose).compare(new SemVer(b, loose));
+    module2.exports = compare2;
   }
 });
 
@@ -7999,8 +7999,8 @@ var require_compare = __commonJS({
 var require_rcompare = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/rcompare.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var rcompare = (a, b, loose) => compare(b, a, loose);
+    var compare2 = require_compare();
+    var rcompare = (a, b, loose) => compare2(b, a, loose);
     module2.exports = rcompare;
   }
 });
@@ -8009,8 +8009,8 @@ var require_rcompare = __commonJS({
 var require_compare_loose = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/compare-loose.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var compareLoose = (a, b) => compare(a, b, true);
+    var compare2 = require_compare();
+    var compareLoose = (a, b) => compare2(a, b, true);
     module2.exports = compareLoose;
   }
 });
@@ -8053,8 +8053,8 @@ var require_rsort = __commonJS({
 var require_gt = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/gt.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var gt = (a, b, loose) => compare(a, b, loose) > 0;
+    var compare2 = require_compare();
+    var gt = (a, b, loose) => compare2(a, b, loose) > 0;
     module2.exports = gt;
   }
 });
@@ -8063,8 +8063,8 @@ var require_gt = __commonJS({
 var require_lt = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/lt.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var lt = (a, b, loose) => compare(a, b, loose) < 0;
+    var compare2 = require_compare();
+    var lt = (a, b, loose) => compare2(a, b, loose) < 0;
     module2.exports = lt;
   }
 });
@@ -8073,8 +8073,8 @@ var require_lt = __commonJS({
 var require_eq = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/eq.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var eq = (a, b, loose) => compare(a, b, loose) === 0;
+    var compare2 = require_compare();
+    var eq = (a, b, loose) => compare2(a, b, loose) === 0;
     module2.exports = eq;
   }
 });
@@ -8083,8 +8083,8 @@ var require_eq = __commonJS({
 var require_neq = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/neq.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var neq = (a, b, loose) => compare(a, b, loose) !== 0;
+    var compare2 = require_compare();
+    var neq = (a, b, loose) => compare2(a, b, loose) !== 0;
     module2.exports = neq;
   }
 });
@@ -8093,8 +8093,8 @@ var require_neq = __commonJS({
 var require_gte = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/gte.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var gte = (a, b, loose) => compare(a, b, loose) >= 0;
+    var compare2 = require_compare();
+    var gte = (a, b, loose) => compare2(a, b, loose) >= 0;
     module2.exports = gte;
   }
 });
@@ -8103,8 +8103,8 @@ var require_gte = __commonJS({
 var require_lte = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/lte.js"(exports2, module2) {
     "use strict";
-    var compare = require_compare();
-    var lte = (a, b, loose) => compare(a, b, loose) <= 0;
+    var compare2 = require_compare();
+    var lte = (a, b, loose) => compare2(a, b, loose) <= 0;
     module2.exports = lte;
   }
 });
@@ -8197,9 +8197,9 @@ var require_coerce = __commonJS({
       const major = match[2];
       const minor = match[3] || "0";
       const patch = match[4] || "0";
-      const prerelease = options2.includePrerelease && match[5] ? `-${match[5]}` : "";
+      const prerelease2 = options2.includePrerelease && match[5] ? `-${match[5]}` : "";
       const build = options2.includePrerelease && match[6] ? `+${match[6]}` : "";
-      return parse(`${major}.${minor}.${patch}${prerelease}${build}`, options2);
+      return parse(`${major}.${minor}.${patch}${prerelease2}${build}`, options2);
     };
     module2.exports = coerce;
   }
@@ -8787,7 +8787,7 @@ var require_satisfies = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/satisfies.js"(exports2, module2) {
     "use strict";
     var Range = require_range();
-    var satisfies = (version, range, options2) => {
+    var satisfies2 = (version, range, options2) => {
       try {
         range = new Range(range, options2);
       } catch (er) {
@@ -8795,7 +8795,7 @@ var require_satisfies = __commonJS({
       }
       return range.test(version);
     };
-    module2.exports = satisfies;
+    module2.exports = satisfies2;
   }
 });
 
@@ -8950,7 +8950,7 @@ var require_outside = __commonJS({
     var Comparator = require_comparator();
     var { ANY } = Comparator;
     var Range = require_range();
-    var satisfies = require_satisfies();
+    var satisfies2 = require_satisfies();
     var gt = require_gt();
     var lt = require_lt();
     var lte = require_lte();
@@ -8977,7 +8977,7 @@ var require_outside = __commonJS({
         default:
           throw new TypeError('Must provide a hilo val of "<" or ">"');
       }
-      if (satisfies(version, range, options2)) {
+      if (satisfies2(version, range, options2)) {
         return false;
       }
       for (let i = 0; i < range.set.length; ++i) {
@@ -9049,15 +9049,15 @@ var require_intersects = __commonJS({
 var require_simplify = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/ranges/simplify.js"(exports2, module2) {
     "use strict";
-    var satisfies = require_satisfies();
-    var compare = require_compare();
+    var satisfies2 = require_satisfies();
+    var compare2 = require_compare();
     module2.exports = (versions, range, options2) => {
       const set = [];
       let first = null;
       let prev = null;
-      const v = versions.sort((a, b) => compare(a, b, options2));
+      const v = versions.sort((a, b) => compare2(a, b, options2));
       for (const version of v) {
-        const included = satisfies(version, range, options2);
+        const included = satisfies2(version, range, options2);
         if (included) {
           prev = version;
           if (!first) {
@@ -9102,8 +9102,8 @@ var require_subset = __commonJS({
     var Range = require_range();
     var Comparator = require_comparator();
     var { ANY } = Comparator;
-    var satisfies = require_satisfies();
-    var compare = require_compare();
+    var satisfies2 = require_satisfies();
+    var compare2 = require_compare();
     var subset = (sub, dom, options2 = {}) => {
       if (sub === dom) {
         return true;
@@ -9163,7 +9163,7 @@ var require_subset = __commonJS({
       }
       let gtltComp;
       if (gt && lt) {
-        gtltComp = compare(gt.semver, lt.semver, options2);
+        gtltComp = compare2(gt.semver, lt.semver, options2);
         if (gtltComp > 0) {
           return null;
         } else if (gtltComp === 0 && (gt.operator !== ">=" || lt.operator !== "<=")) {
@@ -9171,14 +9171,14 @@ var require_subset = __commonJS({
         }
       }
       for (const eq of eqSet) {
-        if (gt && !satisfies(eq, String(gt), options2)) {
+        if (gt && !satisfies2(eq, String(gt), options2)) {
           return null;
         }
-        if (lt && !satisfies(eq, String(lt), options2)) {
+        if (lt && !satisfies2(eq, String(lt), options2)) {
           return null;
         }
         for (const c of dom) {
-          if (!satisfies(eq, String(c), options2)) {
+          if (!satisfies2(eq, String(c), options2)) {
             return false;
           }
         }
@@ -9243,14 +9243,14 @@ var require_subset = __commonJS({
       if (!a) {
         return b;
       }
-      const comp = compare(a.semver, b.semver, options2);
+      const comp = compare2(a.semver, b.semver, options2);
       return comp > 0 ? a : comp < 0 ? b : b.operator === ">" && a.operator === ">=" ? b : a;
     };
     var lowerLT = (a, b, options2) => {
       if (!a) {
         return b;
       }
-      const comp = compare(a.semver, b.semver, options2);
+      const comp = compare2(a.semver, b.semver, options2);
       return comp < 0 ? a : comp > 0 ? b : b.operator === "<" && a.operator === "<=" ? b : a;
     };
     module2.exports = subset;
@@ -9266,15 +9266,15 @@ var require_semver2 = __commonJS({
     var SemVer = require_semver();
     var identifiers = require_identifiers();
     var parse = require_parse();
-    var valid = require_valid();
+    var valid2 = require_valid();
     var clean = require_clean();
     var inc = require_inc();
     var diff = require_diff();
     var major = require_major();
     var minor = require_minor();
     var patch = require_patch();
-    var prerelease = require_prerelease();
-    var compare = require_compare();
+    var prerelease2 = require_prerelease();
+    var compare2 = require_compare();
     var rcompare = require_rcompare();
     var compareLoose = require_compare_loose();
     var compareBuild = require_compare_build();
@@ -9291,7 +9291,7 @@ var require_semver2 = __commonJS({
     var truncate = require_truncate();
     var Comparator = require_comparator();
     var Range = require_range();
-    var satisfies = require_satisfies();
+    var satisfies2 = require_satisfies();
     var toComparators = require_to_comparators();
     var maxSatisfying = require_max_satisfying();
     var minSatisfying = require_min_satisfying();
@@ -9305,15 +9305,15 @@ var require_semver2 = __commonJS({
     var subset = require_subset();
     module2.exports = {
       parse,
-      valid,
+      valid: valid2,
       clean,
       inc,
       diff,
       major,
       minor,
       patch,
-      prerelease,
-      compare,
+      prerelease: prerelease2,
+      compare: compare2,
       rcompare,
       compareLoose,
       compareBuild,
@@ -9330,7 +9330,7 @@ var require_semver2 = __commonJS({
       truncate,
       Comparator,
       Range,
-      satisfies,
+      satisfies: satisfies2,
       toComparators,
       maxSatisfying,
       minSatisfying,
@@ -9355,8 +9355,8 @@ var require_semver2 = __commonJS({
 });
 
 // src/distribution/action.ts
-var import_promises8 = require("node:fs/promises");
-var import_node_path6 = require("node:path");
+var import_promises9 = require("node:fs/promises");
+var import_node_path7 = require("node:path");
 
 // src/distribution/inputs.ts
 function input(env, name) {
@@ -9581,201 +9581,10 @@ async function hashFile(path, max = 8 * 1024 ** 3, deadline = Date.now() + 6e5) 
 }
 
 // src/distribution/report.ts
-var import_node_crypto2 = require("node:crypto");
-function ordered(files) {
-  return files.slice().sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
-}
-function contentDigest(files) {
-  const bytes = JSON.stringify(ordered(files).map((f) => [f.path, f.size, f.sha256]));
-  return `sha256:${(0, import_node_crypto2.createHash)("sha256").update(bytes).digest("hex")}`;
-}
-
-// src/distribution/release.ts
-var import_promises5 = require("node:fs/promises");
-var import_node_path4 = require("node:path");
-
-// src/distribution/gh.ts
-var import_node_child_process = require("node:child_process");
-var import_node_fs = require("node:fs");
-var import_promises4 = require("node:stream/promises");
-var import_node_stream = require("node:stream");
-var GhClient = class {
-  env;
-  deadline;
-  command;
-  prefix;
-  constructor(token, cache, deadline = Date.now() + 6e5, env = process.env, command = "gh", prefix2 = []) {
-    this.deadline = deadline;
-    this.command = command;
-    this.prefix = prefix2;
-    if (!token) throw new Error("Release reads require token (defaults to github.token) with contents:read");
-    this.env = { ...env, GH_TOKEN: token, GH_HOST: "github.com", GH_PROMPT_DISABLED: "1", GH_CACHE_DIR: cache };
-  }
-  async run(args, file, maximum = 16 * 1024 ** 2) {
-    const remaining = Math.min(file ? 12e4 : 3e4, this.deadline - Date.now());
-    if (remaining <= 0) throw new Error("Distribution exceeded its deadline");
-    const child = (0, import_node_child_process.spawn)(this.command, [...this.prefix, ...args], { env: this.env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
-    const timer = setTimeout(() => child.kill(), remaining);
-    child.stderr.resume();
-    const closed = new Promise((resolve4, reject) => {
-      child.once("error", () => reject(new Error("GitHub CLI unavailable; install gh with Release verification support")));
-      child.once("close", (code) => code === 0 ? resolve4() : reject(new Error("GitHub CLI operation failed; check token permissions, gh capability, source and timeout")));
-    });
-    void closed.catch(() => {
-    });
-    try {
-      let size = 0;
-      const bounded = new import_node_stream.Transform({ transform(chunk, _encoding, callback) {
-        size += chunk.length;
-        callback(size > maximum ? new Error("GitHub response exceeds byte limit") : null, chunk);
-      } });
-      const chunks = [];
-      if (file) await (0, import_promises4.pipeline)(child.stdout, bounded, (0, import_node_fs.createWriteStream)(file, { flags: "wx", mode: 384 }));
-      else {
-        for await (const chunk of child.stdout.pipe(bounded)) chunks.push(Buffer.from(chunk));
-      }
-      await closed;
-      return Buffer.concat(chunks);
-    } finally {
-      clearTimeout(timer);
-      if (child.exitCode === null) child.kill();
-    }
-  }
-  async json(endpoint, projection) {
-    const bytes = await this.run([
-      "api",
-      "--hostname",
-      "github.com",
-      "-H",
-      "Accept: application/vnd.github+json",
-      endpoint,
-      ...projection ? ["--jq", projection] : []
-    ]);
-    try {
-      return JSON.parse(bytes.toString("utf8"));
-    } catch {
-      throw new Error("Invalid GitHub JSON response");
-    }
-  }
-  async download(endpoint, path, maximum) {
-    await this.run(["api", "--hostname", "github.com", "-H", "Accept: application/octet-stream", endpoint], path, maximum);
-  }
-  async verify(tag, path, repository) {
-    await this.run(["release", "verify-asset", "--repo", `github.com/${repository}`, "--format", "json", "--", tag, path]);
-  }
-};
-
-// src/distribution/release.ts
-function repositoryName(value) {
-  if (!/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/.test(value) || [".", ".."].includes(value.split("/")[1])) throw new Error("repository must be owner/name on github.com");
-  return value;
-}
-function validId(value) {
-  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
-}
-async function prepareRelease(o, env, deadline, client, mappings2) {
-  if (o.root) throw new Error("root is only supported for local source");
-  const repository = repositoryName(input(env, "repository") || env.GITHUB_REPOSITORY || "");
-  const tag = input(env, "tag");
-  if (!tag || /[\x00-\x1f\x7f]/.test(tag)) throw new Error("tag must be an exact literal tag");
-  const expected = input(env, "commit");
-  if (expected && !/^[a-f0-9]{40}$/i.test(expected)) throw new Error("commit must be a full SHA");
-  const verification = input(env, "verification") || "digest";
-  if (!["digest", "attested"].includes(verification)) throw new Error("Unknown verification mode");
-  if (!client && !input(env, "token")) throw new Error("Release reads require token (defaults to github.token) with contents:read");
-  const scratch = await (0, import_promises5.mkdtemp)((0, import_node_path4.join)(o.temp, "releaseway-source-"));
-  const gh = client ?? new GhClient(input(env, "token"), (0, import_node_path4.join)(scratch, "cache"), deadline);
-  const base = `repos/${repository}`;
-  async function snapshot() {
-    const repo = await gh.json(base);
-    if (repo.private !== false) throw new Error("Only public github.com repositories are supported");
-    const release = await gh.json(`${base}/releases/tags/${encodeURIComponent(tag)}`);
-    if (!validId(release.id) || release.tag_name !== tag || release.draft !== false) throw new Error("Release is missing, draft or does not match the exact tag");
-    let object2 = (await gh.json(`${base}/git/ref/tags/${encodeURIComponent(tag)}`)).object;
-    const seen = /* @__PURE__ */ new Set();
-    for (let depth = 0; object2?.type === "tag"; depth++) {
-      if (depth >= 16 || seen.has(object2.sha) || !/^[a-f0-9]{40}$/i.test(object2.sha)) throw new Error("Invalid annotated tag chain");
-      seen.add(object2.sha);
-      object2 = (await gh.json(`${base}/git/tags/${object2.sha}`)).object;
-    }
-    if (object2?.type !== "commit" || !/^[a-f0-9]{40}$/i.test(object2.sha)) throw new Error("Tag does not resolve to a commit");
-    const commit = object2.sha.toLowerCase();
-    if (expected && commit !== expected.toLowerCase()) throw new Error("Tag commit does not match expected commit");
-    const assets = [];
-    for (let page = 1; page <= 20; page++) {
-      const batch = await gh.json(`${base}/releases/${release.id}/assets?per_page=100&page=${page}`);
-      if (!Array.isArray(batch) || batch.length > 100) throw new Error("Invalid Release asset page");
-      assets.push(...batch);
-      if (batch.length < 100) break;
-      if (page === 20) throw new Error("Release exceeds asset pagination budget");
-    }
-    return { release, commit, assets };
-  }
-  try {
-    const before = await snapshot();
-    const selected = /* @__PURE__ */ new Map();
-    for (const request of mappings2?.map((m) => m.from) ?? o.files) {
-      if (!mappings2) pattern(request);
-      if (request.includes("/")) throw new Error("Release assets have flat names");
-      const matches2 = before.assets.filter((a) => typeof a.name === "string" && visible(a.name, request) && (mappings2 ? a.name === request : import_node_path4.posix.matchesGlob(a.name, request)));
-      if (!matches2.length) throw new Error("A Release files pattern matched no assets");
-      for (const a of matches2) {
-        if (!mappings2) publicPath(a.name);
-        if (!validId(a.id) || a.state !== "uploaded" || !Number.isSafeInteger(a.size) || a.size < 0 || a.size > o.maxFile || !/^sha256:[a-f0-9]{64}$/.test(a.digest)) throw new Error("Invalid uploaded asset ID, size or SHA-256 digest");
-        if (before.assets.filter((other) => other.name === a.name).length !== 1) throw new Error("Duplicate Release asset name");
-        const old = selected.get(a.name);
-        if (old && old.id !== a.id) throw new Error("Duplicate Release asset name");
-        selected.set(a.name, a);
-      }
-    }
-    if (selected.size > 1e4) throw new Error("Selection exceeds 10000 files");
-    if (!mappings2) assertTargets([...selected.keys()]);
-    let total = 0;
-    const selections = [];
-    for (const a of selected.values()) {
-      total += a.size;
-      if (total > o.maxTotal) throw new Error("Selected assets exceed total byte limit");
-      const source = (0, import_node_path4.join)(scratch, `asset-${a.id}`);
-      await gh.download(`${base}/releases/assets/${a.id}`, source, a.size);
-      const actual = await hashFile(source, o.maxFile, deadline);
-      if (actual.size !== a.size || `sha256:${actual.sha256}` !== a.digest) throw new Error("Release asset bytes do not match digest");
-      if (verification === "attested") await gh.verify(tag, source, repository);
-      await (0, import_promises5.chmod)(source, 420);
-      selections.push({ source, from: a.name, to: a.name });
-    }
-    const identity = (s) => JSON.stringify({
-      id: s.release.id,
-      commit: s.commit,
-      immutable: s.release.immutable === true,
-      assets: [...selected.keys()].sort().map((name) => s.assets.filter((a) => a.name === name).map((a) => [a.id, a.name, a.size, a.digest, a.state]))
-    });
-    const verifySnapshot = async () => {
-      if (identity(before) !== identity(await snapshot())) throw new Error("Release or tag changed while preparing files");
-    };
-    const layout = mappings2 ? mappings2.map((m) => {
-      const s = selections.find((s2) => s2.from === m.from);
-      if (!s) throw new Error("Missing mapped asset");
-      return { ...s, to: m.to };
-    }) : selections;
-    assertTargets(layout.map((s) => s.to));
-    return { root: scratch, selections: layout, source: {
-      kind: "github-release",
-      repository,
-      tag,
-      releaseId: before.release.id,
-      commit: before.commit,
-      immutable: before.release.immutable === true,
-      verification,
-      assets: [...selected.values()].map((a) => ({ id: a.id, name: a.name, size: a.size, digest: a.digest }))
-    }, verifySnapshot, cleanup: () => (0, import_promises5.rm)(scratch, { recursive: true, force: true }) };
-  } catch (error) {
-    await (0, import_promises5.rm)(scratch, { recursive: true, force: true });
-    throw error;
-  }
-}
+var import_node_crypto3 = require("node:crypto");
 
 // src/distribution/config.ts
-var import_promises6 = require("node:fs/promises");
+var import_promises4 = require("node:fs/promises");
 var import_yaml = __toESM(require_dist(), 1);
 var import_semver = __toESM(require_semver2(), 1);
 function object(value, keys) {
@@ -9835,9 +9644,9 @@ function parseConfig(value) {
   return { schema: 2, releases, files, ...aliases ? { aliases } : {} };
 }
 async function readConfig(workspace, name) {
-  const file = await checkedPath(await (0, import_promises6.realpath)(workspace), sourcePath(name));
-  if ((await (0, import_promises6.stat)(file)).size > 256 * 1024) throw new Error("Config exceeds 256 KiB");
-  const text = await (0, import_promises6.readFile)(file, "utf8");
+  const file = await checkedPath(await (0, import_promises4.realpath)(workspace), sourcePath(name));
+  if ((await (0, import_promises4.stat)(file)).size > 256 * 1024) throw new Error("Config exceeds 256 KiB");
+  const text = await (0, import_promises4.readFile)(file, "utf8");
   if (Buffer.byteLength(text) > 256 * 1024) throw new Error("Config exceeds 256 KiB");
   let value;
   try {
@@ -9853,22 +9662,456 @@ async function readConfig(workspace, name) {
   return parseConfig(value);
 }
 
-// src/distribution/site.ts
+// src/distribution/release-set.ts
+var import_semver2 = __toESM(require_semver2(), 1);
+
+// src/distribution/release.ts
+var import_promises6 = require("node:fs/promises");
+var import_node_path4 = require("node:path");
+
+// src/distribution/gh.ts
+var import_node_child_process = require("node:child_process");
+var import_node_fs = require("node:fs");
+var import_promises5 = require("node:stream/promises");
+var import_node_stream = require("node:stream");
+var GhClient = class {
+  env;
+  deadline;
+  command;
+  prefix;
+  constructor(token, cache, deadline = Date.now() + 6e5, env = process.env, command = "gh", prefix2 = []) {
+    this.deadline = deadline;
+    this.command = command;
+    this.prefix = prefix2;
+    if (!token) throw new Error("Release reads require token (defaults to github.token) with contents:read");
+    this.env = { ...env, GH_TOKEN: token, GH_HOST: "github.com", GH_PROMPT_DISABLED: "1", GH_CACHE_DIR: cache };
+  }
+  async run(args, file, maximum = 16 * 1024 ** 2) {
+    const remaining = Math.min(file ? 12e4 : 3e4, this.deadline - Date.now());
+    if (remaining <= 0) throw new Error("Distribution exceeded its deadline");
+    const child = (0, import_node_child_process.spawn)(this.command, [...this.prefix, ...args], { env: this.env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    const timer = setTimeout(() => child.kill(), remaining);
+    child.stderr.resume();
+    const closed = new Promise((resolve4, reject) => {
+      child.once("error", () => reject(new Error("GitHub CLI unavailable; install gh with Release verification support")));
+      child.once("close", (code) => code === 0 ? resolve4() : reject(new Error("GitHub CLI operation failed; check token permissions, gh capability, source and timeout")));
+    });
+    void closed.catch(() => {
+    });
+    try {
+      let size = 0;
+      const bounded = new import_node_stream.Transform({ transform(chunk, _encoding, callback) {
+        size += chunk.length;
+        callback(size > maximum ? new Error("GitHub response exceeds byte limit") : null, chunk);
+      } });
+      const chunks = [];
+      if (file) await (0, import_promises5.pipeline)(child.stdout, bounded, (0, import_node_fs.createWriteStream)(file, { flags: "wx", mode: 384 }));
+      else {
+        for await (const chunk of child.stdout.pipe(bounded)) chunks.push(Buffer.from(chunk));
+      }
+      await closed;
+      return Buffer.concat(chunks);
+    } finally {
+      clearTimeout(timer);
+      if (child.exitCode === null) child.kill();
+    }
+  }
+  async json(endpoint, projection) {
+    const bytes = await this.run([
+      "api",
+      "--hostname",
+      "github.com",
+      "-H",
+      "Accept: application/vnd.github+json",
+      endpoint,
+      ...projection ? ["--jq", projection] : []
+    ]);
+    try {
+      return JSON.parse(bytes.toString("utf8"));
+    } catch {
+      throw new Error("Invalid GitHub JSON response");
+    }
+  }
+  async download(endpoint, path, maximum) {
+    await this.run(["api", "--hostname", "github.com", "-H", "Accept: application/octet-stream", endpoint], path, maximum);
+  }
+  async verify(tag, path, repository) {
+    await this.run(["release", "verify-asset", "--repo", `github.com/${repository}`, "--format", "json", "--", tag, path]);
+  }
+};
+
+// src/distribution/release.ts
+function repositoryName(value) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/.test(value) || [".", ".."].includes(value.split("/")[1])) throw new Error("repository must be owner/name on github.com");
+  return value;
+}
+function validId(value) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+async function snapshotRelease(gh, repository, tag, expected = "") {
+  const base = `repos/${repository}`;
+  const repo = await gh.json(base);
+  if (repo.private !== false) throw new Error("Only public github.com repositories are supported");
+  const release = await gh.json(`${base}/releases/tags/${encodeURIComponent(tag)}`);
+  if (!validId(release.id) || release.tag_name !== tag || release.draft !== false) throw new Error("Release is missing, draft or does not match the exact tag");
+  let object2 = (await gh.json(`${base}/git/ref/tags/${encodeURIComponent(tag)}`)).object;
+  const seen = /* @__PURE__ */ new Set();
+  for (let depth = 0; object2?.type === "tag"; depth++) {
+    if (depth >= 16 || seen.has(object2.sha) || !/^[a-f0-9]{40}$/i.test(object2.sha)) throw new Error("Invalid annotated tag chain");
+    seen.add(object2.sha);
+    object2 = (await gh.json(`${base}/git/tags/${object2.sha}`)).object;
+  }
+  if (object2?.type !== "commit" || !/^[a-f0-9]{40}$/i.test(object2.sha)) throw new Error("Tag does not resolve to a commit");
+  const commit = object2.sha.toLowerCase();
+  if (expected && commit !== expected.toLowerCase()) throw new Error("Tag commit does not match expected commit");
+  const assets = [];
+  for (let page = 1; page <= 20; page++) {
+    const batch = await gh.json(`${base}/releases/${release.id}/assets?per_page=100&page=${page}`);
+    if (!Array.isArray(batch) || batch.length > 100) throw new Error("Invalid Release asset page");
+    assets.push(...batch);
+    if (batch.length < 100) break;
+    if (page === 20) throw new Error("Release exceeds asset pagination budget");
+  }
+  return { release, commit, assets };
+}
+async function prepareRelease(o, env, deadline, client, mappings2) {
+  if (o.root) throw new Error("root is only supported for local source");
+  const repository = repositoryName(input(env, "repository") || env.GITHUB_REPOSITORY || "");
+  const tag = input(env, "tag");
+  if (!tag || /[\x00-\x1f\x7f]/.test(tag)) throw new Error("tag must be an exact literal tag");
+  const expected = input(env, "commit");
+  if (expected && !/^[a-f0-9]{40}$/i.test(expected)) throw new Error("commit must be a full SHA");
+  const verification = input(env, "verification") || "digest";
+  if (!["digest", "attested"].includes(verification)) throw new Error("Unknown verification mode");
+  if (!client && !input(env, "token")) throw new Error("Release reads require token (defaults to github.token) with contents:read");
+  const scratch = await (0, import_promises6.mkdtemp)((0, import_node_path4.join)(o.temp, "releaseway-source-"));
+  const gh = client ?? new GhClient(input(env, "token"), (0, import_node_path4.join)(scratch, "cache"), deadline);
+  const base = `repos/${repository}`;
+  async function snapshot() {
+    return snapshotRelease(gh, repository, tag, expected);
+  }
+  try {
+    const before = await snapshot();
+    const selected = /* @__PURE__ */ new Map();
+    for (const request of mappings2?.map((m) => m.from) ?? o.files) {
+      if (!mappings2) pattern(request);
+      if (request.includes("/")) throw new Error("Release assets have flat names");
+      const matches2 = before.assets.filter((a) => typeof a.name === "string" && visible(a.name, request) && (mappings2 ? a.name === request : import_node_path4.posix.matchesGlob(a.name, request)));
+      if (!matches2.length) throw new Error("A Release files pattern matched no assets");
+      for (const a of matches2) {
+        if (!mappings2) publicPath(a.name);
+        if (!validId(a.id) || a.state !== "uploaded" || !Number.isSafeInteger(a.size) || a.size < 0 || a.size > o.maxFile || !/^sha256:[a-f0-9]{64}$/.test(a.digest)) throw new Error("Invalid uploaded asset ID, size or SHA-256 digest");
+        if (before.assets.filter((other) => other.name === a.name).length !== 1) throw new Error("Duplicate Release asset name");
+        const old = selected.get(a.name);
+        if (old && old.id !== a.id) throw new Error("Duplicate Release asset name");
+        selected.set(a.name, a);
+      }
+    }
+    if (selected.size > 1e4) throw new Error("Selection exceeds 10000 files");
+    if (!mappings2) assertTargets([...selected.keys()]);
+    let total = 0;
+    const selections = [];
+    for (const a of selected.values()) {
+      total += a.size;
+      if (total > o.maxTotal) throw new Error("Selected assets exceed total byte limit");
+      const source = (0, import_node_path4.join)(scratch, `asset-${a.id}`);
+      await gh.download(`${base}/releases/assets/${a.id}`, source, a.size);
+      const actual = await hashFile(source, o.maxFile, deadline);
+      if (actual.size !== a.size || `sha256:${actual.sha256}` !== a.digest) throw new Error("Release asset bytes do not match digest");
+      if (verification === "attested") await gh.verify(tag, source, repository);
+      await (0, import_promises6.chmod)(source, 420);
+      selections.push({ source, from: a.name, to: a.name });
+    }
+    const identity = (s) => JSON.stringify({
+      id: s.release.id,
+      commit: s.commit,
+      immutable: s.release.immutable === true,
+      assets: [...selected.keys()].sort().map((name) => s.assets.filter((a) => a.name === name).map((a) => [a.id, a.name, a.size, a.digest, a.state]))
+    });
+    const verifySnapshot = async () => {
+      if (identity(before) !== identity(await snapshot())) throw new Error("Release or tag changed while preparing files");
+    };
+    const layout = mappings2 ? mappings2.map((m) => {
+      const s = selections.find((s2) => s2.from === m.from);
+      if (!s) throw new Error("Missing mapped asset");
+      return { ...s, to: m.to };
+    }) : selections;
+    assertTargets(layout.map((s) => s.to));
+    return { root: scratch, selections: layout, source: {
+      kind: "github-release",
+      repository,
+      tag,
+      releaseId: before.release.id,
+      commit: before.commit,
+      immutable: before.release.immutable === true,
+      verification,
+      assets: [...selected.values()].map((a) => ({ id: a.id, name: a.name, size: a.size, digest: a.digest }))
+    }, verifySnapshot, cleanup: () => (0, import_promises6.rm)(scratch, { recursive: true, force: true }) };
+  } catch (error) {
+    await (0, import_promises6.rm)(scratch, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+// src/distribution/release-set.ts
+var import_node_crypto2 = require("node:crypto");
 var import_promises7 = require("node:fs/promises");
 var import_node_path5 = require("node:path");
+var releaseProjection = 'if type == "array" then map(if type == "object" then {id, tag_name, draft, prerelease, immutable} else . end) else . end';
+function positiveId(value) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+function releaseSummary(value) {
+  if (!value || !positiveId(value.id) || typeof value.tag_name !== "string" || !value.tag_name || /[\x00-\x1f\x7f]/.test(value.tag_name) || typeof value.draft !== "boolean" || typeof value.prerelease !== "boolean" || value.immutable !== void 0 && typeof value.immutable !== "boolean") throw new Error("Invalid Release inventory item");
+  return { id: value.id, tag: value.tag_name, draft: value.draft, prerelease: value.prerelease, immutable: value.immutable === true };
+}
+async function releaseInventory(gh, repository) {
+  repositoryName(repository);
+  const result = [], ids = /* @__PURE__ */ new Set(), tags = /* @__PURE__ */ new Set();
+  for (let page = 1; page <= 20; page++) {
+    const batch = await gh.json(`repos/${repository}/releases?per_page=100&page=${page}`, releaseProjection);
+    if (!Array.isArray(batch) || batch.length > 100) throw new Error("Invalid Release inventory page");
+    for (const item of batch) {
+      const r = releaseSummary(item);
+      if (ids.has(r.id) || tags.has(r.tag)) throw new Error("Duplicate Release ID or tag in inventory");
+      ids.add(r.id);
+      tags.add(r.tag);
+      result.push(r);
+    }
+    if (batch.length < 100) return result;
+  }
+  throw new Error("Release inventory exceeds pagination budget");
+}
+function selectReleases(config, inventory) {
+  const selector = config.releases;
+  let releases;
+  let version = (r) => r.tag;
+  if ("tags" in selector) {
+    releases = selector.tags.map((tag) => {
+      const found = inventory.find((r) => r.tag === tag);
+      if (!found || found.draft) throw new Error("Requested Release is missing or draft");
+      return found;
+    });
+  } else {
+    version = (r) => r.tag.slice(selector.tagPrefix.length);
+    releases = inventory.filter((r) => !r.draft && r.tag.startsWith(selector.tagPrefix) && (0, import_semver2.valid)(version(r)) === version(r) && !version(r).includes("+") && (selector.includePrereleases || !r.prerelease && (0, import_semver2.prerelease)(version(r)) === null) && (0, import_semver2.satisfies)(version(r), selector.range, { includePrerelease: selector.includePrereleases }));
+    releases.sort((a, b) => (0, import_semver2.compare)(version(a), version(b)) || Buffer.compare(Buffer.from(a.tag), Buffer.from(b.tag)));
+  }
+  if (!releases.length) throw new Error("No matching published Releases");
+  for (const r of releases) publicPath(r.tag);
+  let alias;
+  if (config.aliases) {
+    alias = config.aliases.tag ? releases.find((r) => r.tag === config.aliases.tag) : releases.filter((r) => !r.prerelease && (0, import_semver2.prerelease)(version(r)) === null).at(-1);
+    if (!alias) throw new Error("Alias Release is not selected or no stable Release exists");
+  }
+  assertTargets([...releases.flatMap((r) => config.files.map((f) => `${r.tag}/${f.to}`)), ...config.aliases?.files.map((f) => f.to) ?? []]);
+  return { releases, alias };
+}
+async function discoverReleaseSet(gh, repository, config) {
+  repositoryName(repository);
+  if ((await gh.json(`repos/${repository}`)).private !== false) throw new Error("Only public github.com repositories are supported");
+  return selectReleases(config, await releaseInventory(gh, repository));
+}
+function selectAssets(config, assets, maximum) {
+  if (!Array.isArray(assets)) throw new Error("Invalid Release asset inventory");
+  const selected = /* @__PURE__ */ new Map(), files = [];
+  for (const mapping of config.files) {
+    const matches2 = assets.filter((a2) => a2 && a2.name === mapping.from);
+    if (matches2.length > 1) throw new Error("Duplicate Release asset name");
+    if (!matches2.length) continue;
+    const a = matches2[0];
+    if (!positiveId(a.id) || a.state !== "uploaded" || !Number.isSafeInteger(a.size) || a.size < 0 || a.size > maximum || typeof a.digest !== "string" || !/^sha256:[a-f0-9]{64}$/.test(a.digest)) throw new Error("Invalid uploaded asset ID, size or SHA-256 digest");
+    const asset = { id: a.id, name: a.name, size: a.size, digest: a.digest, state: "uploaded" };
+    if (selected.has(a.id) && selected.get(a.id).name !== a.name) throw new Error("Duplicate Release asset ID");
+    selected.set(a.id, asset);
+    files.push({ ...mapping, asset });
+  }
+  if (!files.length) {
+    if (config.releases.onEmpty !== "skip") throw new Error("Release has no configured assets");
+    return { status: "skipped-empty", assets: [], files: [] };
+  }
+  if (config.files.some((f) => f.required && !files.some((m) => m.from === f.from))) throw new Error("Release is missing required assets");
+  return { status: "selected", assets: [...selected.values()], files };
+}
+function rawPolicy(c) {
+  const r = c.releases;
+  return {
+    schema: 2,
+    releases: "tags" in r ? { tags: r.tags, "on-empty": r.onEmpty } : { "tag-prefix": r.tagPrefix, range: r.range, "include-prereleases": r.includePrereleases, "on-empty": r.onEmpty },
+    files: c.files,
+    ...c.aliases ? { aliases: c.aliases } : {}
+  };
+}
+function policyDigest(c) {
+  return `sha256:${(0, import_node_crypto2.createHash)("sha256").update(JSON.stringify(rawPolicy(c))).digest("hex")}`;
+}
+function metadata(r) {
+  return { id: r.releaseId, tag: r.tag, draft: false, prerelease: r.prerelease, immutable: r.immutable };
+}
+async function candidate(gh, repository, config, r, maximum) {
+  const snapshot = await snapshotRelease(gh, repository, r.tag);
+  if (JSON.stringify(releaseSummary(snapshot.release)) !== JSON.stringify(r)) throw new Error("source-changed: Release metadata changed during discovery");
+  const selected = selectAssets(config, snapshot.assets, maximum);
+  const record = { releaseId: r.id, tag: r.tag, commit: snapshot.commit, prerelease: r.prerelease, immutable: r.immutable, status: selected.status, assets: selected.assets };
+  return { record, files: selected.files };
+}
+async function verifyReleaseSet(gh, source, config) {
+  const current = await discoverReleaseSet(gh, source.repository, config);
+  if (JSON.stringify(current.releases) !== JSON.stringify(source.releases.map(metadata)) || (current.alias?.tag ?? null) !== source.aliasTag) throw new Error("superseded: selected Release set changed; rerun the entire workflow");
+  for (const r of current.releases) {
+    const { record } = await candidate(gh, source.repository, config, r, 8 * 1024 ** 3);
+    if (JSON.stringify(record) !== JSON.stringify(source.releases.find((before) => before.releaseId === r.id))) throw new Error("source-changed: Release or tag changed while preparing files");
+  }
+}
+async function prepareReleaseSet(o, env, deadline, config, client) {
+  if (input(env, "tag") || o.root || input(env, "commit")) throw new Error("Release-set config cannot be combined with tag, root or commit");
+  const repository = repositoryName(input(env, "repository") || env.GITHUB_REPOSITORY || "");
+  const verification = input(env, "verification") || "digest";
+  if (verification !== "digest" && verification !== "attested") throw new Error("Unknown verification mode");
+  const scratch = await (0, import_promises7.mkdtemp)((0, import_node_path5.join)(o.temp, "releaseway-source-"));
+  try {
+    const gh = client ?? new GhClient(input(env, "token"), (0, import_node_path5.join)(scratch, "cache"), deadline);
+    const discovered = await discoverReleaseSet(gh, repository, config);
+    const records = [], planned = [];
+    for (const r of discovered.releases) {
+      const { record, files } = await candidate(gh, repository, config, r, o.maxFile);
+      records.push(record);
+      if (record.status === "skipped-empty" && r.tag === discovered.alias?.tag) throw new Error("Alias Release has no required assets");
+      for (const file of files) planned.push({ record, file, to: `${r.tag}/${file.to}` });
+      if (r.tag === discovered.alias?.tag) for (const a of config.aliases.files) {
+        const file = files.find((f) => f.to === a.from);
+        planned.push({ record, file, to: a.to, aliasOf: `${r.tag}/${file.to}` });
+      }
+    }
+    if (!planned.length) throw new Error("No Release files remain after empty skips");
+    assertTargets(planned.map((f) => f.to));
+    if (planned.length > 1e4) throw new Error("Selection exceeds 10000 files");
+    if (planned.reduce((total, p) => total + p.file.asset.size, 0) > o.maxTotal) throw new Error("Selected assets exceed total byte limit");
+    const source = {
+      kind: "github-release-set",
+      repository,
+      verification,
+      policy: rawPolicy(config),
+      policyDigest: policyDigest(config),
+      destination: input(env, "destination"),
+      releases: records,
+      aliasTag: discovered.alias?.tag ?? null
+    };
+    const downloaded = /* @__PURE__ */ new Map(), selections = [];
+    for (const p of planned) {
+      const asset = p.file.asset, key = `${p.record.releaseId}-${asset.id}`;
+      let path = downloaded.get(key);
+      if (!path) {
+        path = (0, import_node_path5.join)(scratch, `asset-${key}`);
+        await gh.download(`repos/${repository}/releases/assets/${asset.id}`, path, asset.size);
+        const bytes = await hashFile(path, o.maxFile, deadline);
+        if (bytes.size !== asset.size || `sha256:${bytes.sha256}` !== asset.digest) throw new Error("Release asset bytes do not match digest");
+        if (verification === "attested") await gh.verify(p.record.tag, path, repository);
+        await (0, import_promises7.chmod)(path, 420);
+        downloaded.set(key, path);
+      }
+      selections.push({ source: path, from: asset.name, to: p.to, releaseId: p.record.releaseId, assetId: asset.id, ...p.aliasOf ? { aliasOf: p.aliasOf } : {} });
+    }
+    return { root: scratch, selections, source, verifySnapshot: () => verifyReleaseSet(gh, source, config), cleanup: () => (0, import_promises7.rm)(scratch, { recursive: true, force: true }) };
+  } catch (error) {
+    await (0, import_promises7.rm)(scratch, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+// src/distribution/report.ts
+function ordered(files) {
+  return files.slice().sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
+}
+function contentDigest(files) {
+  const bytes = JSON.stringify(ordered(files).map((f) => [f.path, f.size, f.sha256]));
+  return `sha256:${(0, import_node_crypto3.createHash)("sha256").update(bytes).digest("hex")}`;
+}
+function releaseSetPolicy(source) {
+  const config = parseConfig(source.policy);
+  if (config.schema !== 2 || policyDigest(config) !== source.policyDigest) throw new Error("Release-set policy identity mismatch");
+  return config;
+}
+function validateSetReport(value) {
+  const source = value.source;
+  if (source?.kind !== "github-release-set" || !["digest", "attested"].includes(source.verification)) throw new Error("Invalid Release-set source");
+  repositoryName(source.repository);
+  if (typeof source.destination !== "string") throw new Error("Missing Release-set destination");
+  if (source.destination) publicPath(source.destination);
+  const config = releaseSetPolicy(source);
+  if (!Array.isArray(source.releases) || !source.releases.length || source.releases.length > 2e3) throw new Error("Invalid Release-set candidates");
+  const ids = /* @__PURE__ */ new Set(), tags = /* @__PURE__ */ new Set();
+  const expected = /* @__PURE__ */ new Map();
+  const full = (p) => source.destination ? `${source.destination}/${p}` : p;
+  for (const r of source.releases) {
+    if (!positiveId(r.releaseId) || ids.has(r.releaseId) || tags.has(r.tag) || typeof r.commit !== "string" || !/^[a-f0-9]{40}$/.test(r.commit) || typeof r.prerelease !== "boolean" || typeof r.immutable !== "boolean") throw new Error("Invalid Release-set candidate identity");
+    publicPath(r.tag);
+    ids.add(r.releaseId);
+    tags.add(r.tag);
+    const selected = selectAssets(config, r.assets, 8 * 1024 ** 3);
+    if (selected.status !== r.status || selected.assets.length !== r.assets.length) throw new Error("Release-set candidate classification mismatch");
+    for (const f of selected.files) {
+      const fields = { releaseId: r.releaseId, assetId: f.asset.id, from: f.asset.name, size: f.asset.size, digest: f.asset.digest };
+      const path = full(`${r.tag}/${f.to}`);
+      if (expected.has(path)) throw new Error("Duplicate Release-set target");
+      expected.set(path, fields);
+      if (r.tag === source.aliasTag) for (const a of config.aliases?.files.filter((a2) => a2.from === f.to) ?? []) {
+        const alias = full(a.to);
+        if (expected.has(alias)) throw new Error("Duplicate Release-set alias");
+        expected.set(alias, { ...fields, aliasOf: path });
+      }
+    }
+  }
+  const chosen = selectReleases(config, source.releases.map((r) => ({ id: r.releaseId, tag: r.tag, draft: false, prerelease: r.prerelease, immutable: r.immutable })));
+  if (chosen.releases.length !== source.releases.length || (chosen.alias?.tag ?? null) !== source.aliasTag || source.aliasTag && source.releases.find((r) => r.tag === source.aliasTag)?.status !== "selected" || !expected.size) throw new Error("Invalid Release-set selection or alias");
+  if (!("baseline" in value) || value.base !== Boolean(value.baseline)) throw new Error("Invalid baseline provenance");
+  if (value.baseline && !["local-site", "workflow-artifact"].includes(value.baseline.kind)) throw new Error("Invalid baseline kind");
+  if (value.baseline?.kind === "workflow-artifact") {
+    const b = value.baseline;
+    repositoryName(b.repository);
+    if (![b.artifactId, b.runId].every((v) => typeof v === "string" && /^[1-9]\d*$/.test(v)) || !/^sha256:[a-f0-9]{64}$/.test(b.artifactDigest) || ![b.headSha, b.callerSha].every((v) => typeof v === "string" && /^[a-f0-9]{40}$/i.test(v))) throw new Error("Invalid baseline artifact identity");
+  }
+  for (const f of value.files) {
+    const e = expected.get(f.path);
+    if (e) {
+      if (f.origin !== "selected" || f.releaseId !== e.releaseId || f.assetId !== e.assetId || f.from !== e.from || f.size !== e.size || `sha256:${f.sha256}` !== e.digest || f.aliasOf !== e.aliasOf || f.generatedBy) throw new Error("Release-set file provenance mismatch");
+      expected.delete(f.path);
+    } else if (f.generatedBy === "pages" && f.path === ".nojekyll" && f.size === 0 && f.origin === "selected" && f.sha256 === (0, import_node_crypto3.createHash)("sha256").update("").digest("hex") && f.releaseId === void 0 && f.assetId === void 0 && f.aliasOf === void 0) {
+    } else if (!value.baseline || f.origin !== "base" || f.releaseId !== void 0 || f.assetId !== void 0 || f.aliasOf !== void 0 || f.generatedBy !== void 0) throw new Error("Unexpected Release-set file");
+  }
+  if (expected.size) throw new Error("Release-set report is missing selected files");
+}
+function reportShape(value) {
+  if (![1, 2].includes(value?.schema) || !Array.isArray(value.files) || !value.files.length || value.files.length > 1e5) throw new Error("Invalid distribution report schema");
+  let total = 0;
+  for (const f of value.files) {
+    if (!f || typeof f.path !== "string" || !Number.isSafeInteger(f.size) || f.size < 0 || !/^[a-f0-9]{64}$/.test(f.sha256) || !["base", "selected"].includes(f.origin)) throw new Error("Invalid report file");
+    publicPath(f.path);
+    total += f.size;
+    if (total > 8 * 1024 ** 3) throw new Error("Report exceeds byte limit");
+  }
+  assertTargets(value.files.map((f) => f.path));
+  if (value.digest !== contentDigest(value.files)) throw new Error("Report content identity mismatch");
+  if (value.schema === 2) validateSetReport(value);
+  return value.files;
+}
+
+// src/distribution/site.ts
+var import_promises8 = require("node:fs/promises");
+var import_node_path6 = require("node:path");
 async function selectSite(workspace, name, deadline) {
-  const requested = (0, import_node_path5.resolve)(workspace, name);
-  if ((await (0, import_promises7.lstat)(requested)).isSymbolicLink()) throw new Error("site cannot be a symbolic link");
-  const root = await (0, import_promises7.realpath)(requested), selections = [];
+  const requested = (0, import_node_path6.resolve)(workspace, name);
+  if ((await (0, import_promises8.lstat)(requested)).isSymbolicLink()) throw new Error("site cannot be a symbolic link");
+  const root = await (0, import_promises8.realpath)(requested), selections = [];
   let count = 0;
   async function walk(rel) {
     if (Date.now() > deadline || ++count > 1e5) throw new Error("Site exceeds traversal count or deadline");
-    const path = await checkedPath(root, rel), st = await (0, import_promises7.lstat)(path);
-    if (st.isDirectory()) for (const child of (await (0, import_promises7.readdir)(path)).sort()) await walk(import_node_path5.posix.join(rel, child));
+    const path = await checkedPath(root, rel), st = await (0, import_promises8.lstat)(path);
+    if (st.isDirectory()) for (const child of (await (0, import_promises8.readdir)(path)).sort()) await walk(import_node_path6.posix.join(rel, child));
     else if (st.isFile()) selections.push({ source: path, from: rel, to: rel });
     else throw new Error("Site contains a non-regular file");
   }
-  if (!(await (0, import_promises7.lstat)(root)).isDirectory()) throw new Error("site must be a directory");
+  if (!(await (0, import_promises8.lstat)(root)).isDirectory()) throw new Error("site must be a directory");
   await walk(".");
   assertTargets(selections.map((s) => s.to));
   return { root, selections };
@@ -9878,31 +10121,36 @@ async function selectSite(workspace, name, deadline) {
 async function distribute(env = process.env, client, configWorkspace) {
   const o = options(env), deadline = Date.now() + 6e5;
   const config = o.config ? await readConfig(configWorkspace ?? o.workspace, o.config) : void 0;
-  if (config?.schema === 2) throw new Error("Release-set file preparation is not connected yet");
-  const mappings2 = config?.files;
+  const mappings2 = config?.schema === 1 ? config.files : void 0;
   const destination = input(env, "destination");
   if (destination) publicPath(destination);
   const conflict = input(env, "conflict") || "error";
   if (!["error", "replace"].includes(conflict)) throw new Error("conflict must be error or replace");
-  if (!input(env, "tag") && (input(env, "repository") || input(env, "commit") || input(env, "verification") && input(env, "verification") !== "digest")) throw new Error("Remote inputs require tag");
-  const remote = input(env, "tag") ? await prepareRelease(o, env, deadline, client, mappings2) : void 0;
+  if (config?.schema !== 2 && !input(env, "tag") && (input(env, "repository") || input(env, "commit") || input(env, "verification") && input(env, "verification") !== "digest")) throw new Error("Remote inputs require tag");
+  const remote = config?.schema === 2 ? await prepareReleaseSet(o, env, deadline, config, client) : input(env, "tag") ? await prepareRelease(o, env, deadline, client, mappings2) : void 0;
   let stage;
   try {
-    let verifyReleaseCopy2 = function(from, file) {
+    let verifyReleaseCopy2 = function(s, file) {
       if (!remote) return;
-      const expected = remote.source.assets.find((a) => a.name === from);
+      const expected = remote.source.kind === "github-release-set" ? remote.source.releases.find((r) => r.releaseId === s.releaseId)?.assets.find((a) => a.id === s.assetId && a.name === s.from) : remote.source.assets.find((a) => a.name === s.from);
       if (!expected || expected.digest !== `sha256:${file.sha256}` || expected.size !== file.size) throw new Error("Final copy does not match Release asset");
+    }, provenance2 = function(s) {
+      return { from: s.from, ...s.releaseId ? { releaseId: s.releaseId, assetId: s.assetId, ...s.aliasOf ? { aliasOf: s.aliasOf } : {} } : {} };
     };
-    var verifyReleaseCopy = verifyReleaseCopy2;
+    var verifyReleaseCopy = verifyReleaseCopy2, provenance = provenance2;
     const selected = remote ?? await selectLocal(o, deadline, mappings2);
-    const selections = selected.selections.map((s) => ({ ...s, to: destination ? `${destination}/${s.to}` : s.to }));
+    const selections = selected.selections.map((s) => ({
+      ...s,
+      to: destination ? `${destination}/${s.to}` : s.to,
+      ...s.aliasOf ? { aliasOf: destination ? `${destination}/${s.aliasOf}` : s.aliasOf } : {}
+    }));
     assertTargets(selections.map((s) => s.to));
     const base = input(env, "site") ? await selectSite(o.workspace, input(env, "site"), deadline) : void 0;
-    const temp = await (0, import_promises8.realpath)(o.temp);
-    stage = await (0, import_promises8.mkdtemp)((0, import_node_path6.join)(temp, "releaseway-distribute-"));
+    const temp = await (0, import_promises9.realpath)(o.temp);
+    stage = await (0, import_promises9.mkdtemp)((0, import_node_path7.join)(temp, "releaseway-distribute-"));
     for (const root of [selected.root, ...base ? [base.root] : []]) if (inside(root, stage) || inside(stage, root)) throw new Error("Output must be separate from input root");
-    const path = (0, import_node_path6.join)(stage, "site");
-    await (0, import_promises8.mkdir)(path, { mode: 493 });
+    const path = (0, import_node_path7.join)(stage, "site");
+    await (0, import_promises9.mkdir)(path, { mode: 493 });
     const files = /* @__PURE__ */ new Map();
     let total = 0;
     const finalPaths = /* @__PURE__ */ new Set([...base?.selections.map((s) => s.to) ?? [], ...selections.map((s) => s.to)]);
@@ -9911,7 +10159,7 @@ async function distribute(env = process.env, client, configWorkspace) {
     const replaced = new Set(conflict === "replace" ? selections.map((s) => s.to) : []);
     for (const s of base?.selections ?? []) {
       if (replaced.has(s.to)) continue;
-      const f = await copyFile(s.source, (0, import_node_path6.join)(path, s.to), s.to, Math.min(o.maxFile, o.maxTotal - total), "base", deadline);
+      const f = await copyFile(s.source, (0, import_node_path7.join)(path, s.to), s.to, Math.min(o.maxFile, o.maxTotal - total), "base", deadline);
       total += f.size;
       files.set(s.to, f);
     }
@@ -9919,38 +10167,47 @@ async function distribute(env = process.env, client, configWorkspace) {
       const old = files.get(s.to);
       if (old) {
         const bytes2 = await hashFile(s.source, o.maxFile, deadline);
-        verifyReleaseCopy2(s.from, bytes2);
+        verifyReleaseCopy2(s, bytes2);
         if (old.size === bytes2.size && old.sha256 === bytes2.sha256) {
-          await (0, import_promises8.chmod)((0, import_node_path6.join)(path, s.to), 420 | (await (0, import_promises8.stat)(s.source)).mode & 73);
-          files.set(s.to, { ...old, origin: "selected", from: s.from });
+          await (0, import_promises9.chmod)((0, import_node_path7.join)(path, s.to), 420 | (await (0, import_promises9.stat)(s.source)).mode & 73);
+          files.set(s.to, { ...old, origin: "selected", ...provenance2(s) });
           continue;
         }
         if (conflict !== "replace") throw new Error("Selected file conflicts with baseline; use conflict: replace explicitly");
       }
-      const target = (0, import_node_path6.join)(path, s.to), pending = (0, import_node_path6.join)(stage, "replacement");
+      const target = (0, import_node_path7.join)(path, s.to), pending = (0, import_node_path7.join)(stage, "replacement");
       const f = await copyFile(s.source, pending, s.to, Math.min(o.maxFile, o.maxTotal - total + (old?.size ?? 0)), "selected", deadline);
-      verifyReleaseCopy2(s.from, f);
-      await (0, import_promises8.mkdir)((0, import_node_path6.join)(target, ".."), { recursive: true, mode: 493 });
-      if (old) await (0, import_promises8.rm)(target);
-      await (0, import_promises8.rename)(pending, target);
+      verifyReleaseCopy2(s, f);
+      await (0, import_promises9.mkdir)((0, import_node_path7.join)(target, ".."), { recursive: true, mode: 493 });
+      if (old) await (0, import_promises9.rm)(target);
+      await (0, import_promises9.rename)(pending, target);
       total += f.size - (old?.size ?? 0);
-      files.set(s.to, { ...f, from: s.from });
+      files.set(s.to, { ...f, ...provenance2(s) });
     }
     await remote?.verifySnapshot();
-    const inventory = ordered([...files.values()]), digest = contentDigest(inventory), report = (0, import_node_path6.join)(stage, "report.json");
-    const bytes = JSON.stringify({ schema: 1, source: remote?.source ?? { kind: "local", verification: "digest" }, base: Boolean(base), digest, files: inventory }, null, 2) + "\n";
+    const inventory = ordered([...files.values()]), digest = contentDigest(inventory), report = (0, import_node_path7.join)(stage, "report.json");
+    const value = {
+      schema: config?.schema === 2 ? 2 : 1,
+      source: remote?.source ?? { kind: "local", verification: "digest" },
+      base: Boolean(base),
+      ...config?.schema === 2 ? { baseline: base ? { kind: "local-site" } : null } : {},
+      digest,
+      files: inventory
+    };
+    reportShape(value);
+    const bytes = JSON.stringify(value, null, 2) + "\n";
     if (Buffer.byteLength(bytes) > 32 * 1024 ** 2) throw new Error("Report exceeds 32 MiB");
-    await (0, import_promises8.writeFile)(report, bytes, { mode: 384 });
+    await (0, import_promises9.writeFile)(report, bytes, { mode: 384 });
     if (env.GITHUB_OUTPUT) {
       if (/[\r\n]/.test(path + report)) throw new Error("Invalid output directory");
-      await (0, import_promises8.appendFile)(env.GITHUB_OUTPUT, `path=${path}
+      await (0, import_promises9.appendFile)(env.GITHUB_OUTPUT, `path=${path}
 report=${report}
 digest=${digest}
 `);
     }
     return { path, report, digest };
   } catch (error) {
-    if (stage) await (0, import_promises8.rm)(stage, { recursive: true, force: true });
+    if (stage) await (0, import_promises9.rm)(stage, { recursive: true, force: true });
     throw error;
   } finally {
     await remote?.cleanup();
@@ -9958,19 +10215,19 @@ digest=${digest}
 }
 
 // src/distribution/pages.ts
-var import_promises10 = require("node:fs/promises");
-var import_node_path7 = require("node:path");
-var import_node_crypto4 = require("node:crypto");
+var import_promises11 = require("node:fs/promises");
+var import_node_path8 = require("node:path");
+var import_node_crypto5 = require("node:crypto");
 var import_node_child_process2 = require("node:child_process");
 var import_node_util = require("node:util");
 
 // src/distribution/verify-served.ts
-var import_node_crypto3 = require("node:crypto");
-var import_promises9 = require("node:timers/promises");
+var import_node_crypto4 = require("node:crypto");
+var import_promises10 = require("node:timers/promises");
 var PagesPolicyError = class extends Error {
 };
 async function matches(response, file, signal) {
-  const hash = (0, import_node_crypto3.createHash)("sha256");
+  const hash = (0, import_node_crypto4.createHash)("sha256");
   let size = 0;
   if (response.body) {
     const reader = response.body.getReader();
@@ -10038,7 +10295,7 @@ async function verifyServed(page, files, request = fetch, deadline = Date.now() 
         if (error instanceof PagesPolicyError) throw error;
       }
       const remaining = deadline - Date.now();
-      if (remaining > 0) await (0, import_promises9.setTimeout)(Math.min(1e3, remaining), void 0, { signal: stop.signal });
+      if (remaining > 0) await (0, import_promises10.setTimeout)(Math.min(1e3, remaining), void 0, { signal: stop.signal });
     }
     throw new Error("Served bytes did not converge before the verification deadline");
   }
@@ -10056,29 +10313,16 @@ async function verifyServed(page, files, request = fetch, deadline = Date.now() 
 
 // src/distribution/pages.ts
 var MAX_REPORT = 32 * 1024 ** 2;
-var sha = (bytes) => (0, import_node_crypto4.createHash)("sha256").update(bytes).digest("hex");
+var sha = (bytes) => (0, import_node_crypto5.createHash)("sha256").update(bytes).digest("hex");
 async function output(env, values) {
   if (Object.values(values).some((v) => /[\r\n]/.test(v))) throw new Error("Invalid multiline internal output");
-  if (env.GITHUB_OUTPUT) await (0, import_promises10.appendFile)(env.GITHUB_OUTPUT, Object.entries(values).map(([k, v]) => `${k}=${v}
+  if (env.GITHUB_OUTPUT) await (0, import_promises11.appendFile)(env.GITHUB_OUTPUT, Object.entries(values).map(([k, v]) => `${k}=${v}
 `).join(""));
   return values;
 }
-function reportShape(value) {
-  if (value?.schema !== 1 || !Array.isArray(value.files) || !value.files.length || value.files.length > 1e5) throw new Error("Invalid distribution report schema");
-  let total = 0;
-  for (const f of value.files) {
-    if (typeof f.path !== "string" || !Number.isSafeInteger(f.size) || f.size < 0 || !/^[a-f0-9]{64}$/.test(f.sha256) || !["base", "selected"].includes(f.origin)) throw new Error("Invalid report file");
-    publicPath(f.path);
-    total += f.size;
-    if (total > 8 * 1024 ** 3) throw new Error("Report exceeds byte limit");
-  }
-  assertTargets(value.files.map((f) => f.path));
-  if (value.digest !== contentDigest(value.files)) throw new Error("Report content identity mismatch");
-  return value.files;
-}
 async function loadReport(path, expected) {
-  if ((await (0, import_promises10.stat)(path)).size > MAX_REPORT) throw new Error("Report exceeds 32 MiB");
-  const bytes = await (0, import_promises10.readFile)(path);
+  if ((await (0, import_promises11.stat)(path)).size > MAX_REPORT) throw new Error("Report exceeds 32 MiB");
+  const bytes = await (0, import_promises11.readFile)(path);
   if (bytes.length > MAX_REPORT || expected && sha(bytes) !== expected) throw new Error("Report artifact hash mismatch");
   let report;
   try {
@@ -10116,7 +10360,7 @@ async function resolvePages(env, gh) {
     selectedTag = r.tag_name;
     latestId = String(r.id);
   }
-  const invocation = `releaseway-pages-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}-${(0, import_node_crypto4.randomUUID)()}`;
+  const invocation = `releaseway-pages-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}-${(0, import_node_crypto5.randomUUID)()}`;
   return output(env, { tag: selectedTag, "artifact-id": artifact, "latest-id": latestId, "repository": repo, "artifact-name": invocation, "report-name": invocation + "-report", "artifact-digest": artifactDigest, "source-head-sha": headSha });
 }
 async function finalizePages(env) {
@@ -10128,7 +10372,7 @@ async function finalizePages(env) {
   for (const f of files) {
     if (f.path.split("/").some((p) => p.toLowerCase() === ".github")) throw new Error("Pages packaging excludes .github segments");
     total += f.size;
-    const actual = await hashFile((0, import_node_path7.join)(path, f.path), f.size);
+    const actual = await hashFile((0, import_node_path8.join)(path, f.path), f.size);
     if (actual.sha256 !== f.sha256 || actual.size !== f.size) throw new Error("Prepared tree/report bytes mismatch");
   }
   if (total > 1e9) throw new Error("Pages site exceeds 1000000000 bytes");
@@ -10136,10 +10380,10 @@ async function finalizePages(env) {
   if (old && old.size !== 0) throw new Error("Nonempty .nojekyll conflicts with Pages delivery");
   if (!old) {
     assertTargets([...files.map((f) => f.path), ".nojekyll"]);
-    await (0, import_promises10.writeFile)((0, import_node_path7.join)(path, ".nojekyll"), "", { flag: "wx", mode: 420 });
+    await (0, import_promises11.writeFile)((0, import_node_path8.join)(path, ".nojekyll"), "", { flag: "wx", mode: 420 });
     files.push({ path: ".nojekyll", size: 0, sha256: sha(""), origin: "selected" });
   }
-  const folder = await (0, import_promises10.mkdtemp)((0, import_node_path7.join)(env.RUNNER_TEMP, "releaseway-pages-report-")), report = (0, import_node_path7.join)(folder, "report.json");
+  const folder = await (0, import_promises11.mkdtemp)((0, import_node_path8.join)(env.RUNNER_TEMP, "releaseway-pages-report-")), report = (0, import_node_path8.join)(folder, "report.json");
   const artifact = input(env, "artifact-id");
   const source = artifact ? { kind: "workflow-artifact", repository: env.GITHUB_REPOSITORY, artifactId: artifact, artifactDigest: input(env, "artifact-digest"), runId: env.GITHUB_RUN_ID, headSha: input(env, "source-head-sha"), callerSha: env.GITHUB_SHA, verification: "artifact-digest" } : core.source;
   if (artifact && (!/^[1-9]\d*$/.test(artifact) || !/^sha256:[a-f0-9]{64}$/.test(source.artifactDigest) || !/^[a-f0-9]{40}$/i.test(source.headSha))) throw new Error("Missing artifact provenance");
@@ -10147,13 +10391,13 @@ async function finalizePages(env) {
   reportShape(delivery);
   const bytes = JSON.stringify(delivery, null, 2) + "\n";
   if (Buffer.byteLength(bytes) > MAX_REPORT) throw new Error("Delivery report exceeds limit");
-  await (0, import_promises10.writeFile)(report, bytes, { mode: 384 });
+  await (0, import_promises11.writeFile)(report, bytes, { mode: 384 });
   return output(env, { "report": report, "report-sha": sha(bytes), "delivery-digest": delivery.digest, "content-digest": core.digest });
 }
 async function checkArchive(env) {
   const report = await loadReport(input(env, "report"), input(env, "report-sha"));
-  const archive = (0, import_node_path7.join)(env.RUNNER_TEMP, "artifact.tar");
-  if ((await (0, import_promises10.stat)(archive)).size > 1e9) throw new Error("Pages archive exceeds byte limit including tar overhead");
+  const archive = (0, import_node_path8.join)(env.RUNNER_TEMP, "artifact.tar");
+  if ((await (0, import_promises11.stat)(archive)).size > 1e9) throw new Error("Pages archive exceeds byte limit including tar overhead");
   const run = (0, import_node_util.promisify)(import_node_child_process2.execFile), opts = { timeout: 3e4, maxBuffer: MAX_REPORT };
   const { stdout } = await run("tar", ["--list", "--quoting-style=literal", "--file", archive], opts);
   const detail = await run("tar", ["--list", "--verbose", "--file", archive], opts);
@@ -10185,7 +10429,7 @@ async function environmentDeployment(env, gh) {
 }
 async function runPages(env = process.env) {
   const op = input(env, "operation");
-  const gh = new GhClient(input(env, "token"), (0, import_node_path7.join)(env.RUNNER_TEMP, "releaseway-gh-cache"));
+  const gh = new GhClient(input(env, "token"), (0, import_node_path8.join)(env.RUNNER_TEMP, "releaseway-gh-cache"));
   if (op === "resolve") return resolvePages(env, gh);
   if (op === "prepare") {
     const source = input(env, "source-path");
@@ -10193,7 +10437,7 @@ async function runPages(env = process.env) {
       const tree = await selectSite(env.GITHUB_WORKSPACE, source, Date.now() + 6e5);
       let total = 0;
       for (const s of tree.selections) {
-        total += (await (0, import_promises10.stat)(s.source)).size;
+        total += (await (0, import_promises11.stat)(s.source)).size;
         if (total > 2 * 1024 ** 3) throw new Error("Extracted artifact exceeds 2 GiB");
       }
     }

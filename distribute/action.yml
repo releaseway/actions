@@ -5,7 +5,7 @@ inputs:
     description: Newline-separated relative files, directories, or glob patterns.
     required: false
   config:
-    description: Optional strict YAML/JSON v1 from/to mappings; mutually exclusive with files.
+    description: Strict YAML/JSON v1 mappings or v2 release-set policy; mutually exclusive with files.
     required: false
   destination:
     description: Optional public path prefix.

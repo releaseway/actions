@@ -1,0 +1,43 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"Releaseway prepared or delivered file report",
+  "type":"object","required":["schema","source","digest","files"],
+  "properties":{
+    "schema":{"enum":[1,2]},"digest":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},
+    "base":{"type":"boolean"},"contentDigest":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},
+    "latestId":{"type":"string"},"baseline":{"oneOf":[{"type":"null"},{"$ref":"#/$defs/baseline"}]},
+    "files":{"type":"array","minItems":1,"maxItems":100000,"items":{"$ref":"#/$defs/file"}},
+    "source":{"type":"object"}
+  },
+  "allOf":[{"if":{"properties":{"schema":{"const":2}}},"then":{"required":["base","baseline"],"properties":{"source":{"$ref":"#/$defs/releaseSet"}}}}],
+  "$defs":{
+    "sha":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "id":{"type":"integer","minimum":1},
+    "file":{"type":"object","required":["path","size","sha256","origin"],"properties":{
+      "path":{"type":"string","minLength":1},"size":{"type":"integer","minimum":0},"sha256":{"$ref":"#/$defs/sha"},
+      "origin":{"enum":["base","selected"]},"from":{"type":"string"},"releaseId":{"$ref":"#/$defs/id"},"assetId":{"$ref":"#/$defs/id"},
+      "aliasOf":{"type":"string","minLength":1},"generatedBy":{"const":"pages"}
+    }},
+    "asset":{"type":"object","additionalProperties":false,"required":["id","name","size","digest","state"],"properties":{
+      "id":{"$ref":"#/$defs/id"},"name":{"type":"string","minLength":1},"size":{"type":"integer","minimum":0},
+      "digest":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"state":{"const":"uploaded"}
+    }},
+    "release":{"type":"object","additionalProperties":false,"required":["releaseId","tag","commit","prerelease","immutable","status","assets"],"properties":{
+      "releaseId":{"$ref":"#/$defs/id"},"tag":{"type":"string","minLength":1},"commit":{"type":"string","pattern":"^[a-f0-9]{40}$"},
+      "prerelease":{"type":"boolean"},"immutable":{"type":"boolean"},"status":{"enum":["selected","skipped-empty"]},
+      "assets":{"type":"array","maxItems":10000,"items":{"$ref":"#/$defs/asset"}}
+    }},
+    "releaseSet":{"type":"object","additionalProperties":false,"required":["kind","repository","verification","policy","policyDigest","destination","releases","aliasTag"],"properties":{
+      "kind":{"const":"github-release-set"},"repository":{"type":"string","minLength":3},"verification":{"enum":["digest","attested"]},
+      "policy":{"$ref":"./config.schema.json#/$defs/v2"},"policyDigest":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},
+      "destination":{"type":"string"},"releases":{"type":"array","minItems":1,"maxItems":2000,"items":{"$ref":"#/$defs/release"}},
+      "aliasTag":{"type":["string","null"]}
+    }},
+    "baseline":{"type":"object","required":["kind"],"properties":{
+      "kind":{"enum":["local-site","workflow-artifact"]},"repository":{"type":"string"},"artifactId":{"type":"string","pattern":"^[1-9][0-9]*$"},
+      "artifactDigest":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"runId":{"type":"string","pattern":"^[1-9][0-9]*$"},
+      "headSha":{"type":"string","pattern":"^[a-f0-9]{40}$"},"callerSha":{"type":"string","pattern":"^[a-f0-9]{40}$"}
+    }}
+  },
+  "description":"Runtime additionally validates portable paths, canonical content/policy digests, complete selection membership, baseline identity and every file/alias reference. skipped-empty means none of the configured asset names were present."
+}

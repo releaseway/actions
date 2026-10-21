@@ -11,6 +11,31 @@ export function repositoryName(value: string): string {
   return value;
 }
 function validId(value: unknown): value is number { return typeof value === "number" && Number.isSafeInteger(value) && value > 0; }
+export async function snapshotRelease(gh: ReleaseClient, repository: string, tag: string, expected = "") {
+  const base = `repos/${repository}`;
+  const repo = await gh.json(base);
+  if (repo.private !== false) throw new Error("Only public github.com repositories are supported");
+  const release = await gh.json(`${base}/releases/tags/${encodeURIComponent(tag)}`);
+  if (!validId(release.id) || release.tag_name !== tag || release.draft !== false) throw new Error("Release is missing, draft or does not match the exact tag");
+  let object = (await gh.json(`${base}/git/ref/tags/${encodeURIComponent(tag)}`)).object;
+  const seen = new Set<string>();
+  for (let depth = 0; object?.type === "tag"; depth++) {
+    if (depth >= 16 || seen.has(object.sha) || !/^[a-f0-9]{40}$/i.test(object.sha)) throw new Error("Invalid annotated tag chain");
+    seen.add(object.sha); object = (await gh.json(`${base}/git/tags/${object.sha}`)).object;
+  }
+  if (object?.type !== "commit" || !/^[a-f0-9]{40}$/i.test(object.sha)) throw new Error("Tag does not resolve to a commit");
+  const commit = object.sha.toLowerCase();
+  if (expected && commit !== expected.toLowerCase()) throw new Error("Tag commit does not match expected commit");
+  const assets: any[] = [];
+  for (let page = 1; page <= 20; page++) {
+    const batch = await gh.json(`${base}/releases/${release.id}/assets?per_page=100&page=${page}`);
+    if (!Array.isArray(batch) || batch.length > 100) throw new Error("Invalid Release asset page");
+    assets.push(...batch);
+    if (batch.length < 100) break;
+    if (page === 20) throw new Error("Release exceeds asset pagination budget");
+  }
+  return {release,commit,assets};
+}
 export async function prepareRelease(o: Options, env: Environment, deadline: number, client?: ReleaseClient, mappings?: Mapping[]) {
   if (o.root) throw new Error("root is only supported for local source");
   const repository = repositoryName(input(env, "repository") || env.GITHUB_REPOSITORY || "");
@@ -25,28 +50,7 @@ export async function prepareRelease(o: Options, env: Environment, deadline: num
   const gh = client ?? new GhClient(input(env, "token"), join(scratch, "cache"), deadline);
   const base = `repos/${repository}`;
   async function snapshot() {
-    const repo = await gh.json(base);
-    if (repo.private !== false) throw new Error("Only public github.com repositories are supported");
-    const release = await gh.json(`${base}/releases/tags/${encodeURIComponent(tag)}`);
-    if (!validId(release.id) || release.tag_name !== tag || release.draft !== false) throw new Error("Release is missing, draft or does not match the exact tag");
-    let object = (await gh.json(`${base}/git/ref/tags/${encodeURIComponent(tag)}`)).object;
-    const seen = new Set<string>();
-    for (let depth = 0; object?.type === "tag"; depth++) {
-      if (depth >= 16 || seen.has(object.sha) || !/^[a-f0-9]{40}$/i.test(object.sha)) throw new Error("Invalid annotated tag chain");
-      seen.add(object.sha); object = (await gh.json(`${base}/git/tags/${object.sha}`)).object;
-    }
-    if (object?.type !== "commit" || !/^[a-f0-9]{40}$/i.test(object.sha)) throw new Error("Tag does not resolve to a commit");
-    const commit = object.sha.toLowerCase();
-    if (expected && commit !== expected.toLowerCase()) throw new Error("Tag commit does not match expected commit");
-    const assets: any[] = [];
-    for (let page = 1; page <= 20; page++) {
-      const batch = await gh.json(`${base}/releases/${release.id}/assets?per_page=100&page=${page}`);
-      if (!Array.isArray(batch) || batch.length > 100) throw new Error("Invalid Release asset page");
-      assets.push(...batch);
-      if (batch.length < 100) break;
-      if (page === 20) throw new Error("Release exceeds asset pagination budget");
-    }
-    return { release, commit, assets };
+    return snapshotRelease(gh,repository,tag,expected);
   }
   try {
     const before = await snapshot();
@@ -85,7 +89,7 @@ export async function prepareRelease(o: Options, env: Environment, deadline: num
     const verifySnapshot = async () => { if (identity(before) !== identity(await snapshot())) throw new Error("Release or tag changed while preparing files"); };
     const layout = mappings ? mappings.map(m => { const s = selections.find(s=>s.from===m.from); if (!s) throw new Error("Missing mapped asset"); return {...s,to:m.to}; }) : selections;
     assertTargets(layout.map(s=>s.to));
-    return { root: scratch, selections: layout, source: { kind:"github-release", repository, tag, releaseId:before.release.id, commit:before.commit, immutable:before.release.immutable === true, verification,
+    return { root: scratch, selections: layout, source: { kind:"github-release" as const, repository, tag, releaseId:before.release.id, commit:before.commit, immutable:before.release.immutable === true, verification,
       assets:[...selected.values()].map(a => ({id:a.id,name:a.name,size:a.size,digest:a.digest})) }, verifySnapshot, cleanup: () => rm(scratch,{recursive:true,force:true}) };
   } catch (error) { await rm(scratch, { recursive: true, force: true }); throw error; }
 }

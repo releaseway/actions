@@ -7,7 +7,8 @@ import { input, type Environment } from "./inputs.ts";
 import { GhClient, type ReleaseClient } from "./gh.ts";
 import { repositoryName } from "./release.ts";
 import { assertTargets, publicPath } from "./paths.ts";
-import { contentDigest, ordered, type FileRecord } from "./report.ts";
+import { contentDigest, ordered, reportShape, type FileRecord } from "./report.ts";
+export { reportShape } from "./report.ts";
 import { hashFile } from "./copy.ts";
 import { selectSite } from "./site.ts";
 import { distribute } from "./action.ts";
@@ -18,18 +19,6 @@ export async function output(env: Environment, values: Record<string,string>) {
   if(Object.values(values).some(v=>/[\r\n]/.test(v)))throw new Error("Invalid multiline internal output");
   if(env.GITHUB_OUTPUT)await appendFile(env.GITHUB_OUTPUT,Object.entries(values).map(([k,v])=>`${k}=${v}\n`).join(""));
   return values;
-}
-export function reportShape(value:any): FileRecord[] {
-  if(value?.schema!==1 || !Array.isArray(value.files) || !value.files.length || value.files.length>100_000)throw new Error("Invalid distribution report schema");
-  let total=0;
-  for(const f of value.files) {
-    if(typeof f.path!=="string" || !Number.isSafeInteger(f.size) || f.size<0 || !/^[a-f0-9]{64}$/.test(f.sha256) || !["base","selected"].includes(f.origin))throw new Error("Invalid report file");
-    publicPath(f.path);total+=f.size;
-    if(total>8*1024**3)throw new Error("Report exceeds byte limit");
-  }
-  assertTargets(value.files.map((f:FileRecord)=>f.path));
-  if(value.digest!==contentDigest(value.files))throw new Error("Report content identity mismatch");
-  return value.files;
 }
 export async function loadReport(path:string, expected?:string) {
   if((await stat(path)).size>MAX_REPORT)throw new Error("Report exceeds 32 MiB");

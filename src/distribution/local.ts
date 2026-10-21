@@ -3,7 +3,7 @@ import { resolve, posix, sep } from "node:path";
 import { checkedPath, commonRoot, pattern, prefix, visible, assertTargets } from "./paths.ts";
 import type { Mapping } from "./config.ts";
 import type { Options } from "./inputs.ts";
-export interface Selection { source: string; from: string; to: string; mode?: number }
+export interface Selection { source: string; from: string; to: string; mode?: number; releaseId?: number; assetId?: number; aliasOf?: string }
 export async function selectLocal(o: Options, deadline = Date.now() + 600_000, mappings?: Mapping[]): Promise<{ root: string; selections: Selection[] }> {
   const requestedRoot = resolve(o.workspace, o.root || ".");
   if ((await lstat(requestedRoot)).isSymbolicLink()) throw new Error("Root cannot be a symbolic link");
