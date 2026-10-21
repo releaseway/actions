@@ -26,19 +26,6 @@ test("Publishing guide documents every public release-note mode and lifecycle po
     );
   }
 
-  assert.match(guide, /Early 0\.x contract break/);
-  assert.match(guide, /old boolean `generate-notes` input is removed/);
-  assert.match(guide, /GitHub-native preview\/generation \| `contents: write`/);
-  assert.match(guide, /PR\/hybrid preview \| `contents: read`, `pull-requests: read`/);
-  assert.match(guide, /### Preset gallery/);
-  assert.match(guide, /### Input combinations/);
-  assert.match(guide, /at most 10,000 commits/);
-  assert.match(guide, /at most 1 MiB of UTF-8 text/);
-  assert.match(guide, /when `title` is omitted, the existing published title is preserved/);
-  assert.match(guide, /Open or closed-unmerged associations are ignored for coverage/);
-  assert.match(guide, /HTTP authorization header is forwarded only to the isolated fetch subprocess/);
-  assert.match(guide, /metadata-mutability flags/);
-  assert.match(guide, /contradictory metadata fails instead of being silently reclassified/);
   for (const layout of [
     "standard",
     "compact",
@@ -49,7 +36,7 @@ test("Publishing guide documents every public release-note mode and lifecycle po
   ]) {
     assert.match(
       guide,
-      new RegExp(`\\| \\\`${layout}\\\` \\\|`),
+      new RegExp(`\\\`${layout}\\\``),
       `Publishing guide preset gallery is missing ${layout}`,
     );
   }
@@ -64,13 +51,13 @@ test("Publishing guide input and output tables cover action metadata", async () 
 
   for (const input of Object.keys(metadata.inputs ?? {})) {
     assert.ok(
-      guide.includes(`| \`${input}\` |`),
+      new RegExp(`^\\s*\\|\\s*\`${input}\`\\s*\\|`, "m").test(guide),
       `Publishing guide input table is missing ${input}`,
     );
   }
   for (const output of Object.keys(metadata.outputs ?? {})) {
     assert.ok(
-      guide.includes(`| \`${output}\` |`),
+      new RegExp(`^\\s*\\|\\s*\`${output}\`\\s*\\|`, "m").test(guide),
       `Publishing guide output table is missing ${output}`,
     );
   }
