@@ -16,8 +16,11 @@ The deterministic validation suite is:
 corepack pnpm install --frozen-lockfile
 corepack pnpm run typecheck
 corepack pnpm test
-corepack pnpm run build
 corepack pnpm run check:dist
+python3 test/release-inputs.py
+python3 test/release-reuse.py
+python3 test/ci-contract.py
+python3 test/release-preparation.py
 python3 test/release.py
 python3 test/release-evidence.py
 python3 test/evidence-bundle.py
@@ -31,13 +34,15 @@ CI runs the full packaged checks on Ubuntu and macOS. The separate `distribution
 
 Live black-box acceptance lives in `releaseway/release-fixture`. It validates the exact candidate action SHA against real GitHub range/native/PR behavior and an immutable publication + rerun campaign before release readiness.
 
-The repository release workflow requires `acceptance-runs` for a successful
-`suite=all` fixture run and latest successful push CI at the tag's exact SHA. It also
-checks the tagged action's typecheck, unit, dist and lifecycle behavior. See the
+Full automation releases require `acceptance-runs` for a successful `suite=all`
+fixture run and successful branch CI at the tag's exact SHA. Publication consumes
+that CI instead of repeating its suites. See the
 [candidate guide](https://github.com/releaseway/release-fixture#candidate-release-readiness)
-for artifact retention, read permissions and retries. Pushing a new version tag starts another push CI run at the same SHA; wait for that run to succeed before dispatching publication. The gate checks the newest run, even if an earlier branch run already passed.
+for artifact retention, read permissions and retries. Tags run a lightweight
+identity check against branch CI. A newer failure in the required branch workflow
+cannot be hidden by an earlier success.
 
-Every new official actions release also requires latest successful exact-SHA
+Full actions approvals also require successful exact-SHA
 `distribution.yml` push CI and `distribution-run`: a successful
 `distribution-acceptance.yml` dispatch with Pages enabled. The current-attempt
 legacy artifact must contain all three native platform receipts and all three
@@ -47,6 +52,10 @@ including both documentation deployments and the original report/docs ZIPs.
 Notes-only or public-only acceptance cannot pass this common-version gate. See
 the [fixture guide](https://github.com/releaseway/release-fixture/tree/main/distribution-fixtures).
 Published releases retain their historical approval policy.
+
+Documentation-only releases can reuse an authenticated full approval when the
+remaining Git inputs match. Current document checks and publication authentication
+still run. See [approval reuse and forced full checks](docs/release-evidence.md#reuse-a-full-approval-for-documentation).
 
 The private `package.json` version is build metadata. Published Action versions
 come from Git tags, and all entry points share the same release SHA.
