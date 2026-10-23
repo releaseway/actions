@@ -7,7 +7,7 @@ on:
         type: string
         default: ''
       config:
-        description: Caller YAML/JSON v1 mappings or v2 release-set policy, instead of files.
+        description: Caller YAML/JSON distribution policy with filename strings or mappings and optional releases, instead of files.
         type: string
         default: ''
       tag:
@@ -19,7 +19,7 @@ on:
         type: string
         default: ''
       site-artifact-id:
-        description: Same-run documentation build artifact for a v2 release-set policy.
+        description: Same-run documentation build artifact for a policy with releases.
         type: string
         default: ''
       repository:

@@ -1,5 +1,4 @@
 {
-  "schema": 2,
   "releases": {
     "tag-prefix": "v",
     "range": ">=1.0.0 <2.0.0",
@@ -13,6 +12,6 @@
   ],
   "aliases": {
     "select": "highest-stable",
-    "files": [{"from": "install.sh", "to": "install.sh"}, {"from": "install.ps1", "to": "install.ps1"}]
+    "files": ["install.sh", "install.ps1"]
   }
 }

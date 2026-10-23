@@ -25,8 +25,8 @@ jobs:
           printf '{"site":"documentation"}\n' > website/dist/.well-known/site.json
 
       - id: files
-        # Reviewed schema 2 ref; see docs/action-references.md before adoption.
-        uses: releaseway/actions/distribute@ffbe66ca35cbd7edcd6a10806228db76b6a84baf
+        # Reviewed unified-policy source candidate; see docs/action-references.md.
+        uses: releaseway/actions/distribute@5f77f3dabb81eb518ce8fc70967b38fc4d8955d1
         with:
           config: .github/distribution/release-set.json
           site: website/dist

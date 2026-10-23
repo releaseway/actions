@@ -11,9 +11,11 @@ SHA placeholders as described in the [reference guide](../docs/action-references
 Use the same actions SHA for the step action and optional Pages workflow.
 
 This guide describes its checkout. Read it at the selected ref before copying an
-example. [Collecting several Releases](#collect-several-releases) requires schema 2
-support; merging a documentation artifact through Pages also requires
-`site-artifact-id`. Confirm both in that ref's schema and workflow inputs. Use a
+example. Schema-free policies and filename shorthand require a ref implementing
+this contract, such as the [reviewed source candidate](https://github.com/releaseway/actions/tree/5f77f3dabb81eb518ce8fc70967b38fc4d8955d1);
+they are unavailable in v0.7.3. [Collecting several Releases](#collect-several-releases)
+requires release-set support; merging a documentation artifact through Pages also requires
+`site-artifact-id`. Confirm support in that ref's configuration and workflow inputs. Use a
 reviewed source commit for candidate evaluation when no published release supports
 the required interface.
 
@@ -128,8 +130,6 @@ Use `config` instead of `files` when names must change. Save this example as
 `config: .github/distribution.yml`:
 
 ```yaml
-schema: 1
-
 files:
   - from: dist/product-installer.sh
     to: install.sh
@@ -144,6 +144,49 @@ is no glob expansion. For Release sources use flat asset names such as
 aliases and nesting beyond 16 levels are rejected. Config paths are relative to
 the caller workspace; local `from` paths are workspace/root relative. Public `to`
 paths remain independent of `root`. `files` and `config` are mutually exclusive.
+
+### One distribution policy
+
+No `schema` field is needed. Without `releases`, the policy maps local files or
+the single Release chosen by the action's `tag` input. Adding `releases` selects
+a release set. `releases: null` is an error. `aliases`, `required` and `on-empty`
+are release-set features; they are not optional-file controls for local sources.
+
+An unchanged filename can be a string. YAML and JSON accept the same strings,
+objects and mixed lists:
+
+```yaml
+files:
+  - install.sh
+  - from: bootstrap.ps1
+    to: install.ps1
+```
+
+`install.sh` means `{from: install.sh, to: install.sh}`. In a release set it also
+means `required: true`. Rename and optional files use objects; objects still need
+both `from` and `to`. A local `dist/install.sh` string keeps that path as its
+destination; it does not drop `dist/`. Release assets must have flat names.
+Strings are exact file mappings, unlike the action's separate `files` input:
+there is no glob expansion, recursive directory copy, trimming or basename rewrite.
+Quote YAML filenames such as `"123"`, `"true"` and `"null"` to keep string types.
+Both source and public-path rules apply, including reserved-name and case/Unicode
+collision checks. A source name that is not a valid public path needs object-form
+renaming. Empty or non-string/non-object items are errors.
+
+Unknown keys fail with the key, logical path and original file position, for example:
+
+```text
+".github/distribution.yml":12:5: Unknown key "requried". Allowed keys: from, to, required at files[2].requried
+```
+
+Locations use 1-based lines and columns. Duplicate keys and strict YAML syntax
+errors also retain source positions. Config values are not echoed in these errors.
+
+Existing `schema: 1` mappings and `schema: 2` release-set policies remain valid.
+Explicit markers must match their mode; unsupported values and contradictory
+fields fail. Reports keep their versioned format and canonical object policies.
+To return to an older action ref, restore its explicit schema and object mappings
+as well, and confirm that ref supports the selected source mode.
 
 ## Merge into an existing site
 
@@ -174,8 +217,8 @@ prune old files, or preserve versions absent from the baseline.
 ## Collect several Releases
 
 Collect a version family into one site without a release-list job, matrix or
-artifact merge. The step action and Pages workflow both read a schema 2 policy.
-Keep the policy in your repository and pin a ref with the required schema support.
+artifact merge. The step action and Pages workflow both read the same policy with
+`releases`. Keep it in your repository and pin a ref supporting this contract.
 
 ### Choose the versions and files
 
@@ -186,7 +229,6 @@ Publish `bootstrap.sh` and `diagnose.ps1` on the public repository's v1.x Releas
 
 ```json
 {
-  "schema": 2,
   "releases": {
     "tag-prefix": "v",
     "range": ">=1.0.0 <2.0.0",
@@ -200,7 +242,7 @@ Publish `bootstrap.sh` and `diagnose.ps1` on the public repository's v1.x Releas
   ],
   "aliases": {
     "select": "highest-stable",
-    "files": [{"from": "install.sh", "to": "install.sh"}, {"from": "install.ps1", "to": "install.ps1"}]
+    "files": ["install.sh", "install.ps1"]
   }
 }
 ```
@@ -220,7 +262,7 @@ uses the greatest SemVer with neither prerelease marker; it does not use GitHub'
 global latest pointer or infer release-series boundaries from Git history.
 
 For exact or non-SemVer tags, replace `releases` and `aliases` with these fields,
-keeping `schema` and `files` above:
+keeping `files` above:
 
 ```yaml
 releases:
@@ -230,8 +272,7 @@ releases:
 aliases:
   tag: v1.1.0
   files:
-    - from: install.sh
-      to: install.sh
+    - install.sh
 ```
 
 Explicit tags may include published prereleases. Missing or draft tags fail.
@@ -246,7 +287,10 @@ Files use exact flat asset names and exact portable relative destinations.
 as `skipped-empty`. If any configured asset is present but a required asset is
 missing, preparation fails. The default `on-empty: error` rejects empty Releases.
 No matching Releases, or all Releases skipped, also fails even with a site baseline.
-Globs, filename templates and regular expressions are not supported in schema 2.
+Globs, filename templates and regular expressions are not supported in release-set policies.
+`aliases.files` also accepts strings. Each string names the required mapping's
+public `to` and copies it to the same alias destination; it does not name the
+original asset before renaming. Optional files cannot be alias sources.
 
 ### Merge with your documentation build
 
@@ -267,9 +311,9 @@ The documentation artifact must be from the caller repository and current run.
 Its ID, run head SHA, expiry and archive digest are checked separately from the
 Release source. A public `repository` override changes only the Release source.
 Policy is always checked out at the caller SHA; a config inside the documentation
-artifact is not used as policy. Do not combine schema 2 with `files`, `tag`,
+artifact is not used as policy. Do not combine a release-set policy with `files`, `tag`,
 payload `artifact-id`, local `root` or single-tag `commit`. `site-artifact-id` is
-available only with schema 2. Pages keeps the existing permissions, environment
+available only with release-set policies. Pages keeps the existing permissions, environment
 requirements and `pages` concurrency group.
 
 ### Retention, reports and recovery
@@ -287,7 +331,7 @@ Release/asset IDs, selected/skipped status, each file's source and aliases'
 `aliasOf` version paths. The baseline records `local-site` or the exact workflow
 artifact/run/SHA/digest. See [config.schema.json](config.schema.json) and
 [report.schema.json](report.schema.json); runtime checks also validate paths,
-digests and references. Schema 1 input still produces schema 1 reports. Output
+digests and references. Local and single-Release modes still produce schema 1 reports. Output
 names and the content digest algorithm are unchanged; Pages reports also retain
 the pre-delivery digest and include its empty `.nojekyll` in the delivery digest.
 
@@ -312,8 +356,8 @@ Version menus and generated download-index pages are outside this feature.
 | Input | Default | Meaning |
 | --- | --- | --- |
 | `files` | Empty | Newline-separated relative paths or patterns; exactly one of `files` or `config` is required. |
-| `config` | Empty | Caller workspace-relative YAML/JSON schema 1 mappings or schema 2 release-set policy. |
-| `tag` | Empty: local source, or v2 Release set | Exact published public github.com Release tag; rejected with schema 2. |
+| `config` | Empty | Caller workspace-relative YAML/JSON policy; strings or objects in `files`, optional `releases` and `aliases`. |
+| `tag` | Empty: local source, or configured release set | Exact published public github.com Release tag; rejected with `releases`. |
 | `repository` | Caller repository | Public `owner/name`; Release source only. |
 | `commit` | Empty | Full expected tag commit SHA; single Release only. |
 | `token` | Caller `github.token` | Read token for Release APIs; unused for local files. |
@@ -352,7 +396,7 @@ changes your domain, or changes environment protections. Callers must use a trus
 publish. Hosted Ubuntu and a Node24-capable Actions runner are required; GHES is
 outside this adapter's scope.
 
-For an existing documentation site, pass `site-artifact-id` with a schema 2 policy
+For an existing documentation site, pass `site-artifact-id` with a release-set policy
 as shown in the [documentation merge example](#merge-with-your-documentation-build),
 or use the step action with `site` and your existing publisher. This reusable
 workflow deploys the complete merged site.
@@ -455,10 +499,10 @@ Artifact metadata records producer run/SHA identity, not build reproducibility.
 | Input | Default | Meaning |
 | --- | --- | --- |
 | `files` | Empty | Release asset patterns or artifact-relative paths; exactly one of `files` or `config`. |
-| `config` | Empty | Caller workspace-relative schema 1 mappings or schema 2 release-set policy. |
+| `config` | Empty | Caller workspace-relative YAML/JSON distribution policy; no schema field needed. |
 | `tag` | Empty | Exact public Release tag; omit with `artifact-id`. |
 | `artifact-id` | Empty | Same-run immutable source artifact ID; omit with `tag`. |
-| `site-artifact-id` | Empty | Same-run documentation artifact baseline; schema 2 only. |
+| `site-artifact-id` | Empty | Same-run documentation artifact baseline; release-set policies only. |
 | `repository` | Caller repository | Public Release override; rejected for artifact sources. |
 | `verification` | `digest` | `attested` is available only for Release sources. |
 

@@ -44,10 +44,14 @@ public version. Packages must meet existing npm Trusted Publishing prerequisites
 Without tag-derived policy, the original manifest-version publication path remains
 available and does not need release-tag.
 
-Both user policy files may omit `schema`. Omission **always means schema 1**, not
+Both release and npm user policy files above may omit `schema`. Omission **always means schema 1**, not
 the newest version. Explicit numeric `schema: 1` is equivalent. Null, booleans,
 strings and unsupported versions fail. Generated plans, annotations and reports
 keep mandatory schema fields; users do not edit those documents.
+
+The separate [distribution policy](../distribute/README.md#one-distribution-policy)
+uses `releases` to select release-set mode without a schema field. Its filename
+shorthand requires a supporting action ref; this does not change release/npm policy semantics.
 
 ## Order and authority
 

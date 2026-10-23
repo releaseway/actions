@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 import { parse } from "yaml";
+import Ajv2020 from "ajv/dist/2020.js";
 import { parseConfig as parseDistributionConfig } from "../src/distribution/config.ts";
 
 import {
@@ -84,7 +85,14 @@ test("documented distribution policies are accepted by the real parser", async (
   const guide = await readFile(resolve("distribute/README.md"), "utf8");
   const examples = [...guide.matchAll(/```(?:yaml|json)\s*\n([\s\S]*?)```/g)]
     .map((match) => parse(match[1]))
-    .filter((value) => value && [1, 2].includes(value.schema) && Array.isArray(value.files));
+    .filter((value) => value && typeof value === "object" && Array.isArray(value.files));
+  examples.push(JSON.parse(await readFile(resolve("examples/distribution-release-set.json"),"utf8")));
+  const ajv=new Ajv2020({strict:true,strictRequired:false});
+  const validate=ajv.compile(JSON.parse(await readFile(resolve("distribute/config.schema.json"),"utf8")));
   assert.ok(examples.length > 0, "At least one distribution policy example is required");
-  for (const example of examples) assert.doesNotThrow(() => parseDistributionConfig(example));
+  assert.ok(examples.some(example=>!("schema" in example)),"Unversioned policies must be checked too");
+  for (const example of examples) {
+    assert.equal(validate(example),true,JSON.stringify(validate.errors));
+    assert.doesNotThrow(() => parseDistributionConfig(example));
+  }
 });
