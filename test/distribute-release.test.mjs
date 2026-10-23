@@ -89,6 +89,21 @@ test("Release config uses exact metacharacter asset names and independent public
  const r=await distribute(f.env,gh);assert.deepEqual(await readFile(join(r.path,"bootstrap.sh")),gh.bytes);assert.deepEqual(await readFile(join(r.path,"install.sh")),gh.bytes);
 });
 
+test("single Release unversioned mixed mappings keep rename bytes and invalid config avoids API calls",async t=>{
+ const f=await fixture(t,{INPUT_FILES:"",INPUT_CONFIG:"config.yml"}),gh=api();
+ const path=join(f.env.GITHUB_WORKSPACE,"config.yml");
+ await writeFile(path,'schema: 1\nfiles: [{from: install.sh, to: install.sh}, {from: install.sh, to: bootstrap.sh}]');
+ const legacy=await distribute(f.env,gh);
+ await writeFile(path,'files: [install.sh, {from: install.sh, to: bootstrap.sh}]');
+ const modern=await distribute(f.env,gh);
+ assert.equal(modern.digest,legacy.digest);
+ assert.deepEqual(JSON.parse(await readFile(modern.report)),JSON.parse(await readFile(legacy.report)));
+ assert.deepEqual(await readFile(join(modern.path,"bootstrap.sh")),gh.bytes);
+ await writeFile(f.env.GITHUB_OUTPUT,"");await writeFile(path,'files: [install.sh]\nreleases: null\n');
+ const untouched=api();await assert.rejects(distribute(f.env,untouched),/at releases/);
+ assert.deepEqual(untouched.calls,[]);assert.equal(await readFile(f.env.GITHUB_OUTPUT,"utf8"),"");
+});
+
 
 test("explicit rename validates portable public targets rather than rejecting a reserved source asset basename",async t=>{
  const f=await fixture(t,{INPUT_FILES:"",INPUT_CONFIG:"config.yml"});const base=api();

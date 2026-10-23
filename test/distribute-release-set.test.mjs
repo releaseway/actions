@@ -121,6 +121,19 @@ function provider() {
   };
   return api;
 }
+
+test("unversioned mixed release-set and aliases produce the same canonical policy, files and digest",async t=>{
+  const f=await preparation(t,{schema:undefined,files:["installer.sh",{from:"optional",to:"optional",required:false}],aliases:{select:"highest-stable",files:["installer.sh"]}});
+  const shorthand=await distribute(f.env,provider());
+  const expected={schema:2,releases:{"tag-prefix":"v",range:">=1.0.0 <2.0.0","on-empty":"skip"},files:[{from:"installer.sh",to:"installer.sh",required:true},{from:"optional",to:"optional",required:false}],aliases:{select:"highest-stable",files:[{from:"installer.sh",to:"installer.sh"}]}};
+  await writeFile(join(f.env.GITHUB_WORKSPACE,"policy.json"),JSON.stringify(expected));
+  const legacy=await distribute(f.env,provider());
+  assert.equal(shorthand.digest,legacy.digest);
+  const report=JSON.parse(await readFile(shorthand.report,"utf8"));
+  assert.deepEqual(report,JSON.parse(await readFile(legacy.report,"utf8")));
+  assert.deepEqual(report.source.policy,{...expected,releases:{"tag-prefix":"v",range:">=1.0.0 <2.0.0","include-prereleases":false,"on-empty":"skip"}});
+  assert.deepEqual(await readFile(join(shorthand.path,"installer.sh")),Buffer.from("v2"));
+});
 test("one preparation merges docs, same-name version bytes and aliases with complete report provenance",async t=>{
   const f=await preparation(t),api=provider();
   const result=await distribute(f.env,api),r=JSON.parse(await readFile(result.report));

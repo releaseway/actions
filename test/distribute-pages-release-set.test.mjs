@@ -45,6 +45,17 @@ async function prepare(t) {
   const finalEnv={...f.env,INPUT_PATH:core.path,INPUT_REPORT:core.report,"INPUT_SITE-ARTIFACT-DIGEST":resolved["site-artifact-digest"],"INPUT_SITE-HEAD-SHA":resolved["site-head-sha"]};
   return {...f,core,finalEnv,resolved};
 }
+test("unversioned shorthand follows the same Pages resolve, prepare and delivery contract",async t=>{
+  const f=await prepare(t);
+  await writeFile(join(f.env.GITHUB_WORKSPACE,"source/policy.json"),JSON.stringify({releases:f.policy.releases,files:["install.sh"],aliases:{select:"highest-stable",files:["install.sh"]}}));
+  const resolved=await resolvePages(f.env,f.api);assert.equal(resolved.mode,"release-set");
+  const core=await runPages({...f.env,INPUT_OPERATION:"prepare","INPUT_SITE-PATH":f.site},f.api);
+  assert.equal(core.digest,f.core.digest);
+  const old=await finalizePages(f.finalEnv);
+  const modern=await finalizePages({...f.finalEnv,INPUT_PATH:core.path,INPUT_REPORT:core.report});
+  const oldReport=await loadReport(old.report),newReport=await loadReport(modern.report);
+  assert.deepEqual(newReport,oldReport);
+});
 test("release-set resolve reads caller policy and validates the caller's site artifact separately from source repo",async t=>{
   const f=await fixture(t),r=await resolvePages(f.env,f.api);
   assert.equal(r.mode,"release-set");assert.equal(r.tag,"");assert.equal(r["latest-id"],"");assert.equal(r.repository,"upstream/app");

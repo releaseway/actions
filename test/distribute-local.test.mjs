@@ -98,6 +98,31 @@ test("built Action runs without gh, npm, or a generator on PATH", async t => {
   assert.match(await readFile(f.output,"utf8"), /^path=.+\nreport=.+\ndigest=sha256:[a-f0-9]{64}\n$/);
 });
 
+test("unversioned mixed config preserves local root paths and runs through the public bundle",async t=>{
+  const f=await fixture(t);
+  await put(f.workspace,"dist/nested/a.txt",Buffer.from([0,255,13,10]));
+  await put(f.workspace,"dist/b.txt","b");
+  const mappings=[{from:"nested/a.txt",to:"nested/a.txt"},{from:"b.txt",to:"renamed.txt"}];
+  const policy=join(f.workspace,"policy.json");
+  await writeFile(policy,JSON.stringify({schema:1,files:mappings}));
+  const env={...f.env,INPUT_ROOT:"dist",INPUT_CONFIG:"policy.json",INPUT_FILES:""};
+  const legacy=await distribute(env);
+  await writeFile(policy,JSON.stringify({files:["nested/a.txt",mappings[1]]}));
+  const modern=await distribute(env);
+  assert.deepEqual(await report(modern),await report(legacy));assert.equal(modern.digest,legacy.digest);
+  await writeFile(f.output,"");
+  const bundled=spawnSync(process.execPath,[fileURLToPath(new URL("../dist/distribute.cjs",import.meta.url))],{env:{...env,PATH:""},encoding:"utf8"});
+  assert.equal(bundled.status,0,bundled.stdout+bundled.stderr);
+  const outputs=Object.fromEntries((await readFile(f.output,"utf8")).trim().split("\n").map(line=>[line.slice(0,line.indexOf("=")),line.slice(line.indexOf("=")+1)]));
+  assert.equal(outputs.digest,legacy.digest);
+  assert.deepEqual(JSON.parse(await readFile(outputs.report,"utf8")),await report(legacy));
+  assert.deepEqual(await readFile(join(outputs.path,"nested/a.txt")),Buffer.from([0,255,13,10]));
+  await writeFile(f.output,"");await writeFile(policy,'files: [a]\nwrong: private-value\n');
+  const failed=spawnSync(process.execPath,[fileURLToPath(new URL("../dist/distribute.cjs",import.meta.url))],{env:{...env,PATH:""},encoding:"utf8"});
+  assert.equal(failed.status,1);assert.match(failed.stdout,/::error::"policy.json":2:1: Unknown key "wrong"/);
+  assert.ok(!failed.stdout.includes("private-value"));assert.equal(await readFile(f.output,"utf8"),"");
+});
+
 
 test("explicit .git source is rejected even if its public basename would be safe", async t => {
   const f = await fixture(t); await put(f.workspace,".git/config","private");
