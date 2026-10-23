@@ -1,8 +1,30 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Releaseway distribution configuration",
-  "oneOf": [{"$ref":"#/$defs/v1"},{"$ref":"#/$defs/v2"}],
+  "oneOf": [{"$ref":"#/$defs/inputMappings"},{"$ref":"#/$defs/inputReleaseSet"}],
   "$defs": {
+    "filename": {"type":"string","minLength":1},
+    "inputFile": {"oneOf":[{"$ref":"#/$defs/filename"},{"$ref":"#/$defs/mapping"}]},
+    "inputFiles": {"type":"array","minItems":1,"maxItems":10000,"items":{"$ref":"#/$defs/inputFile"}},
+    "inputMappings": {
+      "type":"object","additionalProperties":false,"required":["files"],
+      "properties":{"schema":{"const":1},"files":{"$ref":"#/$defs/inputFiles"}}
+    },
+    "inputAliases": {
+      "type":"object","additionalProperties":false,"required":["files"],
+      "properties":{"tag":{"type":"string","minLength":1},"select":{"const":"highest-stable"},"files":{"$ref":"#/$defs/inputFiles"}},
+      "oneOf":[{"required":["tag"],"not":{"required":["select"]}},{"required":["select"],"not":{"required":["tag"]}}]
+    },
+    "inputReleaseSet": {
+      "type":"object","additionalProperties":false,"required":["releases","files"],
+      "properties":{
+        "schema":{"const":2},"releases":{"$ref":"#/$defs/selector"},"aliases":{"$ref":"#/$defs/inputAliases"},
+        "files":{"type":"array","minItems":1,"maxItems":10000,
+          "items":{"oneOf":[{"$ref":"#/$defs/filename"},{"$ref":"#/$defs/releaseFile"}]},
+          "contains":{"oneOf":[{"$ref":"#/$defs/filename"},{"type":"object","not":{"properties":{"required":{"const":false}},"required":["required"]}}]}}
+      },
+      "description":"releases selects release-set mode. Paths, SemVer, collisions and alias references are also checked at runtime. Versioned object-only definitions below preserve the report policy contract."
+    },
     "mapping": {
       "type":"object", "additionalProperties":false, "required":["from","to"],
       "properties":{"from":{"type":"string","minLength":1},"to":{"type":"string","minLength":1}}

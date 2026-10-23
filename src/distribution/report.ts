@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { publicPath, assertTargets } from "./paths.ts";
-import { parseConfig } from "./config.ts";
+import { parseReportPolicy } from "./config.ts";
 import { policyDigest, positiveId, selectReleases, selectAssets, type ReleaseSetSource } from "./release-set.ts";
 import { repositoryName } from "./release.ts";
 export interface FileRecord { path: string; size: number; sha256: string; origin: "selected" | "base"; from?: string; releaseId?: number; assetId?: number; aliasOf?: string; generatedBy?: "pages" }
@@ -12,7 +12,7 @@ export function contentDigest(files: FileRecord[]): string {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 }
 export function releaseSetPolicy(source: ReleaseSetSource) {
-  const config=parseConfig(source.policy);
+  const config=parseReportPolicy(source.policy);
   if (config.schema!==2 || policyDigest(config)!==source.policyDigest) throw new Error("Release-set policy identity mismatch");
   return config;
 }

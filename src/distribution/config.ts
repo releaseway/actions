@@ -16,10 +16,10 @@ function object(value: unknown, keys: string[]): Record<string, unknown> {
   if (Object.keys(result).some(k => !keys.includes(k))) throw new Error("Unknown distribution config field");
   return result;
 }
-function mappings(value: unknown, required = false): RequiredMapping[] {
+function mappings(value: unknown, required = false, shorthand = true): RequiredMapping[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > 10_000) throw new Error("Config needs 1..10000 file mappings");
   const result = value.map(item => {
-    const entry = object(item, required ? ["from", "to", "required"] : ["from", "to"]);
+    const entry = object(shorthand && typeof item === "string" ? {from:item,to:item} : item, required ? ["from", "to", "required"] : ["from", "to"]);
     if (typeof entry.from !== "string" || typeof entry.to !== "string") throw new Error("Config from/to must be strings");
     if (entry.required !== undefined && typeof entry.required !== "boolean") throw new Error("required must be boolean");
     const from = sourcePath(entry.from);
@@ -30,12 +30,22 @@ function mappings(value: unknown, required = false): RequiredMapping[] {
   return result;
 }
 export function parseConfig(value: unknown): DistributionConfig {
+  return parsePolicy(value, true);
+}
+// Reports keep their existing object-only, versioned policy contract.
+export function parseReportPolicy(value: unknown): ReleaseSetConfig {
+  const config = parsePolicy(value, false);
+  if (config.schema !== 2) throw new Error("Release-set report needs schema: 2");
+  return config;
+}
+function parsePolicy(value: unknown, shorthand: boolean): DistributionConfig {
   const config = object(value, ["schema", "files", "releases", "aliases"]);
-  if (config.schema === 1) {
+  const schema = "schema" in config ? config.schema : shorthand ? ("releases" in config ? 2 : 1) : undefined;
+  if (schema === 1) {
     object(value, ["schema", "files"]);
-    return { schema: 1, files: mappings(config.files).map(({from,to}) => ({from,to})) };
+    return { schema: 1, files: mappings(config.files,false,shorthand).map(({from,to}) => ({from,to})) };
   }
-  if (config.schema !== 2) throw new Error("Config needs schema: 1 or 2");
+  if (schema !== 2) throw new Error("Config schema must be 1 or 2 when provided");
   const raw = object(config.releases, ["tags", "tag-prefix", "range", "include-prereleases", "on-empty"]);
   const onEmpty = raw["on-empty"] ?? "error";
   if (onEmpty !== "error" && onEmpty !== "skip") throw new Error("on-empty must be error or skip");
@@ -53,7 +63,7 @@ export function parseConfig(value: unknown): DistributionConfig {
     if (raw["include-prereleases"] !== undefined && typeof raw["include-prereleases"] !== "boolean") throw new Error("include-prereleases must be boolean");
     releases = { tagPrefix: raw["tag-prefix"], range: raw.range, includePrereleases: raw["include-prereleases"] === true, onEmpty };
   }
-  const files = mappings(config.files,true);
+  const files = mappings(config.files,true,shorthand);
   if (!files.some(m => m.required)) throw new Error("At least one required file is needed");
   let aliases: ReleaseAliases | undefined;
   if (config.aliases !== undefined) {
@@ -61,7 +71,7 @@ export function parseConfig(value: unknown): DistributionConfig {
     if (("tag" in a) === ("select" in a)) throw new Error("Aliases need exactly one of tag or select");
     if ("tag" in a && typeof a.tag !== "string") throw new Error("Alias tag must be a string");
     if ("select" in a && (a.select !== "highest-stable" || "tags" in releases)) throw new Error("highest-stable aliases need a range selector");
-    const aliasFiles = mappings(a.files).map(({from,to}) => ({from:publicPath(from),to}));
+    const aliasFiles = mappings(a.files,false,shorthand).map(({from,to}) => ({from:publicPath(from),to}));
     if (aliasFiles.some(m => !files.some(f => f.required && f.to === m.from))) throw new Error("Alias from must name a required mapped target");
     aliases = { ...(typeof a.tag === "string" ? {tag:publicPath(a.tag)} : {select:"highest-stable" as const}), files:aliasFiles };
   }
