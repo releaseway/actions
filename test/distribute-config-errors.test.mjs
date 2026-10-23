@@ -52,7 +52,8 @@ test("missing fields use parent location and shorthand path failures use scalar 
 test("direct parser preserves logical paths without inventing source coordinates",()=>{
   assert.throws(()=>parseConfig({files:[{from:'a',to:'a',typo:true}]}),/Unknown key "typo".*at files\[0\]\.typo/);
   assert.throws(()=>parseConfig({releases:null,files:['a']}),/Expected .* at releases/);
-  assert.throws(()=>parseConfig({schema:1,releases:{tags:['v1']},files:['a']}),/Unknown key "releases"/);
+  assert.throws(()=>parseConfig({schema:1,releases:{tags:['v1']},files:['a']}),/releases is not allowed with schema: 1.*at releases/);
+  assert.throws(()=>parseConfig({aliases:{tag:'v1',files:['a']},files:['a']}),/aliases requires releases at aliases/);
   assert.throws(()=>parseConfig({releases:{tags:['v1']},files:['a'],aliases:{tag:'v1',select:'highest-stable',files:['a']}}),/exactly one.*at aliases/);
 });
 

@@ -64,6 +64,8 @@ function parsePolicy(value: unknown, shorthand: boolean): DistributionConfig {
   const config = object(value, ["schema", "files", "releases", "aliases"]);
   const schema = "schema" in config ? config.schema : shorthand ? ("releases" in config ? 2 : 1) : undefined;
   if (schema === 1) {
+    if ("releases" in config) invalid(["releases"],"releases is not allowed with schema: 1; omit schema to select release-set mode");
+    if ("aliases" in config) invalid(["aliases"],"aliases requires releases");
     object(value, ["schema", "files"]);
     return { schema: 1, files: mappings(config.files,false,shorthand).map(({from,to}) => ({from,to})) };
   }

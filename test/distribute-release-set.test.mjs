@@ -32,7 +32,7 @@ test("schema2 rejects ambiguous/null/unknown policy, optional-only and invalid a
   for(const files of [[{from:"a",to:"a",required:false}],[{from:"dist/a",to:"a"}],[{from:"a",to:"a",required:null}],[{from:"a",to:"A"},{from:"b",to:"a"}]])assert.throws(()=>config({files}));
   for(const aliases of [null,{}, {tag:"v1",select:"highest-stable",files:[{from:"install.sh",to:"install.sh"}]},{select:"latest",files:[{from:"install.sh",to:"install.sh"}]},{tag:"v1",files:[{from:"missing",to:"install.sh"}]}])assert.throws(()=>config({aliases}));
   assert.throws(()=>config({releases:{tags:["v1"]},aliases:{select:"highest-stable",files:[{from:"install.sh",to:"install.sh"}]}}));
-  assert.throws(()=>parseConfig({schema:1,releases:{tags:["v1"]},files:[{from:"a",to:"a"}]}),/Unknown/);
+  assert.throws(()=>parseConfig({schema:1,releases:{tags:["v1"]},files:[{from:"a",to:"a"}]}),/releases is not allowed with schema: 1/);
 });
 test("range selection sorts SemVer, excludes sidecars/build metadata and separates prerelease flags",()=>{
   const items=[summary("v1.9.0",1),summary("v1.10.0",2),summary("v1.11.0",3,true),summary("v1.12.0-beta.1",4),summary("evidence-v1.0.0",5),summary("v1.8.0+build",6),summary("v2.0.0",7),summary("v1.13.0",8,false,true)];
