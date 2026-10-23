@@ -43,9 +43,9 @@ var require_identity = __commonJS({
     var NODE_TYPE = /* @__PURE__ */ Symbol.for("yaml.node.type");
     var isAlias2 = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === ALIAS;
     var isDocument = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === DOC;
-    var isMap = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
-    var isPair = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === PAIR;
-    var isScalar = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SCALAR;
+    var isMap2 = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
+    var isPair2 = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === PAIR;
+    var isScalar3 = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SCALAR;
     var isSeq = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SEQ;
     function isCollection(node) {
       if (node && typeof node === "object")
@@ -56,7 +56,7 @@ var require_identity = __commonJS({
         }
       return false;
     }
-    function isNode(node) {
+    function isNode2(node) {
       if (node && typeof node === "object")
         switch (node[NODE_TYPE]) {
           case ALIAS:
@@ -67,7 +67,7 @@ var require_identity = __commonJS({
         }
       return false;
     }
-    var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
+    var hasAnchor = (node) => (isScalar3(node) || isCollection(node)) && !!node.anchor;
     exports2.ALIAS = ALIAS;
     exports2.DOC = DOC;
     exports2.MAP = MAP;
@@ -79,10 +79,10 @@ var require_identity = __commonJS({
     exports2.isAlias = isAlias2;
     exports2.isCollection = isCollection;
     exports2.isDocument = isDocument;
-    exports2.isMap = isMap;
-    exports2.isNode = isNode;
-    exports2.isPair = isPair;
-    exports2.isScalar = isScalar;
+    exports2.isMap = isMap2;
+    exports2.isNode = isNode2;
+    exports2.isPair = isPair2;
+    exports2.isScalar = isScalar3;
     exports2.isSeq = isSeq;
   }
 });
@@ -4191,9 +4191,9 @@ var require_resolve_flow_collection = __commonJS({
     var blockMsg = "Block collections are not allowed within flow collections";
     var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
     function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag) {
-      const isMap = fc.start.source === "{";
-      const fcName = isMap ? "flow map" : "flow sequence";
-      const NodeClass = tag?.nodeClass ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
+      const isMap2 = fc.start.source === "{";
+      const fcName = isMap2 ? "flow map" : "flow sequence";
+      const NodeClass = tag?.nodeClass ?? (isMap2 ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
       const coll = new NodeClass(ctx.schema);
       coll.flow = true;
       const atRoot = ctx.atRoot;
@@ -4229,7 +4229,7 @@ var require_resolve_flow_collection = __commonJS({
             offset = props.end;
             continue;
           }
-          if (!isMap && ctx.options.strict && utilContainsNewline.containsNewline(key))
+          if (!isMap2 && ctx.options.strict && utilContainsNewline.containsNewline(key))
             onError(
               key,
               // checked by containsNewline()
@@ -4269,7 +4269,7 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep3 && !props.found) {
+        if (!isMap2 && !sep3 && !props.found) {
           const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep3, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
@@ -4292,7 +4292,7 @@ var require_resolve_flow_collection = __commonJS({
             startOnNewline: false
           });
           if (valueProps.found) {
-            if (!isMap && !props.found && ctx.options.strict) {
+            if (!isMap2 && !props.found && ctx.options.strict) {
               if (sep3)
                 for (const st of sep3) {
                   if (st === valueProps.found)
@@ -4324,7 +4324,7 @@ var require_resolve_flow_collection = __commonJS({
           const pair = new Pair.Pair(keyNode, valueNode);
           if (ctx.options.keepSourceTokens)
             pair.srcToken = collItem;
-          if (isMap) {
+          if (isMap2) {
             const map = coll;
             if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
               onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
@@ -4340,7 +4340,7 @@ var require_resolve_flow_collection = __commonJS({
           offset = valueNode ? valueNode.range[2] : valueProps.end;
         }
       }
-      const expectedEnd = isMap ? "}" : "]";
+      const expectedEnd = isMap2 ? "}" : "]";
       const [ce, ...ee] = fc.end;
       let cePos = offset;
       if (ce?.source === expectedEnd)
@@ -5627,7 +5627,7 @@ var require_cst = __commonJS({
     var FLOW_END = "";
     var SCALAR = "";
     var isCollection = (token) => !!token && "items" in token;
-    var isScalar = (token) => !!token && (token.type === "scalar" || token.type === "single-quoted-scalar" || token.type === "double-quoted-scalar" || token.type === "block-scalar");
+    var isScalar3 = (token) => !!token && (token.type === "scalar" || token.type === "single-quoted-scalar" || token.type === "double-quoted-scalar" || token.type === "block-scalar");
     function prettyToken(token) {
       switch (token) {
         case BOM:
@@ -5711,7 +5711,7 @@ var require_cst = __commonJS({
     exports2.FLOW_END = FLOW_END;
     exports2.SCALAR = SCALAR;
     exports2.isCollection = isCollection;
-    exports2.isScalar = isScalar;
+    exports2.isScalar = isScalar3;
     exports2.prettyToken = prettyToken;
     exports2.tokenType = tokenType;
   }
@@ -6310,7 +6310,7 @@ var require_lexer = __commonJS({
 var require_line_counter = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/line-counter.js"(exports2) {
     "use strict";
-    var LineCounter = class {
+    var LineCounter2 = class {
       constructor() {
         this.lineStarts = [];
         this.addNewLine = (offset) => this.lineStarts.push(offset);
@@ -6333,7 +6333,7 @@ var require_line_counter = __commonJS({
         };
       }
     };
-    exports2.LineCounter = LineCounter;
+    exports2.LineCounter = LineCounter2;
   }
 });
 
@@ -9585,25 +9585,92 @@ var import_node_crypto3 = require("node:crypto");
 
 // src/distribution/config.ts
 var import_promises4 = require("node:fs/promises");
-var import_yaml = __toESM(require_dist(), 1);
+var import_yaml2 = __toESM(require_dist(), 1);
 var import_semver = __toESM(require_semver2(), 1);
-function object(value, keys) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid distribution config object");
+
+// src/distribution/config-errors.ts
+var import_yaml = __toESM(require_dist(), 1);
+function quoted(value) {
+  return JSON.stringify(value.length > 256 ? value.slice(0, 256) + "…" : value).replace(/[\u007f\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
+function configPath(path) {
+  return path.reduce((out, key) => typeof key === "number" ? `${out}[${key}]` : key.length <= 256 && /^[A-Za-z_][A-Za-z0-9_-]*$/.test(key) ? `${out ? out + "." : ""}${key}` : `${out}[${quoted(key)}]`, "") || "$";
+}
+var ConfigError = class extends Error {
+  path;
+  constructor(path, message) {
+    super(`${message} at ${configPath(path)}`);
+    this.path = path;
+  }
+};
+function invalid(path, message) {
+  throw new ConfigError(path, message);
+}
+function atPath(path, check) {
+  try {
+    return check();
+  } catch (error) {
+    if (error instanceof ConfigError) throw error;
+    return invalid(path, error instanceof Error ? error.message : "Invalid config value");
+  }
+}
+function fileError(error, name, doc, lines) {
+  let path = error.path;
+  let offset = 0;
+  while (path.length) {
+    const key = path.at(-1);
+    const parent = doc.getIn(path.slice(0, -1), true);
+    const node = (0, import_yaml.isMap)(parent) ? parent.items.find((pair) => (0, import_yaml.isScalar)(pair.key) && pair.key.value === key)?.key : doc.getIn(path, true);
+    if (node && typeof node === "object" && "range" in node && Array.isArray(node.range)) {
+      offset = node.range[0];
+      break;
+    }
+    path = path.slice(0, -1);
+  }
+  const position = lines.linePos(offset);
+  return new Error(`${quoted(name)}:${position.line}:${position.col}: ${error.message}`);
+}
+
+// src/distribution/config.ts
+function object(value, keys, path = []) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) invalid(path, "Expected a distribution config object");
   const result = value;
-  if (Object.keys(result).some((k) => !keys.includes(k))) throw new Error("Unknown distribution config field");
+  const unknown = Object.keys(result).find((k) => !keys.includes(k));
+  if (unknown !== void 0) invalid([...path, unknown], `Unknown key ${quoted(unknown)}. Allowed keys: ${keys.join(", ")}`);
   return result;
 }
-function mappings(value, required = false, shorthand = true) {
-  if (!Array.isArray(value) || value.length < 1 || value.length > 1e4) throw new Error("Config needs 1..10000 file mappings");
-  const result = value.map((item) => {
-    const entry = object(shorthand && typeof item === "string" ? { from: item, to: item } : item, required ? ["from", "to", "required"] : ["from", "to"]);
-    if (typeof entry.from !== "string" || typeof entry.to !== "string") throw new Error("Config from/to must be strings");
-    if (entry.required !== void 0 && typeof entry.required !== "boolean") throw new Error("required must be boolean");
-    const from = sourcePath(entry.from);
-    if (required && (from.includes("/") || from === ".")) throw new Error("Release assets have flat names");
-    return { from, to: publicPath(entry.to), required: entry.required !== false };
+function mappings(value, required = false, shorthand = true, path = ["files"]) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 1e4) invalid(path, "Config needs 1..10000 file mappings");
+  const result = value.map((item, index) => {
+    const location = [...path, index];
+    const string = shorthand && typeof item === "string";
+    const entry = object(string ? { from: item, to: item } : item, required ? ["from", "to", "required"] : ["from", "to"], location);
+    if (typeof entry.from !== "string") invalid([...location, "from"], "from must be a string");
+    if (typeof entry.to !== "string") invalid([...location, "to"], "to must be a string");
+    if (entry.required !== void 0 && typeof entry.required !== "boolean") invalid([...location, "required"], "required must be boolean");
+    const fromPath = string ? location : [...location, "from"];
+    const from = atPath(fromPath, () => sourcePath(entry.from));
+    if (required && (from.includes("/") || from === ".")) invalid(fromPath, "Release assets have flat names");
+    return { from, to: atPath(string ? location : [...location, "to"], () => publicPath(entry.to)), required: entry.required !== false };
   });
-  assertTargets(result.map((m) => m.to));
+  try {
+    assertTargets(result.map((m) => m.to));
+  } catch {
+    const seen = /* @__PURE__ */ new Map();
+    for (const [index, mapping] of result.entries()) {
+      const key = portableKey(mapping.to);
+      if (seen.has(key)) invalid([...path, index], `Duplicate public target; conflicts with ${configPath([...path, seen.get(key)])}`);
+      seen.set(key, index);
+    }
+    for (const [key, index] of seen) {
+      const parts = key.split("/");
+      for (let n = 1; n < parts.length; n++) {
+        const other = seen.get(parts.slice(0, n).join("/"));
+        if (other !== void 0) invalid([...path, index], `File and directory target conflict with ${configPath([...path, other])}`);
+      }
+    }
+    invalid(path, "Invalid public target");
+  }
   return result;
 }
 function parseConfig(value) {
@@ -9611,7 +9678,7 @@ function parseConfig(value) {
 }
 function parseReportPolicy(value) {
   const config = parsePolicy(value, false);
-  if (config.schema !== 2) throw new Error("Release-set report needs schema: 2");
+  if (config.schema !== 2) invalid(["schema"], "Release-set report needs schema: 2");
   return config;
 }
 function parsePolicy(value, shorthand) {
@@ -9621,34 +9688,36 @@ function parsePolicy(value, shorthand) {
     object(value, ["schema", "files"]);
     return { schema: 1, files: mappings(config.files, false, shorthand).map(({ from, to }) => ({ from, to })) };
   }
-  if (schema !== 2) throw new Error("Config schema must be 1 or 2 when provided");
-  const raw = object(config.releases, ["tags", "tag-prefix", "range", "include-prereleases", "on-empty"]);
+  if (schema !== 2) invalid(["schema"], "Config schema must be 1 or 2 when provided");
+  const raw = object(config.releases, ["tags", "tag-prefix", "range", "include-prereleases", "on-empty"], ["releases"]);
   const onEmpty = raw["on-empty"] ?? "error";
-  if (onEmpty !== "error" && onEmpty !== "skip") throw new Error("on-empty must be error or skip");
-  if (raw["on-empty"] === null) throw new Error("on-empty must be error or skip");
+  if (onEmpty !== "error" && onEmpty !== "skip") invalid(["releases", "on-empty"], "on-empty must be error or skip");
+  if (raw["on-empty"] === null) invalid(["releases", "on-empty"], "on-empty must be error or skip");
   let releases;
   if ("tags" in raw) {
-    object(raw, ["tags", "on-empty"]);
-    if (!Array.isArray(raw.tags) || !raw.tags.length || raw.tags.some((t) => typeof t !== "string")) throw new Error("tags must be a nonempty string list");
-    const tags = raw.tags.map(publicPath);
-    if (new Set(tags).size !== tags.length) throw new Error("Duplicate release tag");
+    object(raw, ["tags", "on-empty"], ["releases"]);
+    if (!Array.isArray(raw.tags) || !raw.tags.length || raw.tags.some((t) => typeof t !== "string")) invalid(["releases", "tags"], "tags must be a nonempty string list");
+    const tags = raw.tags.map((tag, index) => atPath(["releases", "tags", index], () => publicPath(tag)));
+    if (new Set(tags).size !== tags.length) invalid(["releases", "tags"], "Duplicate release tag");
     releases = { tags: tags.slice().sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))), onEmpty };
   } else {
-    if (typeof raw["tag-prefix"] !== "string" || typeof raw.range !== "string" || !raw.range.trim() || !(0, import_semver.validRange)(raw.range)) throw new Error("Release range needs tag-prefix and a valid SemVer range");
-    if (raw["include-prereleases"] !== void 0 && typeof raw["include-prereleases"] !== "boolean") throw new Error("include-prereleases must be boolean");
+    if (typeof raw["tag-prefix"] !== "string") invalid(["releases", "tag-prefix"], "Release range needs a string tag-prefix");
+    if (typeof raw.range !== "string" || !raw.range.trim() || !(0, import_semver.validRange)(raw.range)) invalid(["releases", "range"], "Release range needs a valid SemVer range");
+    if (raw["include-prereleases"] !== void 0 && typeof raw["include-prereleases"] !== "boolean") invalid(["releases", "include-prereleases"], "include-prereleases must be boolean");
     releases = { tagPrefix: raw["tag-prefix"], range: raw.range, includePrereleases: raw["include-prereleases"] === true, onEmpty };
   }
   const files = mappings(config.files, true, shorthand);
-  if (!files.some((m) => m.required)) throw new Error("At least one required file is needed");
+  if (!files.some((m) => m.required)) invalid(["files"], "At least one required file is needed");
   let aliases;
   if (config.aliases !== void 0) {
-    const a = object(config.aliases, ["tag", "select", "files"]);
-    if ("tag" in a === "select" in a) throw new Error("Aliases need exactly one of tag or select");
-    if ("tag" in a && typeof a.tag !== "string") throw new Error("Alias tag must be a string");
-    if ("select" in a && (a.select !== "highest-stable" || "tags" in releases)) throw new Error("highest-stable aliases need a range selector");
-    const aliasFiles = mappings(a.files, false, shorthand).map(({ from, to }) => ({ from: publicPath(from), to }));
-    if (aliasFiles.some((m) => !files.some((f) => f.required && f.to === m.from))) throw new Error("Alias from must name a required mapped target");
-    aliases = { ...typeof a.tag === "string" ? { tag: publicPath(a.tag) } : { select: "highest-stable" }, files: aliasFiles };
+    const a = object(config.aliases, ["tag", "select", "files"], ["aliases"]);
+    if ("tag" in a === "select" in a) invalid(["aliases"], "Aliases need exactly one of tag or select");
+    if ("tag" in a && typeof a.tag !== "string") invalid(["aliases", "tag"], "Alias tag must be a string");
+    if ("select" in a && (a.select !== "highest-stable" || "tags" in releases)) invalid(["aliases", "select"], "highest-stable aliases need a range selector");
+    const aliasFiles = mappings(a.files, false, shorthand, ["aliases", "files"]).map(({ from, to }, index) => ({ from: atPath(["aliases", "files", index], () => publicPath(from)), to }));
+    const missing = aliasFiles.findIndex((m) => !files.some((f) => f.required && f.to === m.from));
+    if (missing !== -1) invalid(["aliases", "files", missing], "Alias from must name a required mapped target");
+    aliases = { ...typeof a.tag === "string" ? { tag: atPath(["aliases", "tag"], () => publicPath(a.tag)) } : { select: "highest-stable" }, files: aliasFiles };
   }
   return { schema: 2, releases, files, ...aliases ? { aliases } : {} };
 }
@@ -9657,18 +9726,27 @@ async function readConfig(workspace, name) {
   if ((await (0, import_promises4.stat)(file)).size > 256 * 1024) throw new Error("Config exceeds 256 KiB");
   const text = await (0, import_promises4.readFile)(file, "utf8");
   if (Buffer.byteLength(text) > 256 * 1024) throw new Error("Config exceeds 256 KiB");
-  let value;
-  try {
-    const doc = (0, import_yaml.parseDocument)(text, { uniqueKeys: true, strict: true });
-    if (doc.errors.length || doc.warnings.length) throw new Error();
-    (0, import_yaml.visit)(doc, (_key, node, path) => {
-      if ((0, import_yaml.isAlias)(node) || node && typeof node === "object" && "anchor" in node && node.anchor || path.length > 16) throw new Error();
-    });
-    value = doc.toJS({ maxAliasCount: 0 });
-  } catch {
-    throw new Error("Invalid strict YAML/JSON config (duplicate keys, aliases, anchors and deep nesting are forbidden)");
+  const lines = new import_yaml2.LineCounter();
+  const doc = (0, import_yaml2.parseDocument)(text, { uniqueKeys: true, strict: true, prettyErrors: false, lineCounter: lines });
+  const syntax = doc.errors[0] ?? doc.warnings[0];
+  if (syntax) {
+    const position = lines.linePos(syntax.pos[0]);
+    throw new Error(`${quoted(name)}:${position.line}:${position.col}: Invalid strict YAML/JSON config (${syntax.code})`);
   }
-  return parseConfig(value);
+  try {
+    (0, import_yaml2.visit)(doc, (_key, node, path) => {
+      if ((0, import_yaml2.isAlias)(node) || node && typeof node === "object" && "anchor" in node && node.anchor || path.length > 16 || (0, import_yaml2.isPair)(node) && (!(0, import_yaml2.isScalar)(node.key) || typeof node.key.value !== "string" || node.key.value === "<<")) {
+        const point = (0, import_yaml2.isPair)(node) ? node.key : node;
+        const offset = (0, import_yaml2.isNode)(point) ? point.range?.[0] ?? 0 : 0;
+        const position = lines.linePos(offset);
+        throw new Error(`${quoted(name)}:${position.line}:${position.col}: Invalid strict YAML/JSON config (anchors, aliases, merge keys, non-string keys and deep nesting are forbidden)`);
+      }
+    });
+    return parseConfig(doc.toJS({ maxAliasCount: 0 }));
+  } catch (error) {
+    if (error instanceof ConfigError) throw fileError(error, name, doc, lines);
+    throw error;
+  }
 }
 
 // src/distribution/release-set.ts
